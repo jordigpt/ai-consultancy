@@ -6,6 +6,7 @@ export type BusinessModel =
   | "Creación de Contenido AI" 
   | "Consultoría Estratégica" 
   | "Desarrollo de Chatbots"
+  | "VibeCoding de apps"
   | "Otro";
 
 export interface Task {

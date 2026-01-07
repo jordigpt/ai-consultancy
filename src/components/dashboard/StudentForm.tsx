@@ -86,6 +86,7 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
             <SelectItem value="Creación de Contenido AI">Creación de Contenido AI</SelectItem>
             <SelectItem value="Consultoría Estratégica">Consultoría Estratégica</SelectItem>
             <SelectItem value="Desarrollo de Chatbots">Desarrollo de Chatbots</SelectItem>
+            <SelectItem value="VibeCoding de apps">VibeCoding de apps</SelectItem>
             <SelectItem value="Otro">Otro</SelectItem>
           </SelectContent>
         </Select>

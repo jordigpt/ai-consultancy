@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { 
   Sheet, 
@@ -25,7 +26,8 @@ import {
   Trash2, 
   User,
   Phone,
-  DollarSign
+  DollarSign,
+  Clock
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -41,6 +43,7 @@ interface StudentDetailsProps {
 export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: StudentDetailsProps) => {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newCallDate, setNewCallDate] = useState<Date | undefined>(undefined);
+  const [newCallTime, setNewCallTime] = useState("10:00");
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   if (!student) return null;
@@ -112,16 +115,22 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
 
   // --- Logic Llamadas ---
   const handleScheduleCall = async () => {
-    if (!newCallDate) return;
+    if (!newCallDate || !newCallTime) return;
 
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        // Combinar fecha y hora
+        const [hours, minutes] = newCallTime.split(':').map(Number);
+        const dateTime = new Date(newCallDate);
+        dateTime.setHours(hours);
+        dateTime.setMinutes(minutes);
+
         const newCallData = {
             student_id: student.id,
             user_id: user.id,
-            date: newCallDate.toISOString(),
+            date: dateTime.toISOString(),
             completed: false
         };
 
@@ -185,7 +194,7 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
         </SheetHeader>
 
         <div className="space-y-6">
-          {/* Finanzas Detalladas (si aplica) */}
+          {/* Finanzas Detalladas */}
           {!student.paidInFull && (
             <div className="bg-red-50 p-4 rounded-lg border border-red-100 space-y-2">
                <h4 className="text-sm font-semibold text-red-800 flex items-center gap-2">
@@ -251,17 +260,26 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
                     <Plus size={14} className="mr-1" /> Agendar
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                   <div className="p-3 border-b bg-muted/50">
-                     <p className="text-sm font-medium">Seleccionar fecha</p>
-                   </div>
-                   <Calendar
-                      mode="single"
-                      selected={newCallDate}
-                      onSelect={setNewCallDate}
-                      initialFocus
-                   />
-                   <div className="p-2">
+                <PopoverContent className="w-auto p-4" align="end">
+                   <div className="space-y-4">
+                     <div className="space-y-2">
+                        <Label>Fecha</Label>
+                        <Calendar
+                            mode="single"
+                            selected={newCallDate}
+                            onSelect={setNewCallDate}
+                            initialFocus
+                            className="rounded-md border shadow-sm"
+                        />
+                     </div>
+                     <div className="space-y-2">
+                        <Label>Hora</Label>
+                        <Input 
+                            type="time" 
+                            value={newCallTime} 
+                            onChange={(e) => setNewCallTime(e.target.value)}
+                        />
+                     </div>
                      <Button className="w-full" size="sm" onClick={handleScheduleCall} disabled={!newCallDate}>
                        Confirmar Agendamiento
                      </Button>
@@ -279,8 +297,13 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
                           <Phone size={14} />
                         </div>
                         <div>
-                          <p className="text-sm font-medium">{format(call.date, "EEEE, d MMMM")}</p>
-                          <p className="text-xs text-muted-foreground">Llamada de seguimiento</p>
+                          <p className="text-sm font-medium">
+                            {format(call.date, "EEEE, d MMMM")}
+                          </p>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock size={10} />
+                            <span>{format(call.date, "HH:mm")} hs</span>
+                          </div>
                         </div>
                       </div>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" onClick={() => deleteCall(call.id)}>

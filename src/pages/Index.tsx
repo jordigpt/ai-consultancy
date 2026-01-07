@@ -6,10 +6,12 @@ import { StudentDetails } from "@/components/dashboard/StudentDetails";
 import { StudentForm } from "@/components/dashboard/StudentForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon, LogOut, Loader2 } from "lucide-react";
+import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon, LogOut, Loader2, Clock } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { isSameDay, format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,10 +21,19 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  
+  // Dialogs States
+  const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
+  const [isAddCallOpen, setIsAddCallOpen] = useState(false);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // New Call Form State
+  const [newCallStudentId, setNewCallStudentId] = useState("");
+  const [newCallTime, setNewCallTime] = useState("10:00");
+  const [newCallDate, setNewCallDate] = useState<Date | undefined>(new Date());
 
   // Fetch Data from Supabase
   const fetchData = async () => {
@@ -109,7 +120,7 @@ const Index = () => {
       if (error) throw error;
 
       showSuccess("Alumno registrado correctamente");
-      setIsAddDialogOpen(false);
+      setIsAddStudentOpen(false);
       fetchData(); // Refresh data
     } catch (error) {
       console.error("Error adding student:", error);
@@ -119,37 +130,51 @@ const Index = () => {
     }
   };
 
-  const handleUpdateStudentLocal = async (updatedStudent: Student) => {
-    // This function now needs to determine WHAT changed and update DB accordingly
-    // For simplicity in this complex refactor, we will check what actions happen inside StudentDetails
-    // But StudentDetails passes the WHOLE object.
-    
-    // We will update the local state immediately for UI responsiveness
-    const updatedList = students.map((s) => 
-      s.id === updatedStudent.id ? updatedStudent : s
-    );
-    setStudents(updatedList);
-    setSelectedStudent(updatedStudent);
+  const handleScheduleGlobalCall = async () => {
+    if (!newCallDate || !newCallTime || !newCallStudentId) {
+        showError("Faltan datos para agendar");
+        return;
+    }
 
-    // REAL DB SYNC IS HANDLED INSIDE StudentDetails or we need to extract logic.
-    // Given the architecture, it is better if we implement specific handlers for tasks/calls
-    // But since StudentDetails does the logic, we need to adapt it.
-    
-    // Actually, let's just re-fetch to be safe after operations? No, that's slow.
-    // The "Right" way is to pass specific add/remove handlers to StudentDetails.
-    // For now, I will modify StudentDetails to handle DB calls directly? 
-    // Or I will try to diff? Diffing is hard.
-    
-    // Strategy: Modify StudentDetails to receive async handlers for DB operations.
-    // But to save time and keep it robust:
-    // I will refactor StudentDetails in the NEXT STEP to do direct DB calls.
-    // For now, this function is a placeholder that refreshes everything.
+    try {
+        setIsSubmitting(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Combinar fecha y hora
+        const [hours, minutes] = newCallTime.split(':').map(Number);
+        const dateTime = new Date(newCallDate);
+        dateTime.setHours(hours);
+        dateTime.setMinutes(minutes);
+
+        const newCallData = {
+            student_id: newCallStudentId,
+            user_id: user.id,
+            date: dateTime.toISOString(),
+            completed: false
+        };
+
+        const { error } = await supabase.from('calls').insert(newCallData);
+        if (error) throw error;
+
+        showSuccess("Llamada agendada correctamente");
+        setIsAddCallOpen(false);
+        // Reset fields
+        setNewCallStudentId("");
+        setNewCallTime("10:00");
+        fetchData(); // Refresh data to show new call in calendar
+    } catch (error) {
+        console.error(error);
+        showError("Error al agendar llamada");
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateStudentLocal = async () => {
     fetchData();
   };
   
-  // New Handlers for direct DB interaction passed to children or used here
-  // We will refactor StudentDetails to use these:
-
   const filteredStudents = students.filter(s => 
     s.firstName.toLowerCase().includes(searchQuery.toLowerCase()) || 
     s.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -166,7 +191,7 @@ const Index = () => {
     student.calls
       .filter(call => date && isSameDay(call.date, date))
       .map(call => ({ ...call, student }))
-  );
+  ).sort((a, b) => a.date.getTime() - b.date.getTime()); // Ordenar por hora
 
   if (loading) {
     return (
@@ -190,18 +215,19 @@ const Index = () => {
             <Button variant="ghost" size="icon" onClick={handleSignOut}>
                 <LogOut size={18} />
             </Button>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-                <Button size="sm" className="bg-primary shadow-lg hover:shadow-xl transition-all">
-                <Plus className="h-4 w-4 mr-1" /> Nuevo
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                <DialogTitle>Registrar Nuevo Alumno</DialogTitle>
-                </DialogHeader>
-                <StudentForm onSubmit={handleAddStudent} isLoading={isSubmitting} />
-            </DialogContent>
+            
+            <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
+                <DialogTrigger asChild>
+                    <Button size="sm" className="bg-primary shadow-lg hover:shadow-xl transition-all">
+                    <Plus className="h-4 w-4 mr-1" /> Nuevo
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                    <DialogTitle>Registrar Nuevo Alumno</DialogTitle>
+                    </DialogHeader>
+                    <StudentForm onSubmit={handleAddStudent} isLoading={isSubmitting} />
+                </DialogContent>
             </Dialog>
         </div>
       </header>
@@ -263,6 +289,7 @@ const Index = () => {
 
           <TabsContent value="calendar">
             <div className="bg-white rounded-xl border shadow-sm p-4 space-y-6">
+              
               <div className="flex justify-center">
                 <Calendar
                   mode="single"
@@ -271,6 +298,60 @@ const Index = () => {
                   className="rounded-md border shadow-none"
                 />
               </div>
+
+              {/* Add Call Button in Calendar Tab */}
+              <Dialog open={isAddCallOpen} onOpenChange={setIsAddCallOpen}>
+                <DialogTrigger asChild>
+                    <Button className="w-full" variant="outline">
+                        <Plus className="mr-2 h-4 w-4" /> Agendar Nueva Llamada
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Agendar Llamada</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Alumno</Label>
+                            <Select value={newCallStudentId} onValueChange={setNewCallStudentId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar alumno..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {students.map(s => (
+                                        <SelectItem key={s.id} value={s.id}>
+                                            {s.firstName} {s.lastName}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Fecha</Label>
+                            <div className="border rounded-md p-2 flex justify-center">
+                                <Calendar
+                                    mode="single"
+                                    selected={newCallDate}
+                                    onSelect={setNewCallDate}
+                                    initialFocus
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Hora</Label>
+                            <Input 
+                                type="time" 
+                                value={newCallTime}
+                                onChange={(e) => setNewCallTime(e.target.value)}
+                            />
+                        </div>
+                        <Button className="w-full" onClick={handleScheduleGlobalCall} disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Confirmar
+                        </Button>
+                    </div>
+                </DialogContent>
+              </Dialog>
               
               <div className="space-y-4">
                 <h3 className="font-semibold flex items-center gap-2">
@@ -292,7 +373,10 @@ const Index = () => {
                             </div>
                             <div>
                                 <p className="font-medium text-sm">{call.student.firstName} {call.student.lastName}</p>
-                                <p className="text-xs text-muted-foreground">Videollamada de seguimiento</p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span className="flex items-center gap-1"><Clock size={10} /> {format(call.date, "HH:mm")}</span>
+                                    <span>• Videollamada</span>
+                                </div>
                             </div>
                          </div>
                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
