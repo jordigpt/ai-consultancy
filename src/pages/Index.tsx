@@ -9,10 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Search, Users, Calendar as CalendarIcon, Phone } from "lucide-react";
+import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon } from "lucide-react";
 import { showSuccess } from "@/utils/toast";
+import { isSameDay, format } from "date-fns";
+import { es } from "date-fns/locale";
 
-// Dummy Data Initial
+// Dummy Data Initial - Actualizado con calls
 const INITIAL_STUDENTS: Student[] = [
   {
     id: "1",
@@ -24,6 +26,9 @@ const INITIAL_STUDENTS: Student[] = [
     businessModel: "Agencia de Automatización (AAA)",
     startDate: new Date(),
     paidInFull: true,
+    calls: [
+      { id: "c1", date: new Date(), completed: false } // Llamada hoy para demo
+    ],
     tasks: [
       { id: "t1", title: "Configurar Make.com", completed: true },
       { id: "t2", title: "Crear primer scraper con Apify", completed: false },
@@ -39,6 +44,9 @@ const INITIAL_STUDENTS: Student[] = [
     businessModel: "Creación de Contenido AI",
     startDate: new Date(),
     paidInFull: false,
+    amountPaid: 500,
+    amountOwed: 1000,
+    calls: [],
     tasks: [
       { id: "t3", title: "Aprender Midjourney", completed: false },
       { id: "t4", title: "Definir nicho de mercado", completed: true },
@@ -54,11 +62,12 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [date, setDate] = useState<Date | undefined>(new Date());
 
-  const handleAddStudent = (data: Omit<Student, "id" | "tasks">) => {
+  const handleAddStudent = (data: Omit<Student, "id" | "tasks" | "calls">) => {
     const newStudent: Student = {
       ...data,
       id: Date.now().toString(),
       tasks: [],
+      calls: [],
     };
     setStudents([newStudent, ...students]);
     setIsAddDialogOpen(false);
@@ -83,6 +92,13 @@ const Index = () => {
     setSelectedStudent(student);
     setDetailsOpen(true);
   };
+
+  // Lógica del Calendario: Buscar llamadas en la fecha seleccionada
+  const callsOnDate = students.flatMap(student => 
+    student.calls
+      .filter(call => date && isSameDay(call.date, date))
+      .map(call => ({ ...call, student })) // Adjuntar info del estudiante a la llamada
+  );
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
@@ -178,14 +194,42 @@ const Index = () => {
               <div className="space-y-4">
                 <h3 className="font-semibold flex items-center gap-2">
                   <Phone size={16} className="text-primary" />
-                  Llamadas esta semana
+                  Agenda: {date ? format(date, "EEEE d, MMMM") : "Selecciona un día"}
                 </h3>
-                {/* Placeholder for calendar integration */}
-                <div className="p-4 bg-secondary/30 rounded-lg border border-dashed text-center text-sm text-muted-foreground">
-                  Selecciona una fecha para ver las llamadas programadas.
-                  <br />
-                  <span className="text-xs opacity-70">(Integración de calendario próximamente)</span>
-                </div>
+                
+                {callsOnDate.length > 0 ? (
+                  <div className="space-y-3">
+                    {callsOnDate.map((call) => (
+                      <div 
+                        key={call.id} 
+                        className="p-3 border rounded-lg bg-blue-50/50 flex items-center justify-between cursor-pointer hover:bg-blue-50 transition-colors"
+                        onClick={() => openDetails(call.student)}
+                      >
+                         <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs">
+                                {call.student.firstName[0]}{call.student.lastName[0]}
+                            </div>
+                            <div>
+                                <p className="font-medium text-sm">{call.student.firstName} {call.student.lastName}</p>
+                                <p className="text-xs text-muted-foreground">Videollamada de seguimiento</p>
+                            </div>
+                         </div>
+                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <UserIcon size={14} />
+                         </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 bg-secondary/20 rounded-lg border border-dashed text-center space-y-2">
+                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
+                        <CalendarIcon className="h-5 w-5 opacity-50" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      No hay llamadas programadas para este día.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </TabsContent>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Student, Task } from "@/lib/types";
+import { Student, Task, Call } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -7,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { 
   Sheet, 
   SheetContent, 
@@ -21,9 +23,14 @@ import {
   CheckCircle2, 
   Plus, 
   Trash2, 
-  User 
+  User,
+  Phone,
+  Calendar as CalendarIcon,
+  DollarSign
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
+import { cn } from "@/lib/utils";
+import { showSuccess } from "@/utils/toast";
 
 interface StudentDetailsProps {
   student: Student | null;
@@ -34,9 +41,12 @@ interface StudentDetailsProps {
 
 export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: StudentDetailsProps) => {
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newCallDate, setNewCallDate] = useState<Date | undefined>(undefined);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   if (!student) return null;
 
+  // --- Logic Tareas ---
   const handleAddTask = () => {
     if (!newTaskTitle.trim()) return;
     const newTask: Task = {
@@ -44,11 +54,7 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
       title: newTaskTitle,
       completed: false,
     };
-    const updatedStudent = {
-      ...student,
-      tasks: [newTask, ...student.tasks]
-    };
-    onUpdateStudent(updatedStudent);
+    onUpdateStudent({ ...student, tasks: [newTask, ...student.tasks] });
     setNewTaskTitle("");
   };
 
@@ -62,6 +68,28 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
   const deleteTask = (taskId: string) => {
     const updatedTasks = student.tasks.filter(t => t.id !== taskId);
     onUpdateStudent({ ...student, tasks: updatedTasks });
+  };
+
+  // --- Logic Llamadas ---
+  const handleScheduleCall = () => {
+    if (!newCallDate) return;
+    const newCall: Call = {
+      id: Date.now().toString(),
+      date: newCallDate,
+      completed: false,
+    };
+    // Ordenar llamadas por fecha (más recientes primero)
+    const updatedCalls = [...student.calls, newCall].sort((a, b) => b.date.getTime() - a.date.getTime());
+    
+    onUpdateStudent({ ...student, calls: updatedCalls });
+    setNewCallDate(undefined);
+    setIsCalendarOpen(false);
+    showSuccess("Llamada agendada");
+  };
+
+  const deleteCall = (callId: string) => {
+    const updatedCalls = student.calls.filter(c => c.id !== callId);
+    onUpdateStudent({ ...student, calls: updatedCalls });
   };
 
   const completedTasks = student.tasks.filter(t => t.completed).length;
@@ -82,7 +110,7 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
             {student.paidInFull ? (
               <Badge variant="default" className="bg-green-600 hover:bg-green-700">Pagado</Badge>
             ) : (
-              <Badge variant="destructive">Pendiente</Badge>
+              <Badge variant="destructive">Deuda: ${student.amountOwed}</Badge>
             )}
           </div>
           <SheetDescription className="text-base font-medium text-foreground/80">
@@ -91,6 +119,23 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
         </SheetHeader>
 
         <div className="space-y-6">
+          {/* Finanzas Detalladas (si aplica) */}
+          {!student.paidInFull && (
+            <div className="bg-red-50 p-4 rounded-lg border border-red-100 space-y-2">
+               <h4 className="text-sm font-semibold text-red-800 flex items-center gap-2">
+                 <DollarSign size={14} /> Estado de Cuenta
+               </h4>
+               <div className="flex justify-between text-sm">
+                 <span className="text-red-600">Pagado:</span>
+                 <span className="font-mono font-medium">${student.amountPaid}</span>
+               </div>
+               <div className="flex justify-between text-sm">
+                 <span className="text-red-600">Restante:</span>
+                 <span className="font-mono font-bold text-red-700">${student.amountOwed}</span>
+               </div>
+            </div>
+          )}
+
           {/* Info Cards */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 bg-secondary/50 rounded-lg space-y-1">
@@ -112,17 +157,8 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
                 {format(student.startDate, "dd MMM, yyyy")}
               </div>
               <div className="text-xs text-muted-foreground truncate">
-                 Modelo: {student.businessModel.split(" ")[0]}...
+                 {student.businessModel}
               </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="font-semibold flex items-center gap-2">
-              <Briefcase size={16} /> Modelo de Negocio
-            </h3>
-            <div className="p-3 border rounded-md text-sm">
-              {student.businessModel}
             </div>
           </div>
 
@@ -132,6 +168,65 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
             </h3>
             <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground whitespace-pre-wrap">
               {student.context || "Sin contexto adicional."}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Sección de Llamadas (Nueva) */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Phone size={16} /> Llamadas / Consultoría
+              </h3>
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-8">
+                    <Plus size={14} className="mr-1" /> Agendar
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                   <div className="p-3 border-b bg-muted/50">
+                     <p className="text-sm font-medium">Seleccionar fecha</p>
+                   </div>
+                   <Calendar
+                      mode="single"
+                      selected={newCallDate}
+                      onSelect={setNewCallDate}
+                      initialFocus
+                   />
+                   <div className="p-2">
+                     <Button className="w-full" size="sm" onClick={handleScheduleCall} disabled={!newCallDate}>
+                       Confirmar Agendamiento
+                     </Button>
+                   </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+               {student.calls && student.calls.length > 0 ? (
+                 student.calls.map(call => (
+                   <div key={call.id} className="flex items-center justify-between p-3 border rounded-lg bg-white shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                          <Phone size={14} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{format(call.date, "EEEE, d MMMM")}</p>
+                          <p className="text-xs text-muted-foreground">Llamada de seguimiento</p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" onClick={() => deleteCall(call.id)}>
+                        <Trash2 size={14} />
+                      </Button>
+                   </div>
+                 ))
+               ) : (
+                 <div className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
+                   No hay llamadas programadas.
+                 </div>
+               )}
             </div>
           </div>
 

@@ -14,17 +14,28 @@ export interface Task {
   completed: boolean;
 }
 
+export interface Call {
+  id: string;
+  date: Date;
+  notes?: string;
+  completed: boolean;
+}
+
 export interface Student {
   id: string;
   firstName: string;
   lastName: string;
   occupation: string;
-  context: string; // Descripción
+  context: string;
   aiLevel: AILevel;
   businessModel: BusinessModel;
   startDate: Date;
-  nextCall?: Date; // Para la sección de videollamadas
+  
+  // Finanzas
   paidInFull: boolean;
+  amountPaid?: number; // Cuánto pagó
+  amountOwed?: number; // Cuánto debe
+  
   tasks: Task[];
-  avatarUrl?: string;
+  calls: Call[]; // Historial y futuras llamadas
 }
