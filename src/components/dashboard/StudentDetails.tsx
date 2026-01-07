@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Student, Task, Call } from "@/lib/types";
+import { Student, Task, Call, BusinessModel } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +17,14 @@ import {
   SheetTitle, 
   SheetDescription 
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { 
   BrainCircuit, 
   Briefcase, 
@@ -27,7 +35,8 @@ import {
   User,
   Phone,
   DollarSign,
-  Clock
+  Clock,
+  Pencil
 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showError } from "@/utils/toast";
@@ -42,11 +51,36 @@ interface StudentDetailsProps {
 
 export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: StudentDetailsProps) => {
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  
+  // States for Adding Call
   const [newCallDate, setNewCallDate] = useState<Date | undefined>(undefined);
   const [newCallTime, setNewCallTime] = useState("10:00");
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
+  // States for Editing Call
+  const [editingCall, setEditingCall] = useState<Call | null>(null);
+  const [editCallDate, setEditCallDate] = useState<Date | undefined>(undefined);
+  const [editCallTime, setEditCallTime] = useState("");
+
   if (!student) return null;
+
+  // --- Logic Business Model ---
+  const updateBusinessModel = async (newModel: BusinessModel) => {
+    try {
+        const { error } = await supabase
+            .from('students')
+            .update({ business_model: newModel })
+            .eq('id', student.id);
+
+        if (error) throw error;
+
+        onUpdateStudent({ ...student, businessModel: newModel });
+        showSuccess("Modelo de negocio actualizado");
+    } catch (error) {
+        console.error(error);
+        showError("Error al actualizar modelo");
+    }
+  };
 
   // --- Logic Tareas ---
   const handleAddTask = async () => {
@@ -91,7 +125,6 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
 
         if (error) throw error;
 
-        // Optimistic update
         const updatedTasks = student.tasks.map(t => 
             t.id === taskId ? { ...t, completed: !t.completed } : t
         );
@@ -121,7 +154,6 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Combinar fecha y hora
         const [hours, minutes] = newCallTime.split(':').map(Number);
         const dateTime = new Date(newCallDate);
         dateTime.setHours(hours);
@@ -153,6 +185,41 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
         console.error(error);
         showError("Error al agendar llamada");
     }
+  };
+
+  const startEditingCall = (call: Call) => {
+      setEditingCall(call);
+      setEditCallDate(call.date);
+      setEditCallTime(format(call.date, "HH:mm"));
+  };
+
+  const saveEditedCall = async () => {
+      if (!editingCall || !editCallDate || !editCallTime) return;
+
+      try {
+        const [hours, minutes] = editCallTime.split(':').map(Number);
+        const dateTime = new Date(editCallDate);
+        dateTime.setHours(hours);
+        dateTime.setMinutes(minutes);
+
+        const { error } = await supabase
+            .from('calls')
+            .update({ date: dateTime.toISOString() })
+            .eq('id', editingCall.id);
+
+        if (error) throw error;
+
+        const updatedCalls = student.calls.map(c => 
+            c.id === editingCall.id ? { ...c, date: dateTime } : c
+        ).sort((a, b) => b.date.getTime() - a.date.getTime());
+
+        onUpdateStudent({ ...student, calls: updatedCalls });
+        setEditingCall(null);
+        showSuccess("Llamada actualizada");
+      } catch (error) {
+        console.error(error);
+        showError("Error al actualizar llamada");
+      }
   };
 
   const deleteCall = async (callId: string) => {
@@ -224,16 +291,31 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
               <Progress value={student.aiLevel * 10} className="h-1.5" />
             </div>
 
-            <div className="p-3 bg-secondary/50 rounded-lg space-y-1">
-              <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase font-bold">
-                <CalendarDays size={14} /> Inicio
+            <div className="p-3 bg-secondary/50 rounded-lg space-y-1 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase font-bold">
+                    <CalendarDays size={14} /> Inicio
+                </div>
+                <div className="text-sm font-semibold">
+                    {format(student.startDate, "dd MMM, yyyy")}
+                </div>
               </div>
-              <div className="text-sm font-semibold">
-                {format(student.startDate, "dd MMM, yyyy")}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                 {student.businessModel}
-              </div>
+              
+              {/* Selector de Modelo de Negocio Editable */}
+              <Select value={student.businessModel} onValueChange={(val) => updateBusinessModel(val as BusinessModel)}>
+                <SelectTrigger className="h-8 text-xs p-0 border-0 bg-transparent shadow-none hover:bg-transparent text-muted-foreground w-full justify-start focus:ring-0">
+                    <SelectValue placeholder="Modelo de negocio" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="Agencia de Automatización (AAA)">Agencia de Automatización (AAA)</SelectItem>
+                    <SelectItem value="SaaS Wrapper">SaaS Wrapper</SelectItem>
+                    <SelectItem value="Creación de Contenido AI">Creación de Contenido AI</SelectItem>
+                    <SelectItem value="Consultoría Estratégica">Consultoría Estratégica</SelectItem>
+                    <SelectItem value="Desarrollo de Chatbots">Desarrollo de Chatbots</SelectItem>
+                    <SelectItem value="VibeCoding de apps">VibeCoding de apps</SelectItem>
+                    <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -306,9 +388,14 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
                           </div>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" onClick={() => deleteCall(call.id)}>
-                        <Trash2 size={14} />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-500" onClick={() => startEditingCall(call)}>
+                            <Pencil size={14} />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" onClick={() => deleteCall(call.id)}>
+                            <Trash2 size={14} />
+                        </Button>
+                      </div>
                    </div>
                  ))
                ) : (
@@ -384,6 +471,40 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
           </div>
         </div>
       </SheetContent>
+
+      {/* Dialog for Editing Calls */}
+      <Dialog open={!!editingCall} onOpenChange={(open) => !open && setEditingCall(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+            <DialogTitle>Editar Llamada</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                    <Label>Fecha</Label>
+                    <div className="flex justify-center border rounded-md p-2">
+                        <Calendar
+                            mode="single"
+                            selected={editCallDate}
+                            onSelect={setEditCallDate}
+                            initialFocus
+                        />
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label>Hora</Label>
+                    <Input 
+                        type="time" 
+                        value={editCallTime} 
+                        onChange={(e) => setEditCallTime(e.target.value)}
+                    />
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setEditingCall(null)}>Cancelar</Button>
+                <Button onClick={saveEditedCall}>Guardar Cambios</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 };
