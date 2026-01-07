@@ -1,6 +1,7 @@
 import React from "react";
 import { Student } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { 
   Sheet, 
@@ -9,11 +10,13 @@ import {
   SheetTitle, 
   SheetDescription 
 } from "@/components/ui/sheet";
-import { User } from "lucide-react";
+import { User, GraduationCap, RotateCcw } from "lucide-react";
 import { StudentFinances } from "./StudentFinances";
 import { StudentInfo } from "./StudentInfo";
 import { StudentCalls } from "./StudentCalls";
 import { StudentTasks } from "./StudentTasks";
+import { supabase } from "@/integrations/supabase/client";
+import { showSuccess, showError } from "@/utils/toast";
 
 interface StudentDetailsProps {
   student: Student | null;
@@ -24,6 +27,26 @@ interface StudentDetailsProps {
 
 export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: StudentDetailsProps) => {
   if (!student) return null;
+
+  const toggleStatus = async () => {
+    const newStatus = student.status === 'active' ? 'graduated' : 'active';
+    
+    try {
+        const { error } = await supabase
+            .from('students')
+            .update({ status: newStatus })
+            .eq('id', student.id);
+
+        if (error) throw error;
+
+        onUpdateStudent({ ...student, status: newStatus });
+        showSuccess(newStatus === 'graduated' ? "¡Alumno egresado!" : "Alumno reactivado");
+        onClose(); // Cerramos el panel para ver el cambio en la lista
+    } catch (error) {
+        console.error(error);
+        showError("Error al actualizar estado");
+    }
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -36,11 +59,16 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
               </div>
               {student.firstName} {student.lastName}
             </SheetTitle>
-            {student.paidInFull ? (
-              <Badge variant="default" className="bg-green-600 hover:bg-green-700">Pagado</Badge>
-            ) : (
-              <Badge variant="destructive">Deuda: ${student.amountOwed}</Badge>
-            )}
+            <div className="flex gap-2">
+                {student.status === 'graduated' && (
+                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Egresado</Badge>
+                )}
+                {student.paidInFull ? (
+                <Badge variant="default" className="bg-green-600 hover:bg-green-700">Pagado</Badge>
+                ) : (
+                <Badge variant="destructive">Deuda: ${student.amountOwed}</Badge>
+                )}
+            </div>
           </div>
           <SheetDescription className="text-base font-medium text-foreground/80">
             {student.occupation}
@@ -48,6 +76,23 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
         </SheetHeader>
 
         <div className="space-y-6">
+          {/* Action Button for Status */}
+          <Button 
+            variant={student.status === 'active' ? "default" : "outline"} 
+            className={`w-full ${student.status === 'active' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}`}
+            onClick={toggleStatus}
+          >
+            {student.status === 'active' ? (
+                <>
+                    <GraduationCap className="mr-2 h-4 w-4" /> Marcar como Egresado
+                </>
+            ) : (
+                <>
+                    <RotateCcw className="mr-2 h-4 w-4" /> Reactivar Alumno
+                </>
+            )}
+          </Button>
+
           <StudentFinances student={student} />
           
           <StudentInfo student={student} onUpdate={onUpdateStudent} />

@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon, LogOut, Loader2, Clock } from "lucide-react";
+import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon, LogOut, Loader2, Clock, GraduationCap } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { isSameDay, format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,6 +61,7 @@ const Index = () => {
         aiLevel: s.ai_level,
         businessModel: s.business_model,
         startDate: new Date(s.start_date),
+        status: s.status || 'active', // Default to active if null
         paidInFull: s.paid_in_full,
         amountPaid: s.amount_paid,
         amountOwed: s.amount_owed,
@@ -94,7 +95,7 @@ const Index = () => {
     await supabase.auth.signOut();
   };
 
-  const handleAddStudent = async (data: Omit<Student, "id" | "tasks" | "calls">) => {
+  const handleAddStudent = async (data: Omit<Student, "id" | "tasks" | "calls" | "status">) => {
     try {
       setIsSubmitting(true);
       
@@ -112,7 +113,8 @@ const Index = () => {
         start_date: data.startDate.toISOString(),
         paid_in_full: data.paidInFull,
         amount_paid: data.amountPaid,
-        amount_owed: data.amountOwed
+        amount_owed: data.amountOwed,
+        status: 'active'
       };
 
       const { error } = await supabase.from('students').insert(dbData);
@@ -175,11 +177,17 @@ const Index = () => {
     fetchData();
   };
   
-  const filteredStudents = students.filter(s => 
-    s.firstName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    s.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.occupation.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter logic
+  const activeStudents = students.filter(s => s.status === 'active' || !s.status);
+  const graduatedStudents = students.filter(s => s.status === 'graduated');
+
+  const filterList = (list: Student[]) => {
+    return list.filter(s => 
+        s.firstName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        s.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.occupation.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
 
   const openDetails = (student: Student) => {
     setSelectedStudent(student);
@@ -233,19 +241,21 @@ const Index = () => {
       </header>
 
       <main className="container max-w-2xl mx-auto p-4 space-y-6">
-        <Tabs defaultValue="students" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="students" className="gap-2">
-              <Users size={16} /> Alumnos
+        <Tabs defaultValue="active" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsTrigger value="active" className="gap-2">
+              <Users size={16} /> Activos
+            </TabsTrigger>
+            <TabsTrigger value="graduated" className="gap-2">
+              <GraduationCap size={16} /> Egresados
             </TabsTrigger>
             <TabsTrigger value="calendar" className="gap-2">
               <CalendarIcon size={16} /> Agenda
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="students" className="space-y-4">
-            {/* Search Bar */}
-            <div className="relative">
+          {/* Common Search Bar for Student Lists */}
+          <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input 
                 placeholder="Buscar por nombre o rol..." 
@@ -253,17 +263,18 @@ const Index = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-            </div>
+          </div>
 
+          <TabsContent value="active" className="space-y-4">
             {/* Metrics Quick View */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-primary">{students.length}</span>
-                <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Activos</span>
+                <span className="text-3xl font-bold text-primary">{activeStudents.length}</span>
+                <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Cursando</span>
               </div>
               <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col items-center justify-center">
                 <span className="text-3xl font-bold text-green-600">
-                  {students.filter(s => s.paidInFull).length}
+                  {activeStudents.filter(s => s.paidInFull).length}
                 </span>
                 <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Pagados</span>
               </div>
@@ -271,12 +282,36 @@ const Index = () => {
 
             {/* List */}
             <div className="space-y-3">
-              {filteredStudents.length === 0 ? (
+              {filterList(activeStudents).length === 0 ? (
                 <div className="text-center py-10 text-muted-foreground">
-                  No se encontraron alumnos.
+                  No se encontraron alumnos activos.
                 </div>
               ) : (
-                filteredStudents.map((student) => (
+                filterList(activeStudents).map((student) => (
+                  <StudentCard 
+                    key={student.id} 
+                    student={student} 
+                    onClick={() => openDetails(student)} 
+                  />
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="graduated" className="space-y-4">
+             <div className="bg-yellow-50/50 p-4 rounded-xl border border-yellow-100 mb-4 text-center">
+                <p className="text-sm text-yellow-800">
+                    Historial de alumnos que han completado su ciclo.
+                </p>
+             </div>
+            
+            <div className="space-y-3">
+              {filterList(graduatedStudents).length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">
+                  No hay alumnos egresados aún.
+                </div>
+              ) : (
+                filterList(graduatedStudents).map((student) => (
                   <StudentCard 
                     key={student.id} 
                     student={student} 
@@ -320,7 +355,7 @@ const Index = () => {
                                 <SelectContent>
                                     {students.map(s => (
                                         <SelectItem key={s.id} value={s.id}>
-                                            {s.firstName} {s.lastName}
+                                            {s.firstName} {s.lastName} ({s.status === 'graduated' ? 'Egresado' : 'Activo'})
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

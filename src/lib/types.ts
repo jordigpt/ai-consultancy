@@ -9,6 +9,8 @@ export type BusinessModel =
   | "VibeCoding de apps"
   | "Otro";
 
+export type StudentStatus = "active" | "graduated";
+
 export interface Task {
   id: string;
   title: string;
@@ -31,6 +33,7 @@ export interface Student {
   aiLevel: AILevel;
   businessModel: BusinessModel;
   startDate: Date;
+  status: StudentStatus; // Nuevo campo
   
   // Finanzas
   paidInFull: boolean;

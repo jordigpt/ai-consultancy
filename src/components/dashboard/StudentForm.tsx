@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { Student, BusinessModel } from "@/lib/types";
 
 interface StudentFormProps {
-  onSubmit: (data: Omit<Student, "id" | "tasks" | "calls">) => void;
+  onSubmit: (data: Omit<Student, "id" | "tasks" | "calls" | "status">) => void;
   isLoading?: boolean;
 }
 
