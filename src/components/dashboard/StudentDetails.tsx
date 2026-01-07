@@ -25,12 +25,11 @@ import {
   Trash2, 
   User,
   Phone,
-  Calendar as CalendarIcon,
   DollarSign
 } from "lucide-react";
-import { format, isSameDay } from "date-fns";
-import { cn } from "@/lib/utils";
-import { showSuccess } from "@/utils/toast";
+import { format } from "date-fns";
+import { showSuccess, showError } from "@/utils/toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface StudentDetailsProps {
   student: Student | null;
@@ -47,49 +46,116 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
   if (!student) return null;
 
   // --- Logic Tareas ---
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!newTaskTitle.trim()) return;
-    const newTask: Task = {
-      id: Date.now().toString(),
-      title: newTaskTitle,
-      completed: false,
-    };
-    onUpdateStudent({ ...student, tasks: [newTask, ...student.tasks] });
-    setNewTaskTitle("");
+
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const newTask = {
+            student_id: student.id,
+            user_id: user.id,
+            title: newTaskTitle,
+            completed: false
+        };
+
+        const { data, error } = await supabase.from('tasks').insert(newTask).select().single();
+        if (error) throw error;
+
+        // Optimistic update
+        const task: Task = {
+            id: data.id,
+            title: data.title,
+            completed: data.completed
+        };
+
+        onUpdateStudent({ ...student, tasks: [task, ...student.tasks] });
+        setNewTaskTitle("");
+        showSuccess("Tarea añadida");
+    } catch (error) {
+        console.error(error);
+        showError("Error al guardar tarea");
+    }
   };
 
-  const toggleTask = (taskId: string) => {
-    const updatedTasks = student.tasks.map(t => 
-      t.id === taskId ? { ...t, completed: !t.completed } : t
-    );
-    onUpdateStudent({ ...student, tasks: updatedTasks });
+  const toggleTask = async (taskId: string, currentStatus: boolean) => {
+    try {
+        const { error } = await supabase
+            .from('tasks')
+            .update({ completed: !currentStatus })
+            .eq('id', taskId);
+
+        if (error) throw error;
+
+        // Optimistic update
+        const updatedTasks = student.tasks.map(t => 
+            t.id === taskId ? { ...t, completed: !t.completed } : t
+        );
+        onUpdateStudent({ ...student, tasks: updatedTasks });
+    } catch (error) {
+        showError("Error al actualizar tarea");
+    }
   };
 
-  const deleteTask = (taskId: string) => {
-    const updatedTasks = student.tasks.filter(t => t.id !== taskId);
-    onUpdateStudent({ ...student, tasks: updatedTasks });
+  const deleteTask = async (taskId: string) => {
+    try {
+        const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+        if (error) throw error;
+
+        const updatedTasks = student.tasks.filter(t => t.id !== taskId);
+        onUpdateStudent({ ...student, tasks: updatedTasks });
+    } catch (error) {
+        showError("Error al eliminar tarea");
+    }
   };
 
   // --- Logic Llamadas ---
-  const handleScheduleCall = () => {
+  const handleScheduleCall = async () => {
     if (!newCallDate) return;
-    const newCall: Call = {
-      id: Date.now().toString(),
-      date: newCallDate,
-      completed: false,
-    };
-    // Ordenar llamadas por fecha (más recientes primero)
-    const updatedCalls = [...student.calls, newCall].sort((a, b) => b.date.getTime() - a.date.getTime());
-    
-    onUpdateStudent({ ...student, calls: updatedCalls });
-    setNewCallDate(undefined);
-    setIsCalendarOpen(false);
-    showSuccess("Llamada agendada");
+
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const newCallData = {
+            student_id: student.id,
+            user_id: user.id,
+            date: newCallDate.toISOString(),
+            completed: false
+        };
+
+        const { data, error } = await supabase.from('calls').insert(newCallData).select().single();
+        if (error) throw error;
+
+        const newCall: Call = {
+            id: data.id,
+            date: new Date(data.date),
+            completed: data.completed
+        };
+
+        const updatedCalls = [...student.calls, newCall].sort((a, b) => b.date.getTime() - a.date.getTime());
+        onUpdateStudent({ ...student, calls: updatedCalls });
+        
+        setNewCallDate(undefined);
+        setIsCalendarOpen(false);
+        showSuccess("Llamada agendada");
+    } catch (error) {
+        console.error(error);
+        showError("Error al agendar llamada");
+    }
   };
 
-  const deleteCall = (callId: string) => {
-    const updatedCalls = student.calls.filter(c => c.id !== callId);
-    onUpdateStudent({ ...student, calls: updatedCalls });
+  const deleteCall = async (callId: string) => {
+    try {
+        const { error } = await supabase.from('calls').delete().eq('id', callId);
+        if (error) throw error;
+
+        const updatedCalls = student.calls.filter(c => c.id !== callId);
+        onUpdateStudent({ ...student, calls: updatedCalls });
+    } catch (error) {
+        showError("Error al eliminar llamada");
+    }
   };
 
   const completedTasks = student.tasks.filter(t => t.completed).length;
@@ -173,7 +239,7 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
 
           <Separator />
 
-          {/* Sección de Llamadas (Nueva) */}
+          {/* Sección de Llamadas */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold flex items-center gap-2">
@@ -269,7 +335,7 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
                       <Checkbox 
                         id={task.id} 
                         checked={task.completed} 
-                        onCheckedChange={() => toggleTask(task.id)}
+                        onCheckedChange={() => toggleTask(task.id, task.completed)}
                       />
                       <label
                         htmlFor={task.id}

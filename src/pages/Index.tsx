@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { Student, Task } from "@/lib/types";
+import { Student, Task, Call } from "@/lib/types";
 import { StudentCard } from "@/components/dashboard/StudentCard";
 import { StudentDetails } from "@/components/dashboard/StudentDetails";
 import { StudentForm } from "@/components/dashboard/StudentForm";
@@ -9,78 +9,146 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon } from "lucide-react";
-import { showSuccess } from "@/utils/toast";
+import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon, LogOut, Loader2 } from "lucide-react";
+import { showSuccess, showError } from "@/utils/toast";
 import { isSameDay, format } from "date-fns";
-import { es } from "date-fns/locale";
-
-// Dummy Data Initial - Actualizado con calls
-const INITIAL_STUDENTS: Student[] = [
-  {
-    id: "1",
-    firstName: "Carlos",
-    lastName: "Gómez",
-    occupation: "Dueño de Agencia Marketing",
-    context: "Quiere automatizar el outreach de su agencia usando IA y scrapers.",
-    aiLevel: 6,
-    businessModel: "Agencia de Automatización (AAA)",
-    startDate: new Date(),
-    paidInFull: true,
-    calls: [
-      { id: "c1", date: new Date(), completed: false } // Llamada hoy para demo
-    ],
-    tasks: [
-      { id: "t1", title: "Configurar Make.com", completed: true },
-      { id: "t2", title: "Crear primer scraper con Apify", completed: false },
-    ],
-  },
-  {
-    id: "2",
-    firstName: "Ana",
-    lastName: "López",
-    occupation: "Copywriter",
-    context: "Busca crear una oferta de contenido generativo para marcas personales.",
-    aiLevel: 3,
-    businessModel: "Creación de Contenido AI",
-    startDate: new Date(),
-    paidInFull: false,
-    amountPaid: 500,
-    amountOwed: 1000,
-    calls: [],
-    tasks: [
-      { id: "t3", title: "Aprender Midjourney", completed: false },
-      { id: "t4", title: "Definir nicho de mercado", completed: true },
-    ],
-  },
-];
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
-  const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [date, setDate] = useState<Date | undefined>(new Date());
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddStudent = (data: Omit<Student, "id" | "tasks" | "calls">) => {
-    const newStudent: Student = {
-      ...data,
-      id: Date.now().toString(),
-      tasks: [],
-      calls: [],
-    };
-    setStudents([newStudent, ...students]);
-    setIsAddDialogOpen(false);
-    showSuccess("Alumno registrado correctamente");
+  // Fetch Data from Supabase
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select(`
+          *,
+          tasks (*),
+          calls (*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (studentsError) throw studentsError;
+
+      // Transform snake_case from DB to camelCase for frontend
+      const transformedData: Student[] = studentsData.map((s: any) => ({
+        id: s.id,
+        firstName: s.first_name,
+        lastName: s.last_name,
+        occupation: s.occupation,
+        context: s.context || "",
+        aiLevel: s.ai_level,
+        businessModel: s.business_model,
+        startDate: new Date(s.start_date),
+        paidInFull: s.paid_in_full,
+        amountPaid: s.amount_paid,
+        amountOwed: s.amount_owed,
+        tasks: s.tasks.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          completed: t.completed
+        })).sort((a: any, b: any) => b.id.localeCompare(a.id)), // Simple sort
+        calls: s.calls.map((c: any) => ({
+          id: c.id,
+          date: new Date(c.date),
+          completed: c.completed,
+          notes: c.notes
+        })).sort((a: any, b: any) => b.date - a.date)
+      }));
+
+      setStudents(transformedData);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      showError("Error al cargar los datos");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleUpdateStudent = (updatedStudent: Student) => {
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const handleAddStudent = async (data: Omit<Student, "id" | "tasks" | "calls">) => {
+    try {
+      setIsSubmitting(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
+      const dbData = {
+        user_id: user.id,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        occupation: data.occupation,
+        context: data.context,
+        ai_level: data.aiLevel,
+        business_model: data.businessModel,
+        start_date: data.startDate.toISOString(),
+        paid_in_full: data.paidInFull,
+        amount_paid: data.amountPaid,
+        amount_owed: data.amountOwed
+      };
+
+      const { error } = await supabase.from('students').insert(dbData);
+
+      if (error) throw error;
+
+      showSuccess("Alumno registrado correctamente");
+      setIsAddDialogOpen(false);
+      fetchData(); // Refresh data
+    } catch (error) {
+      console.error("Error adding student:", error);
+      showError("Error al guardar el alumno");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateStudentLocal = async (updatedStudent: Student) => {
+    // This function now needs to determine WHAT changed and update DB accordingly
+    // For simplicity in this complex refactor, we will check what actions happen inside StudentDetails
+    // But StudentDetails passes the WHOLE object.
+    
+    // We will update the local state immediately for UI responsiveness
     const updatedList = students.map((s) => 
       s.id === updatedStudent.id ? updatedStudent : s
     );
     setStudents(updatedList);
-    setSelectedStudent(updatedStudent); // Keep the local details state updated
+    setSelectedStudent(updatedStudent);
+
+    // REAL DB SYNC IS HANDLED INSIDE StudentDetails or we need to extract logic.
+    // Given the architecture, it is better if we implement specific handlers for tasks/calls
+    // But since StudentDetails does the logic, we need to adapt it.
+    
+    // Actually, let's just re-fetch to be safe after operations? No, that's slow.
+    // The "Right" way is to pass specific add/remove handlers to StudentDetails.
+    // For now, I will modify StudentDetails to handle DB calls directly? 
+    // Or I will try to diff? Diffing is hard.
+    
+    // Strategy: Modify StudentDetails to receive async handlers for DB operations.
+    // But to save time and keep it robust:
+    // I will refactor StudentDetails in the NEXT STEP to do direct DB calls.
+    // For now, this function is a placeholder that refreshes everything.
+    fetchData();
   };
+  
+  // New Handlers for direct DB interaction passed to children or used here
+  // We will refactor StudentDetails to use these:
 
   const filteredStudents = students.filter(s => 
     s.firstName.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -93,12 +161,20 @@ const Index = () => {
     setDetailsOpen(true);
   };
 
-  // Lógica del Calendario: Buscar llamadas en la fecha seleccionada
+  // Lógica del Calendario
   const callsOnDate = students.flatMap(student => 
     student.calls
       .filter(call => date && isSameDay(call.date, date))
-      .map(call => ({ ...call, student })) // Adjuntar info del estudiante a la llamada
+      .map(call => ({ ...call, student }))
   );
+
+  if (loading) {
+    return (
+        <div className="h-screen flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
@@ -110,19 +186,24 @@ const Index = () => {
           </h1>
           <p className="text-xs text-muted-foreground">Tracking de Alumnos</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-primary shadow-lg hover:shadow-xl transition-all">
-              <Plus className="h-4 w-4 mr-1" /> Nuevo
+        <div className="flex gap-2">
+            <Button variant="ghost" size="icon" onClick={handleSignOut}>
+                <LogOut size={18} />
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Registrar Nuevo Alumno</DialogTitle>
-            </DialogHeader>
-            <StudentForm onSubmit={handleAddStudent} />
-          </DialogContent>
-        </Dialog>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" className="bg-primary shadow-lg hover:shadow-xl transition-all">
+                <Plus className="h-4 w-4 mr-1" /> Nuevo
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                <DialogTitle>Registrar Nuevo Alumno</DialogTitle>
+                </DialogHeader>
+                <StudentForm onSubmit={handleAddStudent} isLoading={isSubmitting} />
+            </DialogContent>
+            </Dialog>
+        </div>
       </header>
 
       <main className="container max-w-2xl mx-auto p-4 space-y-6">
@@ -239,8 +320,11 @@ const Index = () => {
       <StudentDetails 
         student={selectedStudent} 
         isOpen={detailsOpen} 
-        onClose={() => setDetailsOpen(false)}
-        onUpdateStudent={handleUpdateStudent}
+        onClose={() => {
+            setDetailsOpen(false);
+            fetchData(); // Refresh data on close to ensure sync
+        }}
+        onUpdateStudent={handleUpdateStudentLocal}
       />
       
       <div className="fixed bottom-0 w-full bg-white/50 backdrop-blur-sm border-t py-2">
