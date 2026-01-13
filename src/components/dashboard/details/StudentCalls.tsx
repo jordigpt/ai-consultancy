@@ -118,12 +118,12 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold flex items-center gap-2">
+        <h3 className="font-semibold flex items-center gap-2 text-sm sm:text-base">
           <Phone size={16} /> Llamadas / Consultoría
         </h3>
         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
           <PopoverTrigger asChild>
-            <Button size="sm" variant="outline" className="h-8">
+            <Button size="sm" variant="outline" className="h-8 text-xs sm:text-sm">
               <Plus size={14} className="mr-1" /> Agendar
             </Button>
           </PopoverTrigger>
@@ -145,6 +145,7 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
                   type="time" 
                   value={newCallTime} 
                   onChange={(e) => setNewCallTime(e.target.value)}
+                  className="text-lg"
                 />
               </div>
               <Button className="w-full" size="sm" onClick={handleScheduleCall} disabled={!newCallDate}>
@@ -158,9 +159,9 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
       <div className="space-y-2">
         {student.calls && student.calls.length > 0 ? (
           student.calls.map(call => (
-            <div key={call.id} className="flex items-center justify-between p-3 border rounded-lg bg-white shadow-sm">
+            <div key={call.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg bg-white shadow-sm gap-3">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
                   <Phone size={14} />
                 </div>
                 <div>
@@ -173,7 +174,7 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-2 justify-end sm:justify-start border-t sm:border-t-0 pt-2 sm:pt-0 mt-1 sm:mt-0">
                  <Button 
                   variant="ghost" 
                   size="icon" 
@@ -181,13 +182,13 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
                   onClick={() => downloadCallIcs(call, student)}
                   title="Agregar a Calendario"
                 >
-                  <CalendarPlus size={14} />
+                  <CalendarPlus size={16} />
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-500" onClick={() => startEditingCall(call)}>
-                  <Pencil size={14} />
+                  <Pencil size={16} />
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" onClick={() => deleteCall(call.id)}>
-                  <Trash2 size={14} />
+                  <Trash2 size={16} />
                 </Button>
               </div>
             </div>
@@ -200,7 +201,7 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
       </div>
 
       <Dialog open={!!editingCall} onOpenChange={(open) => !open && setEditingCall(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="w-[95vw] rounded-xl sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Editar Llamada</DialogTitle>
           </DialogHeader>
@@ -222,12 +223,13 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
                 type="time" 
                 value={editCallTime} 
                 onChange={(e) => setEditCallTime(e.target.value)}
+                className="text-lg"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingCall(null)}>Cancelar</Button>
-            <Button onClick={saveEditedCall}>Guardar Cambios</Button>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={() => setEditingCall(null)} className="w-full sm:w-auto">Cancelar</Button>
+            <Button onClick={saveEditedCall} className="w-full sm:w-auto">Guardar Cambios</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

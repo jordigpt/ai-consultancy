@@ -55,23 +55,23 @@ export const CalendarView = ({
   ).sort((a, b) => a.date.getTime() - b.date.getTime());
 
   return (
-    <div className="bg-white rounded-xl border shadow-sm p-4 space-y-6">
-      <div className="flex justify-center">
+    <div className="bg-white rounded-xl border shadow-sm p-3 sm:p-4 space-y-6">
+      <div className="flex justify-center overflow-hidden">
         <Calendar
           mode="single"
           selected={date}
           onSelect={setDate}
-          className="rounded-md border shadow-none"
+          className="rounded-md border shadow-none w-full max-w-[300px] sm:max-w-none"
         />
       </div>
 
       <Dialog open={isAddCallOpen} onOpenChange={setIsAddCallOpen}>
         <DialogTrigger asChild>
-          <Button className="w-full" variant="outline">
+          <Button className="w-full h-11 text-base shadow-sm" variant="outline">
             <Plus className="mr-2 h-4 w-4" /> Agendar Nueva Llamada
           </Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="w-[95vw] rounded-xl sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Agendar Llamada</DialogTitle>
           </DialogHeader>
@@ -85,7 +85,7 @@ export const CalendarView = ({
                 <SelectContent>
                   {students.map(s => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.firstName} {s.lastName} ({s.status === 'graduated' ? 'Egresado' : 'Activo'})
+                      {s.firstName} {s.lastName}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -108,9 +108,10 @@ export const CalendarView = ({
                 type="time" 
                 value={newCallTime}
                 onChange={(e) => setNewCallTime(e.target.value)}
+                className="text-lg"
               />
             </div>
-            <Button className="w-full" onClick={handleSchedule} disabled={isSubmitting}>
+            <Button className="w-full h-12" onClick={handleSchedule} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmar
             </Button>
@@ -130,15 +131,15 @@ export const CalendarView = ({
             {callsOnDate.map((call) => (
               <div 
                 key={call.id} 
-                className="p-3 border rounded-lg bg-blue-50/50 flex items-center justify-between cursor-pointer hover:bg-blue-50 transition-colors group"
+                className="p-3 border rounded-lg bg-blue-50/50 flex items-center justify-between cursor-pointer hover:bg-blue-50 transition-colors group active:scale-[0.99] transition-transform"
                 onClick={() => onOpenStudentDetails(call.student)}
               >
-                 <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs">
+                 <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="h-9 w-9 shrink-0 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs">
                         {call.student.firstName[0]}{call.student.lastName[0]}
                     </div>
-                    <div>
-                        <p className="font-medium text-sm">{call.student.firstName} {call.student.lastName}</p>
+                    <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{call.student.firstName} {call.student.lastName}</p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1"><Clock size={10} /> {format(call.date, "HH:mm")}</span>
                         </div>
@@ -147,14 +148,14 @@ export const CalendarView = ({
                  <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-green-600 hover:bg-green-50"
+                    className="h-9 w-9 shrink-0 text-muted-foreground hover:text-green-600 hover:bg-green-50"
                     onClick={(e) => {
                         e.stopPropagation();
                         downloadCallIcs(call, call.student);
                     }}
                     title="Agregar a Calendario"
                  >
-                    <CalendarPlus size={16} />
+                    <CalendarPlus size={18} />
                  </Button>
               </div>
             ))}
@@ -162,7 +163,7 @@ export const CalendarView = ({
         ) : (
           <div className="p-4 bg-muted/20 rounded-lg border border-dashed text-center">
             <p className="text-xs text-muted-foreground">
-              No hay llamadas para este día específico.
+              Sin llamadas.
             </p>
           </div>
         )}
@@ -172,27 +173,27 @@ export const CalendarView = ({
       <div className="space-y-2 pt-4 border-t">
          <h3 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wide">
             <CalendarDays size={14} />
-            Próximas Llamadas (Todas)
+            Próximas
          </h3>
          {allUpcomingCalls.length === 0 ? (
             <div className="text-center text-sm text-muted-foreground py-4">
-                No tienes ninguna llamada futura programada.
+                No hay llamadas futuras.
             </div>
          ) : (
             <div className="space-y-2">
                 {allUpcomingCalls.map((call) => (
                    <div 
                      key={`upcoming-${call.id}`} 
-                     className="p-3 border rounded-lg hover:shadow-sm transition-all flex items-center justify-between bg-white cursor-pointer group"
+                     className="p-3 border rounded-lg hover:shadow-sm transition-all flex items-center justify-between bg-white cursor-pointer active:bg-gray-50"
                      onClick={() => onOpenStudentDetails(call.student)}
                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col items-center justify-center w-10 h-10 bg-gray-100 rounded-md border text-xs">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="flex flex-col items-center justify-center w-10 h-10 shrink-0 bg-gray-100 rounded-md border text-xs">
                             <span className="font-bold text-gray-900">{format(call.date, "d")}</span>
                             <span className="text-[10px] text-gray-500 uppercase">{format(call.date, "MMM")}</span>
                         </div>
-                        <div>
-                            <p className="font-semibold text-sm">{call.student.firstName} {call.student.lastName}</p>
+                        <div className="min-w-0">
+                            <p className="font-semibold text-sm truncate">{call.student.firstName} {call.student.lastName}</p>
                             <p className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Clock size={10} /> {format(call.date, "EEEE, HH:mm")}
                             </p>
@@ -201,14 +202,13 @@ export const CalendarView = ({
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-green-600 hover:bg-green-50"
+                        className="h-9 w-9 shrink-0 text-muted-foreground"
                         onClick={(e) => {
                             e.stopPropagation();
                             downloadCallIcs(call, call.student);
                         }}
-                        title="Agregar a Calendario"
                      >
-                        <CalendarPlus size={16} />
+                        <CalendarPlus size={18} />
                      </Button>
                    </div>
                 ))}

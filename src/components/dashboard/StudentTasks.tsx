@@ -86,7 +86,7 @@ export const StudentTasks = ({ student, onUpdate }: StudentTasksProps) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold flex items-center gap-2">
+        <h3 className="font-semibold flex items-center gap-2 text-sm sm:text-base">
           <CheckCircle2 size={16} /> Tareas Pendientes
         </h3>
         <span className="text-xs text-muted-foreground">
@@ -98,17 +98,18 @@ export const StudentTasks = ({ student, onUpdate }: StudentTasksProps) => {
 
       <div className="flex gap-2">
         <Input 
-          placeholder="Nueva tarea (ej. Crear MVP)" 
+          placeholder="Nueva tarea..." 
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
+          className="text-base" // prevents zoom on iOS
         />
-        <Button size="icon" onClick={handleAddTask}>
+        <Button size="icon" onClick={handleAddTask} className="shrink-0">
           <Plus size={18} />
         </Button>
       </div>
 
-      <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+      <ScrollArea className="h-[250px] w-full rounded-md border p-3">
         {student.tasks.length === 0 ? (
           <div className="text-center text-muted-foreground py-8 text-sm">
             No hay tareas asignadas aún.
@@ -116,15 +117,16 @@ export const StudentTasks = ({ student, onUpdate }: StudentTasksProps) => {
         ) : (
           <div className="space-y-3">
             {student.tasks.map((task) => (
-              <div key={task.id} className="flex items-center space-x-2 group">
+              <div key={task.id} className="flex items-start space-x-3 group">
                 <Checkbox 
                   id={task.id} 
                   checked={task.completed} 
                   onCheckedChange={() => toggleTask(task.id, task.completed)}
+                  className="mt-1"
                 />
                 <label
                   htmlFor={task.id}
-                  className={`text-sm flex-1 cursor-pointer transition-all ${
+                  className={`text-sm flex-1 cursor-pointer transition-all leading-snug pt-0.5 ${
                     task.completed ? "line-through text-muted-foreground" : ""
                   }`}
                 >
@@ -133,10 +135,10 @@ export const StudentTasks = ({ student, onUpdate }: StudentTasksProps) => {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive shrink-0"
                   onClick={() => deleteTask(task.id)}
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={14} />
                 </Button>
               </div>
             ))}

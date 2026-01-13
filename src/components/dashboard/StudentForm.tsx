@@ -58,7 +58,7 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 py-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="firstName">Nombre</Label>
           <Input id="firstName" required value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Juan" />
@@ -94,14 +94,14 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
 
       <div className="space-y-2">
         <Label>Nivel actual de IA (1-10)</Label>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 bg-secondary/20 p-3 rounded-lg">
           <Slider
             value={aiLevel}
             onValueChange={setAiLevel}
             max={10}
             min={1}
             step={1}
-            className="flex-1"
+            className="flex-1 touch-none" // touch-none ayuda en moviles
           />
           <span className="font-bold text-lg w-8 text-center">{aiLevel[0]}</span>
         </div>
@@ -122,7 +122,7 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
               {startDate ? format(startDate, "PPP") : <span>Seleccionar fecha</span>}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
+          <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               mode="single"
               selected={startDate}
@@ -141,11 +141,11 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
               <DollarSign size={16} /> Estado del Pago
             </Label>
             <p className="text-xs text-muted-foreground">
-              {paidInFull ? "El alumno ha pagado la totalidad." : "Pago parcial o financiado."}
+              {paidInFull ? "Pagado totalmente." : "Pago pendiente."}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{paidInFull ? "Pagado" : "Pendiente"}</span>
+            <span className="text-sm font-medium">{paidInFull ? "Pagado" : "Deuda"}</span>
             <Switch
               checked={paidInFull}
               onCheckedChange={setPaidInFull}
@@ -154,7 +154,7 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
         </div>
 
         {!paidInFull && (
-          <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-300">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-300">
             <div className="space-y-2">
               <Label htmlFor="paid">Monto Pagado ($)</Label>
               <Input 
@@ -163,6 +163,7 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
                 placeholder="0.00" 
                 value={amountPaid}
                 onChange={(e) => setAmountPaid(e.target.value)}
+                inputMode="decimal"
               />
             </div>
             <div className="space-y-2">
@@ -173,6 +174,7 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
                 placeholder="0.00" 
                 value={amountOwed}
                 onChange={(e) => setAmountOwed(e.target.value)}
+                inputMode="decimal"
               />
             </div>
           </div>
@@ -185,12 +187,12 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
           id="context" 
           value={context} 
           onChange={(e) => setContext(e.target.value)} 
-          placeholder="Notas sobre sus objetivos, background, etc."
+          placeholder="Notas sobre sus objetivos..."
           className="min-h-[100px]"
         />
       </div>
 
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <Button type="submit" className="w-full h-12 text-lg" disabled={isLoading}>
         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Registrar Alumno
       </Button>

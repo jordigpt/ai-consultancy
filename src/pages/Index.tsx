@@ -180,31 +180,31 @@ const Index = () => {
         isSubmitting={isSubmitting}
       />
 
-      <main className="container max-w-2xl mx-auto p-4 space-y-6">
+      <main className="container max-w-2xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
         <Tabs defaultValue="active" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="active" className="gap-2">
-              <Users size={16} /> Activos
+          <TabsList className="grid w-full grid-cols-3 mb-4 h-auto py-1">
+            <TabsTrigger value="active" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
+              <Users size={16} className="shrink-0" /> <span className="truncate">Activos</span>
             </TabsTrigger>
-            <TabsTrigger value="graduated" className="gap-2">
-              <GraduationCap size={16} /> Egresados
+            <TabsTrigger value="graduated" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
+              <GraduationCap size={16} className="shrink-0" /> <span className="truncate">Egresados</span>
             </TabsTrigger>
-            <TabsTrigger value="calendar" className="gap-2">
-              <CalendarIcon size={16} /> Agenda
+            <TabsTrigger value="calendar" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
+              <CalendarIcon size={16} className="shrink-0" /> <span className="truncate">Agenda</span>
             </TabsTrigger>
           </TabsList>
 
-          <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input 
-                placeholder="Buscar por nombre o rol..." 
-                className="pl-9 bg-white shadow-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-          </div>
-
-          <TabsContent value="active" className="space-y-4">
+          {/* Only show search on student tabs */}
+          <TabsContent value="active" className="mt-0 space-y-4">
+             <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input 
+                  placeholder="Buscar alumno..." 
+                  className="pl-9 bg-white shadow-sm h-11 sm:h-10 text-base sm:text-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </div>
             <MetricsOverview students={activeStudents} />
             <StudentList 
               students={activeStudents} 
@@ -213,10 +213,19 @@ const Index = () => {
             />
           </TabsContent>
 
-          <TabsContent value="graduated" className="space-y-4">
-             <div className="bg-yellow-50/50 p-4 rounded-xl border border-yellow-100 mb-4 text-center">
-                <p className="text-sm text-yellow-800">
-                    Historial de alumnos que han completado su ciclo.
+          <TabsContent value="graduated" className="mt-0 space-y-4">
+             <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input 
+                  placeholder="Buscar egresado..." 
+                  className="pl-9 bg-white shadow-sm h-11 sm:h-10 text-base sm:text-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </div>
+             <div className="bg-yellow-50/50 p-3 rounded-xl border border-yellow-100 text-center">
+                <p className="text-xs sm:text-sm text-yellow-800">
+                    Historial de alumnos egresados.
                 </p>
              </div>
             <StudentList 
@@ -227,7 +236,7 @@ const Index = () => {
             />
           </TabsContent>
 
-          <TabsContent value="calendar">
+          <TabsContent value="calendar" className="mt-0">
             <CalendarView 
               students={students}
               onScheduleCall={handleScheduleGlobalCall}
@@ -248,7 +257,7 @@ const Index = () => {
         onUpdateStudent={fetchData}
       />
       
-      <div className="fixed bottom-0 w-full bg-white/50 backdrop-blur-sm border-t py-2">
+      <div className="hidden sm:block fixed bottom-0 w-full bg-white/50 backdrop-blur-sm border-t py-1">
          <MadeWithDyad />
       </div>
     </div>
