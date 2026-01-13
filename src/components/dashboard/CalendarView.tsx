@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { CalendarIcon, Plus, Clock, CalendarDays, CalendarPlus, Loader2, Phone } from "lucide-react";
 import { format, isSameDay, startOfDay, isAfter } from "date-fns";
-import { downloadCallIcs } from "@/utils/calendar";
+import { downloadCallIcs, downloadLeadCallIcs } from "@/utils/calendar";
 
 interface CalendarViewProps {
   students: Student[];
@@ -30,7 +30,7 @@ export const CalendarView = ({
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [isAddCallOpen, setIsAddCallOpen] = useState(false);
   
-  // New Call Form State (Only for Students for now, as Leads are scheduled via their edit form)
+  // New Call Form State
   const [newCallStudentId, setNewCallStudentId] = useState("");
   const [newCallTime, setNewCallTime] = useState("10:00");
   const [newCallDate, setNewCallDate] = useState<Date | undefined>(new Date());
@@ -58,7 +58,7 @@ export const CalendarView = ({
   const leadCalls = leads
     .filter(lead => lead.nextCallDate && lead.status !== 'won' && lead.status !== 'lost')
     .map(lead => ({
-        id: lead.id, // Using lead ID as call ID for leads
+        id: lead.id, 
         date: lead.nextCallDate!,
         type: 'lead',
         details: lead,
@@ -114,7 +114,6 @@ export const CalendarView = ({
                 </SelectContent>
               </Select>
             </div>
-            {/* ... rest of the form ... */}
              <div className="space-y-2">
               <Label>Fecha</Label>
               <div className="border rounded-md p-2 flex justify-center">
@@ -176,19 +175,23 @@ export const CalendarView = ({
                         </div>
                     </div>
                  </div>
-                 {call.type === 'student' && call.originalCall && (
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-9 w-9 shrink-0 text-muted-foreground"
-                        onClick={(e) => {
-                            e.stopPropagation();
+                 
+                 <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-9 w-9 shrink-0 text-muted-foreground hover:text-green-600 hover:bg-green-100"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (call.type === 'student' && call.originalCall) {
                             downloadCallIcs(call.originalCall, call.details as Student);
-                        }}
-                    >
-                        <CalendarPlus size={18} />
-                    </Button>
-                 )}
+                        } else if (call.type === 'lead') {
+                            downloadLeadCallIcs(call.details as Lead);
+                        }
+                    }}
+                    title="Agregar a Calendario"
+                >
+                    <CalendarPlus size={18} />
+                </Button>
               </div>
             ))}
           </div>
@@ -235,6 +238,22 @@ export const CalendarView = ({
                             </p>
                         </div>
                       </div>
+                      
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-green-600"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (call.type === 'student' && call.originalCall) {
+                                downloadCallIcs(call.originalCall, call.details as Student);
+                            } else if (call.type === 'lead') {
+                                downloadLeadCallIcs(call.details as Lead);
+                            }
+                        }}
+                      >
+                         <CalendarPlus size={16} />
+                      </Button>
                    </div>
                 ))}
             </div>

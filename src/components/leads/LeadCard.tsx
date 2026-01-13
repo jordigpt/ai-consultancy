@@ -3,9 +3,10 @@ import { Lead } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, Mail, MessageSquare, Phone } from "lucide-react";
+import { CalendarClock, CalendarPlus, Mail, MessageSquare, Phone } from "lucide-react";
 import { format, isPast } from "date-fns";
 import { cn } from "@/lib/utils";
+import { downloadLeadCallIcs } from "@/utils/calendar";
 
 interface LeadCardProps {
   lead: Lead;
@@ -31,6 +32,11 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
           case 'lost': return <Badge variant="destructive">Perdido</Badge>;
           default: return null;
       }
+  };
+
+  const handleCalendarClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      downloadLeadCallIcs(lead);
   };
 
   return (
@@ -74,12 +80,22 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
       {lead.nextCallDate && lead.status !== 'won' && lead.status !== 'lost' && (
         <CardFooter className="p-4 pt-0">
              <div className={cn(
-                 "w-full p-2 rounded-md flex items-center justify-center gap-2 text-xs font-medium",
+                 "w-full p-2 rounded-md flex items-center justify-between gap-2 text-xs font-medium",
                  isPast(lead.nextCallDate) ? "bg-red-50 text-red-700 border border-red-100" : "bg-blue-50 text-blue-700 border border-blue-100"
              )}>
-                <CalendarClock size={14} />
-                {isPast(lead.nextCallDate) ? "Llamada vencida: " : "Próxima llamada: "}
-                {format(lead.nextCallDate, "EEE d, HH:mm")}
+                <div className="flex items-center gap-2">
+                    <CalendarClock size={14} />
+                    <span>{isPast(lead.nextCallDate) ? "Vencida: " : "Próxima: "} {format(lead.nextCallDate, "EEE d, HH:mm")}</span>
+                </div>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 hover:bg-white/50" 
+                    onClick={handleCalendarClick}
+                    title="Agregar a Calendario"
+                >
+                    <CalendarPlus size={14} />
+                </Button>
              </div>
         </CardFooter>
       )}

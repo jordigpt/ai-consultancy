@@ -18,10 +18,13 @@ import {
 } from "@/components/ui/select";
 import { LeadForm } from "./LeadForm";
 import { Separator } from "@/components/ui/separator";
-import { UserCheck, Trash2, Edit } from "lucide-react";
+import { UserCheck, Trash2, Edit, CalendarClock, CalendarPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { format, isPast } from "date-fns";
+import { downloadLeadCallIcs } from "@/utils/calendar";
+import { cn } from "@/lib/utils";
 
 interface LeadDetailsProps {
   lead: Lead | null;
@@ -141,6 +144,34 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                 )}
 
                 <Separator />
+
+                {lead.nextCallDate && lead.status !== 'won' && lead.status !== 'lost' && (
+                    <div className={cn(
+                        "flex items-center justify-between p-3 rounded-lg border",
+                        isPast(lead.nextCallDate) ? "bg-red-50 border-red-100 text-red-800" : "bg-blue-50 border-blue-100 text-blue-800"
+                    )}>
+                        <div className="flex items-center gap-3">
+                            <CalendarClock size={20} />
+                            <div>
+                                <p className="text-xs font-semibold uppercase opacity-70">
+                                    {isPast(lead.nextCallDate) ? "Llamada Vencida" : "Próxima Llamada"}
+                                </p>
+                                <p className="font-medium">
+                                    {format(lead.nextCallDate, "EEEE d MMMM, HH:mm")} hs
+                                </p>
+                            </div>
+                        </div>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="hover:bg-white/50"
+                            onClick={() => downloadLeadCallIcs(lead)}
+                            title="Agregar a Calendario"
+                        >
+                            <CalendarPlus size={20} />
+                        </Button>
+                    </div>
+                )}
 
                 <div className="space-y-4 text-sm">
                     {lead.email && (
