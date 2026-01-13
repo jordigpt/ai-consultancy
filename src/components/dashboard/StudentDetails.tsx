@@ -11,10 +11,11 @@ import {
   SheetDescription 
 } from "@/components/ui/sheet";
 import { User, GraduationCap, RotateCcw } from "lucide-react";
-import { StudentFinances } from "./StudentFinances";
+import { StudentFinances } from "./details/StudentFinances"; // Corrected path
+import { StudentCalls } from "./details/StudentCalls"; // Corrected path
+import { StudentTasks } from "./details/StudentTasks"; // Corrected path
+import { StudentRoadmap } from "./details/StudentRoadmap"; // New component
 import { StudentInfo } from "./StudentInfo";
-import { StudentCalls } from "./StudentCalls";
-import { StudentTasks } from "./StudentTasks";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -41,7 +42,7 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
 
         onUpdateStudent({ ...student, status: newStatus });
         showSuccess(newStatus === 'graduated' ? "¡Alumno egresado!" : "Alumno reactivado");
-        onClose(); // Cerramos el panel para ver el cambio en la lista
+        onClose(); 
     } catch (error) {
         console.error(error);
         showError("Error al actualizar estado");
@@ -76,7 +77,6 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
         </SheetHeader>
 
         <div className="space-y-6">
-          {/* Action Button for Status */}
           <Button 
             variant={student.status === 'active' ? "default" : "outline"} 
             className={`w-full ${student.status === 'active' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}`}
@@ -105,6 +105,10 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
               {student.context || "Sin contexto adicional."}
             </div>
           </div>
+
+          <Separator />
+
+          <StudentRoadmap student={student} onUpdate={onUpdateStudent} />
 
           <Separator />
           

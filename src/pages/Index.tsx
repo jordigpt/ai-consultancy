@@ -11,9 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon, LogOut, Loader2, Clock, GraduationCap } from "lucide-react";
+import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon, LogOut, Loader2, Clock, GraduationCap, CalendarDays } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
-import { isSameDay, format } from "date-fns";
+import { isSameDay, format, isAfter, startOfDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
@@ -65,6 +65,7 @@ const Index = () => {
         paidInFull: s.paid_in_full,
         amountPaid: s.amount_paid,
         amountOwed: s.amount_owed,
+        roadmapUrl: s.roadmap_url, // New field
         tasks: s.tasks.map((t: any) => ({
           id: t.id,
           title: t.title,
@@ -194,12 +195,20 @@ const Index = () => {
     setDetailsOpen(true);
   };
 
-  // Lógica del Calendario
+  // Lógica del Calendario (Día Seleccionado)
   const callsOnDate = students.flatMap(student => 
     student.calls
       .filter(call => date && isSameDay(call.date, date))
       .map(call => ({ ...call, student }))
-  ).sort((a, b) => a.date.getTime() - b.date.getTime()); // Ordenar por hora
+  ).sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // Lógica de Próximas Llamadas (Global)
+  const today = startOfDay(new Date());
+  const allUpcomingCalls = students.flatMap(student => 
+    student.calls
+      .filter(call => isAfter(call.date, today) || isSameDay(call.date, today)) // Calls today or future
+      .map(call => ({ ...call, student }))
+  ).sort((a, b) => a.date.getTime() - b.date.getTime()); // Ordenar por fecha y hora ascendente
 
   if (loading) {
     return (
@@ -388,14 +397,15 @@ const Index = () => {
                 </DialogContent>
               </Dialog>
               
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Phone size={16} className="text-primary" />
-                  Agenda: {date ? format(date, "EEEE d, MMMM") : "Selecciona un día"}
+              {/* Daily View */}
+              <div className="space-y-2">
+                <h3 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wide">
+                  <CalendarIcon size={14} />
+                  Llamadas: {date ? format(date, "EEEE d, MMMM") : "Selecciona un día"}
                 </h3>
                 
                 {callsOnDate.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {callsOnDate.map((call) => (
                       <div 
                         key={call.id} 
@@ -410,26 +420,55 @@ const Index = () => {
                                 <p className="font-medium text-sm">{call.student.firstName} {call.student.lastName}</p>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                     <span className="flex items-center gap-1"><Clock size={10} /> {format(call.date, "HH:mm")}</span>
-                                    <span>• Videollamada</span>
                                 </div>
                             </div>
                          </div>
-                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <UserIcon size={14} />
-                         </Button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-8 bg-secondary/20 rounded-lg border border-dashed text-center space-y-2">
-                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
-                        <CalendarIcon className="h-5 w-5 opacity-50" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      No hay llamadas programadas para este día.
+                  <div className="p-4 bg-muted/20 rounded-lg border border-dashed text-center">
+                    <p className="text-xs text-muted-foreground">
+                      No hay llamadas para este día específico.
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* Global Upcoming View */}
+              <div className="space-y-2 pt-4 border-t">
+                 <h3 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wide">
+                    <CalendarDays size={14} />
+                    Próximas Llamadas (Todas)
+                 </h3>
+                 {allUpcomingCalls.length === 0 ? (
+                    <div className="text-center text-sm text-muted-foreground py-4">
+                        No tienes ninguna llamada futura programada.
+                    </div>
+                 ) : (
+                    <div className="space-y-2">
+                        {allUpcomingCalls.map((call) => (
+                           <div 
+                             key={`upcoming-${call.id}`} 
+                             className="p-3 border rounded-lg hover:shadow-sm transition-all flex items-center justify-between bg-white cursor-pointer"
+                             onClick={() => openDetails(call.student)}
+                           >
+                              <div className="flex items-center gap-3">
+                                <div className="flex flex-col items-center justify-center w-10 h-10 bg-gray-100 rounded-md border text-xs">
+                                    <span className="font-bold text-gray-900">{format(call.date, "d")}</span>
+                                    <span className="text-[10px] text-gray-500 uppercase">{format(call.date, "MMM")}</span>
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-sm">{call.student.firstName} {call.student.lastName}</p>
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <Clock size={10} /> {format(call.date, "EEEE, HH:mm")}
+                                    </p>
+                                </div>
+                              </div>
+                           </div>
+                        ))}
+                    </div>
+                 )}
               </div>
             </div>
           </TabsContent>

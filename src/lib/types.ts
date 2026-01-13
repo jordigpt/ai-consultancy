@@ -33,13 +33,16 @@ export interface Student {
   aiLevel: AILevel;
   businessModel: BusinessModel;
   startDate: Date;
-  status: StudentStatus; // Nuevo campo
+  status: StudentStatus;
   
   // Finanzas
   paidInFull: boolean;
-  amountPaid?: number; // Cuánto pagó
-  amountOwed?: number; // Cuánto debe
+  amountPaid?: number;
+  amountOwed?: number;
+  
+  // Archivos
+  roadmapUrl?: string; // Nuevo campo
   
   tasks: Task[];
-  calls: Call[]; // Historial y futuras llamadas
+  calls: Call[];
 }
