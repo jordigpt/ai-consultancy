@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Phone, Plus, Trash2, Clock, Pencil } from "lucide-react";
+import { Phone, Plus, Trash2, Clock, Pencil, CalendarPlus } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
+import { downloadCallIcs } from "@/utils/calendar";
 
 interface StudentCallsProps {
   student: Student;
@@ -173,6 +174,15 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
                 </div>
               </div>
               <div className="flex gap-1">
+                 <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-muted-foreground hover:text-green-600 hover:bg-green-50" 
+                  onClick={() => downloadCallIcs(call, student)}
+                  title="Agregar a Calendario"
+                >
+                  <CalendarPlus size={14} />
+                </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-500" onClick={() => startEditingCall(call)}>
                   <Pencil size={14} />
                 </Button>

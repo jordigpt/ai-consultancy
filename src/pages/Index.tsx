@@ -11,10 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon, LogOut, Loader2, Clock, GraduationCap, CalendarDays } from "lucide-react";
+import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon, LogOut, Loader2, Clock, GraduationCap, CalendarDays, CalendarPlus } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { isSameDay, format, isAfter, startOfDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { downloadCallIcs } from "@/utils/calendar";
 
 const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -409,10 +410,9 @@ const Index = () => {
                     {callsOnDate.map((call) => (
                       <div 
                         key={call.id} 
-                        className="p-3 border rounded-lg bg-blue-50/50 flex items-center justify-between cursor-pointer hover:bg-blue-50 transition-colors"
-                        onClick={() => openDetails(call.student)}
+                        className="p-3 border rounded-lg bg-blue-50/50 flex items-center justify-between cursor-pointer hover:bg-blue-50 transition-colors group"
                       >
-                         <div className="flex items-center gap-3">
+                         <div className="flex items-center gap-3" onClick={() => openDetails(call.student)}>
                             <div className="h-8 w-8 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs">
                                 {call.student.firstName[0]}{call.student.lastName[0]}
                             </div>
@@ -423,6 +423,18 @@ const Index = () => {
                                 </div>
                             </div>
                          </div>
+                         <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-green-600 hover:bg-green-50"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                downloadCallIcs(call, call.student);
+                            }}
+                            title="Agregar a Calendario"
+                         >
+                            <CalendarPlus size={16} />
+                         </Button>
                       </div>
                     ))}
                   </div>
@@ -450,10 +462,9 @@ const Index = () => {
                         {allUpcomingCalls.map((call) => (
                            <div 
                              key={`upcoming-${call.id}`} 
-                             className="p-3 border rounded-lg hover:shadow-sm transition-all flex items-center justify-between bg-white cursor-pointer"
-                             onClick={() => openDetails(call.student)}
+                             className="p-3 border rounded-lg hover:shadow-sm transition-all flex items-center justify-between bg-white cursor-pointer group"
                            >
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-3" onClick={() => openDetails(call.student)}>
                                 <div className="flex flex-col items-center justify-center w-10 h-10 bg-gray-100 rounded-md border text-xs">
                                     <span className="font-bold text-gray-900">{format(call.date, "d")}</span>
                                     <span className="text-[10px] text-gray-500 uppercase">{format(call.date, "MMM")}</span>
@@ -465,6 +476,18 @@ const Index = () => {
                                     </p>
                                 </div>
                               </div>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-green-600 hover:bg-green-50"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    downloadCallIcs(call, call.student);
+                                }}
+                                title="Agregar a Calendario"
+                             >
+                                <CalendarPlus size={16} />
+                             </Button>
                            </div>
                         ))}
                     </div>
