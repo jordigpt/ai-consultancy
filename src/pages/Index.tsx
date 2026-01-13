@@ -259,11 +259,8 @@ const Index = () => {
       />
 
       <main className="container max-w-2xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
-        <Tabs defaultValue="leads" className="w-full">
+        <Tabs defaultValue="active" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-4 h-auto py-1">
-             <TabsTrigger value="leads" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
-              <Target size={16} className="shrink-0" /> <span className="truncate">Leads</span>
-            </TabsTrigger>
             <TabsTrigger value="active" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
               <Users size={16} className="shrink-0" /> <span className="truncate">Activos</span>
             </TabsTrigger>
@@ -273,46 +270,10 @@ const Index = () => {
             <TabsTrigger value="calendar" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
               <CalendarIcon size={16} className="shrink-0" /> <span className="truncate">Agenda</span>
             </TabsTrigger>
+             <TabsTrigger value="leads" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
+              <Target size={16} className="shrink-0" /> <span className="truncate">Leads</span>
+            </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="leads" className="mt-0 space-y-4">
-            <div className="flex gap-2">
-                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input 
-                    placeholder="Buscar lead..." 
-                    className="pl-9 bg-white shadow-sm h-11 sm:h-10 text-base sm:text-sm"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-                <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
-                    <DialogTrigger asChild>
-                         <Button size="icon" className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 bg-blue-600 hover:bg-blue-700">
-                             <Plus size={20} />
-                         </Button>
-                    </DialogTrigger>
-                    <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
-                        <DialogHeader>
-                            <DialogTitle>Nuevo Lead</DialogTitle>
-                        </DialogHeader>
-                        <LeadForm onSubmit={handleAddLead} isLoading={isSubmitting} />
-                    </DialogContent>
-                </Dialog>
-            </div>
-
-            {filteredLeads.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground">
-                    No hay leads registrados aún.
-                </div>
-            ) : (
-                <div className="space-y-3">
-                    {filteredLeads.map(lead => (
-                        <LeadCard key={lead.id} lead={lead} onClick={() => openLeadDetails(lead)} />
-                    ))}
-                </div>
-            )}
-          </TabsContent>
 
           <TabsContent value="active" className="mt-0 space-y-4">
              <div className="relative mb-2">
@@ -364,6 +325,45 @@ const Index = () => {
               onOpenStudentDetails={openStudentDetails}
               onOpenLeadDetails={openLeadDetails}
             />
+          </TabsContent>
+
+          <TabsContent value="leads" className="mt-0 space-y-4">
+            <div className="flex gap-2">
+                 <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <Input 
+                    placeholder="Buscar lead..." 
+                    className="pl-9 bg-white shadow-sm h-11 sm:h-10 text-base sm:text-sm"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
+                    <DialogTrigger asChild>
+                         <Button size="icon" className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 bg-blue-600 hover:bg-blue-700">
+                             <Plus size={20} />
+                         </Button>
+                    </DialogTrigger>
+                    <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
+                        <DialogHeader>
+                            <DialogTitle>Nuevo Lead</DialogTitle>
+                        </DialogHeader>
+                        <LeadForm onSubmit={handleAddLead} isLoading={isSubmitting} />
+                    </DialogContent>
+                </Dialog>
+            </div>
+
+            {filteredLeads.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">
+                    No hay leads registrados aún.
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {filteredLeads.map(lead => (
+                        <LeadCard key={lead.id} lead={lead} onClick={() => openLeadDetails(lead)} />
+                    ))}
+                </div>
+            )}
           </TabsContent>
         </Tabs>
       </main>
