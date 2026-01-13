@@ -1,21 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { Student, Task, Call } from "@/lib/types";
-import { StudentCard } from "@/components/dashboard/StudentCard";
+import { Student } from "@/lib/types";
 import { StudentDetails } from "@/components/dashboard/StudentDetails";
-import { StudentForm } from "@/components/dashboard/StudentForm";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Plus, Search, Users, Calendar as CalendarIcon, Phone, User as UserIcon, LogOut, Loader2, Clock, GraduationCap, CalendarDays, CalendarPlus } from "lucide-react";
+import { Search, Users, Calendar as CalendarIcon, GraduationCap, Loader2 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
-import { isSameDay, format, isAfter, startOfDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { downloadCallIcs } from "@/utils/calendar";
+
+// Components
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { MetricsOverview } from "@/components/dashboard/MetricsOverview";
+import { StudentList } from "@/components/dashboard/StudentList";
+import { CalendarView } from "@/components/dashboard/CalendarView";
 
 const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -23,18 +20,10 @@ const Index = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   
-  // Dialogs States
+  // UI States
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
-  const [isAddCallOpen, setIsAddCallOpen] = useState(false);
-  
   const [searchQuery, setSearchQuery] = useState("");
-  const [date, setDate] = useState<Date | undefined>(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // New Call Form State
-  const [newCallStudentId, setNewCallStudentId] = useState("");
-  const [newCallTime, setNewCallTime] = useState("10:00");
-  const [newCallDate, setNewCallDate] = useState<Date | undefined>(new Date());
 
   // Fetch Data from Supabase
   const fetchData = async () => {
@@ -62,16 +51,16 @@ const Index = () => {
         aiLevel: s.ai_level,
         businessModel: s.business_model,
         startDate: new Date(s.start_date),
-        status: s.status || 'active', // Default to active if null
+        status: s.status || 'active', 
         paidInFull: s.paid_in_full,
         amountPaid: s.amount_paid,
         amountOwed: s.amount_owed,
-        roadmapUrl: s.roadmap_url, // New field
+        roadmapUrl: s.roadmap_url,
         tasks: s.tasks.map((t: any) => ({
           id: t.id,
           title: t.title,
           completed: t.completed
-        })).sort((a: any, b: any) => b.id.localeCompare(a.id)), // Simple sort
+        })).sort((a: any, b: any) => b.id.localeCompare(a.id)),
         calls: s.calls.map((c: any) => ({
           id: c.id,
           date: new Date(c.date),
@@ -125,7 +114,7 @@ const Index = () => {
 
       showSuccess("Alumno registrado correctamente");
       setIsAddStudentOpen(false);
-      fetchData(); // Refresh data
+      fetchData(); 
     } catch (error) {
       console.error("Error adding student:", error);
       showError("Error al guardar el alumno");
@@ -134,25 +123,19 @@ const Index = () => {
     }
   };
 
-  const handleScheduleGlobalCall = async () => {
-    if (!newCallDate || !newCallTime || !newCallStudentId) {
-        showError("Faltan datos para agendar");
-        return;
-    }
-
+  const handleScheduleGlobalCall = async (studentId: string, date: Date, time: string) => {
     try {
         setIsSubmitting(true);
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Combinar fecha y hora
-        const [hours, minutes] = newCallTime.split(':').map(Number);
-        const dateTime = new Date(newCallDate);
+        const [hours, minutes] = time.split(':').map(Number);
+        const dateTime = new Date(date);
         dateTime.setHours(hours);
         dateTime.setMinutes(minutes);
 
         const newCallData = {
-            student_id: newCallStudentId,
+            student_id: studentId,
             user_id: user.id,
             date: dateTime.toISOString(),
             completed: false
@@ -162,11 +145,7 @@ const Index = () => {
         if (error) throw error;
 
         showSuccess("Llamada agendada correctamente");
-        setIsAddCallOpen(false);
-        // Reset fields
-        setNewCallStudentId("");
-        setNewCallTime("10:00");
-        fetchData(); // Refresh data to show new call in calendar
+        fetchData(); 
     } catch (error) {
         console.error(error);
         showError("Error al agendar llamada");
@@ -175,41 +154,13 @@ const Index = () => {
     }
   };
 
-  const handleUpdateStudentLocal = async () => {
-    fetchData();
-  };
-  
-  // Filter logic
   const activeStudents = students.filter(s => s.status === 'active' || !s.status);
   const graduatedStudents = students.filter(s => s.status === 'graduated');
-
-  const filterList = (list: Student[]) => {
-    return list.filter(s => 
-        s.firstName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        s.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.occupation.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  };
 
   const openDetails = (student: Student) => {
     setSelectedStudent(student);
     setDetailsOpen(true);
   };
-
-  // Lógica del Calendario (Día Seleccionado)
-  const callsOnDate = students.flatMap(student => 
-    student.calls
-      .filter(call => date && isSameDay(call.date, date))
-      .map(call => ({ ...call, student }))
-  ).sort((a, b) => a.date.getTime() - b.date.getTime());
-
-  // Lógica de Próximas Llamadas (Global)
-  const today = startOfDay(new Date());
-  const allUpcomingCalls = students.flatMap(student => 
-    student.calls
-      .filter(call => isAfter(call.date, today) || isSameDay(call.date, today)) // Calls today or future
-      .map(call => ({ ...call, student }))
-  ).sort((a, b) => a.date.getTime() - b.date.getTime()); // Ordenar por fecha y hora ascendente
 
   if (loading) {
     return (
@@ -221,34 +172,13 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
-      {/* Header Mobile-First */}
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600">
-            AI Consultancy
-          </h1>
-          <p className="text-xs text-muted-foreground">Tracking de Alumnos</p>
-        </div>
-        <div className="flex gap-2">
-            <Button variant="ghost" size="icon" onClick={handleSignOut}>
-                <LogOut size={18} />
-            </Button>
-            
-            <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
-                <DialogTrigger asChild>
-                    <Button size="sm" className="bg-primary shadow-lg hover:shadow-xl transition-all">
-                    <Plus className="h-4 w-4 mr-1" /> Nuevo
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                    <DialogTitle>Registrar Nuevo Alumno</DialogTitle>
-                    </DialogHeader>
-                    <StudentForm onSubmit={handleAddStudent} isLoading={isSubmitting} />
-                </DialogContent>
-            </Dialog>
-        </div>
-      </header>
+      <DashboardHeader 
+        onSignOut={handleSignOut}
+        onAddStudent={handleAddStudent}
+        isAddStudentOpen={isAddStudentOpen}
+        setIsAddStudentOpen={setIsAddStudentOpen}
+        isSubmitting={isSubmitting}
+      />
 
       <main className="container max-w-2xl mx-auto p-4 space-y-6">
         <Tabs defaultValue="active" className="w-full">
@@ -264,7 +194,6 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          {/* Common Search Bar for Student Lists */}
           <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input 
@@ -276,36 +205,12 @@ const Index = () => {
           </div>
 
           <TabsContent value="active" className="space-y-4">
-            {/* Metrics Quick View */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-primary">{activeStudents.length}</span>
-                <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Cursando</span>
-              </div>
-              <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-green-600">
-                  {activeStudents.filter(s => s.paidInFull).length}
-                </span>
-                <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Pagados</span>
-              </div>
-            </div>
-
-            {/* List */}
-            <div className="space-y-3">
-              {filterList(activeStudents).length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground">
-                  No se encontraron alumnos activos.
-                </div>
-              ) : (
-                filterList(activeStudents).map((student) => (
-                  <StudentCard 
-                    key={student.id} 
-                    student={student} 
-                    onClick={() => openDetails(student)} 
-                  />
-                ))
-              )}
-            </div>
+            <MetricsOverview students={activeStudents} />
+            <StudentList 
+              students={activeStudents} 
+              searchQuery={searchQuery} 
+              onStudentClick={openDetails} 
+            />
           </TabsContent>
 
           <TabsContent value="graduated" className="space-y-4">
@@ -314,186 +219,21 @@ const Index = () => {
                     Historial de alumnos que han completado su ciclo.
                 </p>
              </div>
-            
-            <div className="space-y-3">
-              {filterList(graduatedStudents).length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground">
-                  No hay alumnos egresados aún.
-                </div>
-              ) : (
-                filterList(graduatedStudents).map((student) => (
-                  <StudentCard 
-                    key={student.id} 
-                    student={student} 
-                    onClick={() => openDetails(student)} 
-                  />
-                ))
-              )}
-            </div>
+            <StudentList 
+              students={graduatedStudents} 
+              searchQuery={searchQuery} 
+              onStudentClick={openDetails} 
+              emptyMessage="No hay alumnos egresados aún."
+            />
           </TabsContent>
 
           <TabsContent value="calendar">
-            <div className="bg-white rounded-xl border shadow-sm p-4 space-y-6">
-              
-              <div className="flex justify-center">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  className="rounded-md border shadow-none"
-                />
-              </div>
-
-              {/* Add Call Button in Calendar Tab */}
-              <Dialog open={isAddCallOpen} onOpenChange={setIsAddCallOpen}>
-                <DialogTrigger asChild>
-                    <Button className="w-full" variant="outline">
-                        <Plus className="mr-2 h-4 w-4" /> Agendar Nueva Llamada
-                    </Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Agendar Llamada</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Alumno</Label>
-                            <Select value={newCallStudentId} onValueChange={setNewCallStudentId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar alumno..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {students.map(s => (
-                                        <SelectItem key={s.id} value={s.id}>
-                                            {s.firstName} {s.lastName} ({s.status === 'graduated' ? 'Egresado' : 'Activo'})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Fecha</Label>
-                            <div className="border rounded-md p-2 flex justify-center">
-                                <Calendar
-                                    mode="single"
-                                    selected={newCallDate}
-                                    onSelect={setNewCallDate}
-                                    initialFocus
-                                />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Hora</Label>
-                            <Input 
-                                type="time" 
-                                value={newCallTime}
-                                onChange={(e) => setNewCallTime(e.target.value)}
-                            />
-                        </div>
-                        <Button className="w-full" onClick={handleScheduleGlobalCall} disabled={isSubmitting}>
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Confirmar
-                        </Button>
-                    </div>
-                </DialogContent>
-              </Dialog>
-              
-              {/* Daily View */}
-              <div className="space-y-2">
-                <h3 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wide">
-                  <CalendarIcon size={14} />
-                  Llamadas: {date ? format(date, "EEEE d, MMMM") : "Selecciona un día"}
-                </h3>
-                
-                {callsOnDate.length > 0 ? (
-                  <div className="space-y-2">
-                    {callsOnDate.map((call) => (
-                      <div 
-                        key={call.id} 
-                        className="p-3 border rounded-lg bg-blue-50/50 flex items-center justify-between cursor-pointer hover:bg-blue-50 transition-colors group"
-                      >
-                         <div className="flex items-center gap-3" onClick={() => openDetails(call.student)}>
-                            <div className="h-8 w-8 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs">
-                                {call.student.firstName[0]}{call.student.lastName[0]}
-                            </div>
-                            <div>
-                                <p className="font-medium text-sm">{call.student.firstName} {call.student.lastName}</p>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <span className="flex items-center gap-1"><Clock size={10} /> {format(call.date, "HH:mm")}</span>
-                                </div>
-                            </div>
-                         </div>
-                         <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-green-600 hover:bg-green-50"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                downloadCallIcs(call, call.student);
-                            }}
-                            title="Agregar a Calendario"
-                         >
-                            <CalendarPlus size={16} />
-                         </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-muted/20 rounded-lg border border-dashed text-center">
-                    <p className="text-xs text-muted-foreground">
-                      No hay llamadas para este día específico.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Global Upcoming View */}
-              <div className="space-y-2 pt-4 border-t">
-                 <h3 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wide">
-                    <CalendarDays size={14} />
-                    Próximas Llamadas (Todas)
-                 </h3>
-                 {allUpcomingCalls.length === 0 ? (
-                    <div className="text-center text-sm text-muted-foreground py-4">
-                        No tienes ninguna llamada futura programada.
-                    </div>
-                 ) : (
-                    <div className="space-y-2">
-                        {allUpcomingCalls.map((call) => (
-                           <div 
-                             key={`upcoming-${call.id}`} 
-                             className="p-3 border rounded-lg hover:shadow-sm transition-all flex items-center justify-between bg-white cursor-pointer group"
-                           >
-                              <div className="flex items-center gap-3" onClick={() => openDetails(call.student)}>
-                                <div className="flex flex-col items-center justify-center w-10 h-10 bg-gray-100 rounded-md border text-xs">
-                                    <span className="font-bold text-gray-900">{format(call.date, "d")}</span>
-                                    <span className="text-[10px] text-gray-500 uppercase">{format(call.date, "MMM")}</span>
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-sm">{call.student.firstName} {call.student.lastName}</p>
-                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                        <Clock size={10} /> {format(call.date, "EEEE, HH:mm")}
-                                    </p>
-                                </div>
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-green-600 hover:bg-green-50"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    downloadCallIcs(call, call.student);
-                                }}
-                                title="Agregar a Calendario"
-                             >
-                                <CalendarPlus size={16} />
-                             </Button>
-                           </div>
-                        ))}
-                    </div>
-                 )}
-              </div>
-            </div>
+            <CalendarView 
+              students={students}
+              onScheduleCall={handleScheduleGlobalCall}
+              isSubmitting={isSubmitting}
+              onOpenStudentDetails={openDetails}
+            />
           </TabsContent>
         </Tabs>
       </main>
@@ -503,9 +243,9 @@ const Index = () => {
         isOpen={detailsOpen} 
         onClose={() => {
             setDetailsOpen(false);
-            fetchData(); // Refresh data on close to ensure sync
+            fetchData();
         }}
-        onUpdateStudent={handleUpdateStudentLocal}
+        onUpdateStudent={fetchData}
       />
       
       <div className="fixed bottom-0 w-full bg-white/50 backdrop-blur-sm border-t py-2">
