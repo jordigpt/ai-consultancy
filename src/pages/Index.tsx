@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Student, Lead } from "@/lib/types";
 import { StudentDetails } from "@/components/dashboard/StudentDetails";
 import { LeadDetails } from "@/components/leads/LeadDetails";
@@ -217,13 +216,9 @@ const Index = () => {
 
   const convertLeadToStudent = (lead: Lead) => {
       // Logic: Close Lead Sheet -> Open Add Student Modal pre-filled
-      // Note: Since StudentForm manages its own state, we can't easily pre-fill it without modifying it heavily.
-      // For now, we will just open the modal and let the user know.
-      // A proper implementation would involve passing initialValues to StudentForm.
       setLeadDetailsOpen(false);
       setIsAddStudentOpen(true);
       showSuccess("Completa los datos para registrar al nuevo alumno.");
-      // In a real V2, pass props to prefill firstName/lastName/context from lead data
   };
 
   const activeStudents = students.filter(s => s.status === 'active' || !s.status);
@@ -317,7 +312,6 @@ const Index = () => {
             )}
           </TabsContent>
 
-          {/* Existing Tabs ... */}
           <TabsContent value="active" className="mt-0 space-y-4">
              <div className="relative mb-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -337,7 +331,6 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="graduated" className="mt-0 space-y-4">
-             {/* Same as before */}
              <div className="relative mb-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input 
@@ -393,10 +386,6 @@ const Index = () => {
         onUpdate={fetchData}
         onConvertToStudent={convertLeadToStudent}
       />
-      
-      <div className="hidden sm:block fixed bottom-0 w-full bg-white/50 backdrop-blur-sm border-t py-1">
-         <MadeWithDyad />
-      </div>
     </div>
   );
 };
