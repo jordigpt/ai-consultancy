@@ -61,6 +61,7 @@ const Index = () => {
         id: s.id,
         firstName: s.first_name,
         lastName: s.last_name,
+        email: s.email, // Mapped email
         occupation: s.occupation,
         context: s.context || "",
         aiLevel: s.ai_level,
@@ -127,6 +128,7 @@ const Index = () => {
         user_id: user.id,
         first_name: data.firstName,
         last_name: data.lastName,
+        email: data.email, // Added email
         occupation: data.occupation,
         context: data.context,
         ai_level: data.aiLevel,

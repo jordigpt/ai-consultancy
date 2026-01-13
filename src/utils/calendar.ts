@@ -5,7 +5,9 @@ const generateIcsFile = (
   date: Date,
   title: string,
   description: string,
-  filename: string
+  filename: string,
+  attendeeName?: string,
+  attendeeEmail?: string
 ) => {
   // Formatear fecha para ICS (UTC)
   const formatDate = (date: Date) => {
@@ -15,9 +17,12 @@ const generateIcsFile = (
   const startDate = new Date(date);
   const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hora duración
 
-  const icsContent = `BEGIN:VCALENDAR
+  // Construcción del contenido base
+  let icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//AI Consultancy//Student Tracking//EN
+CALSCALE:GREGORIAN
+METHOD:REQUEST
 BEGIN:VEVENT
 UID:${id}
 DTSTAMP:${formatDate(new Date())}
@@ -26,8 +31,19 @@ DTEND:${formatDate(endDate)}
 SUMMARY:${title}
 DESCRIPTION:${description}
 LOCATION:Videollamada / Teléfono
-END:VEVENT
-END:VCALENDAR`;
+STATUS:CONFIRMED
+SEQUENCE:0`;
+
+  // Agregar Invitado (Attendee) si existe email
+  // RSVP=TRUE: Pide confirmación
+  // ROLE=REQ-PARTICIPANT: Participante requerido
+  // PARTSTAT=NEEDS-ACTION: El participante debe actuar (aceptar/rechazar)
+  if (attendeeEmail) {
+    const cn = attendeeName ? `;CN="${attendeeName}"` : '';
+    icsContent += `\nATTENDEE${cn};ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${attendeeEmail}`;
+  }
+
+  icsContent += `\nEND:VEVENT\nEND:VCALENDAR`;
 
   const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
   const url = window.URL.createObjectURL(blob);
@@ -45,7 +61,9 @@ export const downloadCallIcs = (call: Call, student: Student) => {
     call.date,
     `Llamada con ${student.firstName} ${student.lastName}`,
     `Consultoría AI - ${student.occupation}. ${call.notes || ''}`,
-    `llamada_${student.firstName}_${student.lastName}`
+    `llamada_${student.firstName}_${student.lastName}`,
+    `${student.firstName} ${student.lastName}`,
+    student.email // Pasamos el email del estudiante si existe
   );
 };
 
@@ -53,10 +71,12 @@ export const downloadLeadCallIcs = (lead: Lead) => {
   if (!lead.nextCallDate) return;
 
   generateIcsFile(
-    lead.id, // Usamos ID del lead como ID del evento ya que es 1 a 1 por ahora
+    lead.id,
     lead.nextCallDate,
     `Llamada con Lead: ${lead.name}`,
     `Seguimiento de prospecto. Interés: ${lead.interestLevel}. Notas: ${lead.notes || ''}`,
-    `lead_${lead.name.replace(/\s+/g, '_')}`
+    `lead_${lead.name.replace(/\s+/g, '_')}`,
+    lead.name,
+    lead.email // Pasamos el email del lead
   );
 };

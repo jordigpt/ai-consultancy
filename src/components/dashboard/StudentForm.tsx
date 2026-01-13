@@ -15,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, DollarSign } from "lucide-react";
+import { CalendarIcon, Loader2, DollarSign, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Student, BusinessModel } from "@/lib/types";
 
@@ -27,6 +27,7 @@ interface StudentFormProps {
 export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
   const [firstName, setFirstName] = React.useState("");
   const [lastName, setLastName] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [occupation, setOccupation] = React.useState("");
   const [context, setContext] = React.useState("");
   const [aiLevel, setAiLevel] = React.useState([1]);
@@ -45,6 +46,7 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
     onSubmit({
       firstName,
       lastName,
+      email,
       occupation,
       context,
       aiLevel: aiLevel[0] as any,
@@ -67,6 +69,22 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
           <Label htmlFor="lastName">Apellido</Label>
           <Input id="lastName" required value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Pérez" />
         </div>
+      </div>
+
+      <div className="space-y-2">
+          <Label htmlFor="email">Email del Alumno</Label>
+          <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input 
+                id="email" 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                className="pl-9" 
+                placeholder="alumno@email.com" 
+              />
+          </div>
+          <p className="text-[10px] text-muted-foreground">Necesario para enviar invitaciones de calendario.</p>
       </div>
 
       <div className="space-y-2">
@@ -101,7 +119,7 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
             max={10}
             min={1}
             step={1}
-            className="flex-1 touch-none" // touch-none ayuda en moviles
+            className="flex-1 touch-none"
           />
           <span className="font-bold text-lg w-8 text-center">{aiLevel[0]}</span>
         </div>

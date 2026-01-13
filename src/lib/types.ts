@@ -28,6 +28,7 @@ export interface Student {
   id: string;
   firstName: string;
   lastName: string;
+  email?: string; // New field
   occupation: string;
   context: string;
   aiLevel: AILevel;
