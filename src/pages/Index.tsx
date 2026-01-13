@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { Student } from "@/lib/types";
+import { Student, Lead } from "@/lib/types";
 import { StudentDetails } from "@/components/dashboard/StudentDetails";
+import { LeadDetails } from "@/components/leads/LeadDetails";
+import { LeadCard } from "@/components/leads/LeadCard";
+import { LeadForm } from "@/components/leads/LeadForm";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Users, Calendar as CalendarIcon, GraduationCap, Loader2 } from "lucide-react";
+import { Search, Users, Calendar as CalendarIcon, GraduationCap, Loader2, Target, Plus } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 // Components
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -16,12 +21,18 @@ import { CalendarView } from "@/components/dashboard/CalendarView";
 
 const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  
+  const [studentDetailsOpen, setStudentDetailsOpen] = useState(false);
+  const [leadDetailsOpen, setLeadDetailsOpen] = useState(false);
   
   // UI States
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
+  const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -30,19 +41,24 @@ const Index = () => {
     try {
       setLoading(true);
       
+      // Fetch Students
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select(`
-          *,
-          tasks (*),
-          calls (*)
-        `)
+        .select(`*, tasks (*), calls (*)`)
         .order('created_at', { ascending: false });
 
       if (studentsError) throw studentsError;
 
-      // Transform snake_case from DB to camelCase for frontend
-      const transformedData: Student[] = studentsData.map((s: any) => ({
+      // Fetch Leads
+      const { data: leadsData, error: leadsError } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (leadsError) throw leadsError;
+
+      // Transform Students
+      const transformedStudents: Student[] = studentsData.map((s: any) => ({
         id: s.id,
         firstName: s.first_name,
         lastName: s.last_name,
@@ -69,7 +85,22 @@ const Index = () => {
         })).sort((a: any, b: any) => b.date - a.date)
       }));
 
-      setStudents(transformedData);
+      // Transform Leads
+      const transformedLeads: Lead[] = leadsData.map((l: any) => ({
+        id: l.id,
+        name: l.name,
+        email: l.email || "",
+        phone: l.phone || "",
+        status: l.status,
+        interestLevel: l.interest_level,
+        notes: l.notes || "",
+        nextCallDate: l.next_call_date ? new Date(l.next_call_date) : undefined,
+        createdAt: new Date(l.created_at)
+      }));
+
+      setStudents(transformedStudents);
+      setLeads(transformedLeads);
+
     } catch (error) {
       console.error("Error fetching data:", error);
       showError("Error al cargar los datos");
@@ -123,6 +154,36 @@ const Index = () => {
     }
   };
 
+  const handleAddLead = async (data: Omit<Lead, "id" | "createdAt" | "status">) => {
+      try {
+        setIsSubmitting(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("No user found");
+
+        const dbData = {
+            user_id: user.id,
+            name: data.name,
+            email: data.email,
+            phone: data.phone,
+            interest_level: data.interestLevel,
+            notes: data.notes,
+            next_call_date: data.nextCallDate?.toISOString(),
+            status: 'new'
+        };
+
+        const { error } = await supabase.from('leads').insert(dbData);
+        if (error) throw error;
+
+        showSuccess("Lead creado");
+        setIsAddLeadOpen(false);
+        fetchData();
+      } catch (error) {
+          showError("Error al guardar lead");
+      } finally {
+          setIsSubmitting(false);
+      }
+  };
+
   const handleScheduleGlobalCall = async (studentId: string, date: Date, time: string) => {
     try {
         setIsSubmitting(true);
@@ -154,12 +215,32 @@ const Index = () => {
     }
   };
 
+  const convertLeadToStudent = (lead: Lead) => {
+      // Logic: Close Lead Sheet -> Open Add Student Modal pre-filled
+      // Note: Since StudentForm manages its own state, we can't easily pre-fill it without modifying it heavily.
+      // For now, we will just open the modal and let the user know.
+      // A proper implementation would involve passing initialValues to StudentForm.
+      setLeadDetailsOpen(false);
+      setIsAddStudentOpen(true);
+      showSuccess("Completa los datos para registrar al nuevo alumno.");
+      // In a real V2, pass props to prefill firstName/lastName/context from lead data
+  };
+
   const activeStudents = students.filter(s => s.status === 'active' || !s.status);
   const graduatedStudents = students.filter(s => s.status === 'graduated');
+  const filteredLeads = leads.filter(l => 
+      l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      l.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const openDetails = (student: Student) => {
+  const openStudentDetails = (student: Student) => {
     setSelectedStudent(student);
-    setDetailsOpen(true);
+    setStudentDetailsOpen(true);
+  };
+
+  const openLeadDetails = (lead: Lead) => {
+      setSelectedLead(lead);
+      setLeadDetailsOpen(true);
   };
 
   if (loading) {
@@ -181,8 +262,11 @@ const Index = () => {
       />
 
       <main className="container max-w-2xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
-        <Tabs defaultValue="active" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4 h-auto py-1">
+        <Tabs defaultValue="leads" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-4 h-auto py-1">
+             <TabsTrigger value="leads" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
+              <Target size={16} className="shrink-0" /> <span className="truncate">Leads</span>
+            </TabsTrigger>
             <TabsTrigger value="active" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
               <Users size={16} className="shrink-0" /> <span className="truncate">Activos</span>
             </TabsTrigger>
@@ -194,7 +278,46 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          {/* Only show search on student tabs */}
+          <TabsContent value="leads" className="mt-0 space-y-4">
+            <div className="flex gap-2">
+                 <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <Input 
+                    placeholder="Buscar lead..." 
+                    className="pl-9 bg-white shadow-sm h-11 sm:h-10 text-base sm:text-sm"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
+                    <DialogTrigger asChild>
+                         <Button size="icon" className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 bg-blue-600 hover:bg-blue-700">
+                             <Plus size={20} />
+                         </Button>
+                    </DialogTrigger>
+                    <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
+                        <DialogHeader>
+                            <DialogTitle>Nuevo Lead</DialogTitle>
+                        </DialogHeader>
+                        <LeadForm onSubmit={handleAddLead} isLoading={isSubmitting} />
+                    </DialogContent>
+                </Dialog>
+            </div>
+
+            {filteredLeads.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">
+                    No hay leads registrados aún.
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {filteredLeads.map(lead => (
+                        <LeadCard key={lead.id} lead={lead} onClick={() => openLeadDetails(lead)} />
+                    ))}
+                </div>
+            )}
+          </TabsContent>
+
+          {/* Existing Tabs ... */}
           <TabsContent value="active" className="mt-0 space-y-4">
              <div className="relative mb-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -209,11 +332,12 @@ const Index = () => {
             <StudentList 
               students={activeStudents} 
               searchQuery={searchQuery} 
-              onStudentClick={openDetails} 
+              onStudentClick={openStudentDetails} 
             />
           </TabsContent>
 
           <TabsContent value="graduated" className="mt-0 space-y-4">
+             {/* Same as before */}
              <div className="relative mb-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input 
@@ -231,7 +355,7 @@ const Index = () => {
             <StudentList 
               students={graduatedStudents} 
               searchQuery={searchQuery} 
-              onStudentClick={openDetails} 
+              onStudentClick={openStudentDetails} 
               emptyMessage="No hay alumnos egresados aún."
             />
           </TabsContent>
@@ -239,9 +363,11 @@ const Index = () => {
           <TabsContent value="calendar" className="mt-0">
             <CalendarView 
               students={students}
+              leads={leads}
               onScheduleCall={handleScheduleGlobalCall}
               isSubmitting={isSubmitting}
-              onOpenStudentDetails={openDetails}
+              onOpenStudentDetails={openStudentDetails}
+              onOpenLeadDetails={openLeadDetails}
             />
           </TabsContent>
         </Tabs>
@@ -249,12 +375,23 @@ const Index = () => {
 
       <StudentDetails 
         student={selectedStudent} 
-        isOpen={detailsOpen} 
+        isOpen={studentDetailsOpen} 
         onClose={() => {
-            setDetailsOpen(false);
+            setStudentDetailsOpen(false);
             fetchData();
         }}
         onUpdateStudent={fetchData}
+      />
+
+      <LeadDetails 
+        lead={selectedLead}
+        isOpen={leadDetailsOpen}
+        onClose={() => {
+            setLeadDetailsOpen(false);
+            fetchData();
+        }}
+        onUpdate={fetchData}
+        onConvertToStudent={convertLeadToStudent}
       />
       
       <div className="hidden sm:block fixed bottom-0 w-full bg-white/50 backdrop-blur-sm border-t py-1">

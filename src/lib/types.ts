@@ -41,8 +41,24 @@ export interface Student {
   amountOwed?: number;
   
   // Archivos
-  roadmapUrl?: string; // Nuevo campo
+  roadmapUrl?: string; 
   
   tasks: Task[];
   calls: Call[];
+}
+
+// LEADS TYPES
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'lost' | 'won';
+export type InterestLevel = 'low' | 'medium' | 'high';
+
+export interface Lead {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  status: LeadStatus;
+  interestLevel: InterestLevel;
+  notes: string;
+  nextCallDate?: Date;
+  createdAt: Date;
 }
