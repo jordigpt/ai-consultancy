@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Phone, Plus, Trash2, Clock, Pencil, CalendarPlus } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,7 +20,7 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
   // Add Call State
   const [newCallDate, setNewCallDate] = useState<Date | undefined>(undefined);
   const [newCallTime, setNewCallTime] = useState("10:00");
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   // Edit Call State
   const [editingCall, setEditingCall] = useState<Call | null>(null);
@@ -60,7 +59,7 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
       onUpdate({ ...student, calls: updatedCalls });
       
       setNewCallDate(undefined);
-      setIsCalendarOpen(false);
+      setIsAddDialogOpen(false);
       showSuccess("Llamada agendada");
     } catch (error) {
       console.error(error);
@@ -121,23 +120,30 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
         <h3 className="font-semibold flex items-center gap-2 text-sm sm:text-base">
           <Phone size={16} /> Llamadas / Consultoría
         </h3>
-        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-          <PopoverTrigger asChild>
+        
+        {/* Cambiado de Popover a Dialog para mejor UX móvil */}
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
             <Button size="sm" variant="outline" className="h-8 text-xs sm:text-sm">
               <Plus size={14} className="mr-1" /> Agendar
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-4" align="end">
-            <div className="space-y-4">
+          </DialogTrigger>
+          <DialogContent className="w-[95vw] rounded-xl sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Agendar Nueva Llamada</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Fecha</Label>
-                <Calendar
-                  mode="single"
-                  selected={newCallDate}
-                  onSelect={setNewCallDate}
-                  initialFocus
-                  className="rounded-md border shadow-sm"
-                />
+                <div className="flex justify-center border rounded-md p-2 bg-gray-50/50">
+                  <Calendar
+                    mode="single"
+                    selected={newCallDate}
+                    onSelect={setNewCallDate}
+                    initialFocus
+                    className="rounded-md shadow-sm bg-white"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Hora</Label>
@@ -145,15 +151,19 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
                   type="time" 
                   value={newCallTime} 
                   onChange={(e) => setNewCallTime(e.target.value)}
-                  className="text-lg"
+                  className="text-lg h-12"
                 />
               </div>
-              <Button className="w-full" size="sm" onClick={handleScheduleCall} disabled={!newCallDate}>
+              <Button 
+                className="w-full h-11 text-base mt-2" 
+                onClick={handleScheduleCall} 
+                disabled={!newCallDate}
+              >
                 Confirmar Agendamiento
               </Button>
             </div>
-          </PopoverContent>
-        </Popover>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="space-y-2">
