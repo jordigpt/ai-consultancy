@@ -1,4 +1,5 @@
 import { Call, Student, Lead } from "@/lib/types";
+import { format } from "date-fns";
 
 const generateIcsFile = (
   id: string,
@@ -73,8 +74,8 @@ export const downloadLeadCallIcs = (lead: Lead) => {
   generateIcsFile(
     lead.id,
     lead.nextCallDate,
-    `Llamada con Lead: ${lead.name}`,
-    `Seguimiento de prospecto. Interés: ${lead.interestLevel}. Notas: ${lead.notes || ''}`,
+    `Discovery: ${lead.name}`,
+    `Sesión de Discovery / Consultoría.`,
     `lead_${lead.name.replace(/\s+/g, '_')}`,
     lead.name,
     lead.email // Pasamos el email del lead
