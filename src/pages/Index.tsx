@@ -6,17 +6,19 @@ import { LeadCard } from "@/components/leads/LeadCard";
 import { LeadForm } from "@/components/leads/LeadForm";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Users, Calendar as CalendarIcon, GraduationCap, Loader2, Target, Plus } from "lucide-react";
+import { Search, Users, Calendar as CalendarIcon, GraduationCap, Loader2, Target, Plus, Bell } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { differenceInDays } from "date-fns";
 
 // Components
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { MetricsOverview } from "@/components/dashboard/MetricsOverview";
 import { StudentList } from "@/components/dashboard/StudentList";
 import { CalendarView } from "@/components/dashboard/CalendarView";
+import { NotificationsView } from "@/components/dashboard/NotificationsView";
 
 const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -230,6 +232,12 @@ const Index = () => {
       l.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Calculate notifications count
+  const notificationsCount = leads.filter(lead => {
+    const daysSinceCreation = differenceInDays(new Date(), new Date(lead.createdAt));
+    return daysSinceCreation >= 7 && lead.status !== 'won' && lead.status !== 'lost';
+  }).length;
+
   const openStudentDetails = (student: Student) => {
     setSelectedStudent(student);
     setStudentDetailsOpen(true);
@@ -260,18 +268,26 @@ const Index = () => {
 
       <main className="container max-w-2xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
         <Tabs defaultValue="active" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-4 h-auto py-1">
-            <TabsTrigger value="active" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
-              <Users size={16} className="shrink-0" /> <span className="truncate">Activos</span>
+          <TabsList className="grid w-full grid-cols-5 mb-4 h-auto py-1">
+            <TabsTrigger value="active" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
+              <Users size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Activos</span>
             </TabsTrigger>
-            <TabsTrigger value="graduated" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
-              <GraduationCap size={16} className="shrink-0" /> <span className="truncate">Egresados</span>
+            <TabsTrigger value="graduated" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
+              <GraduationCap size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Egresados</span>
             </TabsTrigger>
-            <TabsTrigger value="calendar" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
-              <CalendarIcon size={16} className="shrink-0" /> <span className="truncate">Agenda</span>
+            <TabsTrigger value="calendar" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
+              <CalendarIcon size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Agenda</span>
             </TabsTrigger>
-             <TabsTrigger value="leads" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5">
-              <Target size={16} className="shrink-0" /> <span className="truncate">Leads</span>
+             <TabsTrigger value="leads" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
+              <Target size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Leads</span>
+            </TabsTrigger>
+             <TabsTrigger value="notifications" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0 relative">
+              <Bell size={16} className="shrink-0" /> 
+              {notificationsCount > 0 && (
+                  <span className="absolute top-1 right-1 sm:top-0.5 sm:right-0.5 flex h-3 w-3 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-red-600 text-[8px] sm:text-[10px] font-bold text-white">
+                      {notificationsCount}
+                  </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -364,6 +380,10 @@ const Index = () => {
                     ))}
                 </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="notifications" className="mt-0">
+            <NotificationsView leads={leads} onLeadClick={openLeadDetails} />
           </TabsContent>
         </Tabs>
       </main>

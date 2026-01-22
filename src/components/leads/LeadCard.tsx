@@ -3,8 +3,9 @@ import { Lead } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, CalendarPlus, Mail, MessageSquare, Phone } from "lucide-react";
-import { format, isPast } from "date-fns";
+import { CalendarClock, CalendarPlus, Mail, MessageSquare, Phone, Clock } from "lucide-react";
+import { format, isPast, formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { downloadLeadCallIcs } from "@/utils/calendar";
 
@@ -39,12 +40,20 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
       downloadLeadCallIcs(lead);
   };
 
+  // Calculate time ago
+  const timeAgo = formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true, locale: es });
+
   return (
     <Card 
-      className="cursor-pointer hover:shadow-md transition-all hover:border-primary/50 group animate-in fade-in slide-in-from-bottom-4 duration-500"
+      className="cursor-pointer hover:shadow-md transition-all hover:border-primary/50 group animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden"
       onClick={onClick}
     >
-      <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0">
+      {/* Time Ago Badge - Top Right */}
+      <div className="absolute top-0 right-0 bg-gray-100 px-3 py-1 rounded-bl-lg border-b border-l text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
+        <Clock size={10} /> Cargado {timeAgo}
+      </div>
+
+      <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0 mt-2">
         <div>
             <h3 className="font-semibold leading-none text-lg mb-1">{lead.name}</h3>
             <div className="flex flex-wrap gap-2 mt-2">
