@@ -74,4 +74,9 @@ export interface MentorTask {
   priority: TaskPriority;
   completed: boolean;
   createdAt: Date;
+  studentId?: string;
+  leadId?: string;
+  // Optional for UI
+  relatedName?: string;
+  relatedType?: 'student' | 'lead';
 }

@@ -17,6 +17,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -27,12 +40,24 @@ import {
   ArrowUpCircle, 
   ArrowDownCircle, 
   Loader2,
-  Calendar
+  Calendar,
+  User,
+  Target,
+  Check,
+  ChevronsUpDown,
+  X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+
+interface RelationOption {
+    id: string;
+    label: string;
+    type: 'student' | 'lead';
+}
 
 export const MentorTasksView = () => {
   const [tasks, setTasks] = useState<MentorTask[]>([]);
@@ -43,38 +68,87 @@ export const MentorTasksView = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [selectedRelation, setSelectedRelation] = useState<RelationOption | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Relations Data
+  const [relations, setRelations] = useState<RelationOption[]>([]);
+  const [openCombobox, setOpenCombobox] = useState(false);
 
-  const fetchTasks = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
+      setIsLoading(true);
+      
+      // 1. Fetch Tasks
+      const { data: tasksData, error: tasksError } = await supabase
         .from('mentor_tasks')
-        .select('*')
-        .order('completed', { ascending: true }) // Primero las no completadas
-        .order('created_at', { ascending: false }); // Luego las más nuevas
+        .select(`
+            *,
+            students (id, first_name, last_name),
+            leads (id, name)
+        `)
+        .order('completed', { ascending: true })
+        .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (tasksError) throw tasksError;
 
-      const formattedTasks: MentorTask[] = data.map((t: any) => ({
-        id: t.id,
-        title: t.title,
-        description: t.description,
-        priority: t.priority,
-        completed: t.completed,
-        createdAt: new Date(t.created_at)
-      }));
+      const formattedTasks: MentorTask[] = tasksData.map((t: any) => {
+        let relatedName = undefined;
+        let relatedType: 'student' | 'lead' | undefined = undefined;
+
+        if (t.students) {
+            relatedName = `${t.students.first_name} ${t.students.last_name}`;
+            relatedType = 'student';
+        } else if (t.leads) {
+            relatedName = t.leads.name;
+            relatedType = 'lead';
+        }
+
+        return {
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            priority: t.priority,
+            completed: t.completed,
+            createdAt: new Date(t.created_at),
+            studentId: t.student_id,
+            leadId: t.lead_id,
+            relatedName,
+            relatedType
+        };
+      });
 
       setTasks(formattedTasks);
+
+      // 2. Fetch Relations (Students & Leads) for the selector
+      const { data: studentsData } = await supabase.from('students').select('id, first_name, last_name').eq('status', 'active');
+      const { data: leadsData } = await supabase.from('leads').select('id, name').neq('status', 'won').neq('status', 'lost');
+
+      const options: RelationOption[] = [
+        ...(studentsData?.map(s => ({
+            id: s.id,
+            label: `${s.first_name} ${s.last_name}`,
+            type: 'student' as const
+        })) || []),
+        ...(leadsData?.map(l => ({
+            id: l.id,
+            label: l.name,
+            type: 'lead' as const
+        })) || [])
+      ];
+      
+      setRelations(options);
+
     } catch (error) {
       console.error(error);
-      showError("Error al cargar tareas");
+      showError("Error al cargar datos");
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTasks();
+    fetchData();
   }, []);
 
   const handleAddTask = async () => {
@@ -85,12 +159,16 @@ export const MentorTasksView = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase.from('mentor_tasks').insert({
+      const payload: any = {
         user_id: user.id,
         title,
         description,
-        priority
-      });
+        priority,
+        student_id: selectedRelation?.type === 'student' ? selectedRelation.id : null,
+        lead_id: selectedRelation?.type === 'lead' ? selectedRelation.id : null
+      };
+
+      const { error } = await supabase.from('mentor_tasks').insert(payload);
 
       if (error) throw error;
 
@@ -98,8 +176,9 @@ export const MentorTasksView = () => {
       setTitle("");
       setDescription("");
       setPriority("medium");
+      setSelectedRelation(null);
       setIsAddOpen(false);
-      fetchTasks();
+      fetchData(); // Reload to get the relations populated
     } catch (error) {
       showError("Error al crear tarea");
     } finally {
@@ -109,7 +188,6 @@ export const MentorTasksView = () => {
 
   const toggleTask = async (task: MentorTask) => {
     try {
-      // Optimistic Update
       const updatedTasks = tasks.map(t => 
         t.id === task.id ? { ...t, completed: !t.completed } : t
       );
@@ -121,7 +199,7 @@ export const MentorTasksView = () => {
         .eq('id', task.id);
 
       if (error) {
-          fetchTasks(); // Revert on error
+          fetchData(); 
           throw error;
       }
     } catch (error) {
@@ -143,9 +221,9 @@ export const MentorTasksView = () => {
 
   const getPriorityBadge = (p: TaskPriority) => {
     switch(p) {
-        case 'high': return <Badge variant="destructive" className="gap-1"><AlertTriangle size={10} /> Alta</Badge>;
-        case 'medium': return <Badge variant="secondary" className="bg-orange-100 text-orange-800 hover:bg-orange-200 gap-1"><ArrowUpCircle size={10} /> Media</Badge>;
-        case 'low': return <Badge variant="outline" className="text-muted-foreground gap-1"><ArrowDownCircle size={10} /> Baja</Badge>;
+        case 'high': return <Badge variant="destructive" className="gap-1 h-5 text-[10px] px-1.5"><AlertTriangle size={8} /> Alta</Badge>;
+        case 'medium': return <Badge variant="secondary" className="bg-orange-100 text-orange-800 hover:bg-orange-200 gap-1 h-5 text-[10px] px-1.5"><ArrowUpCircle size={8} /> Media</Badge>;
+        case 'low': return <Badge variant="outline" className="text-muted-foreground gap-1 h-5 text-[10px] px-1.5"><ArrowDownCircle size={8} /> Baja</Badge>;
     }
   };
 
@@ -154,7 +232,6 @@ export const MentorTasksView = () => {
   }
 
   const pendingTasks = tasks.filter(t => !t.completed);
-  const completedTasks = tasks.filter(t => t.completed);
 
   return (
     <div className="space-y-6">
@@ -174,7 +251,7 @@ export const MentorTasksView = () => {
                     <Plus className="mr-2 h-4 w-4" /> Nueva Tarea
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="overflow-visible">
                 <DialogHeader>
                     <DialogTitle>Agregar Tarea Personal</DialogTitle>
                 </DialogHeader>
@@ -187,6 +264,84 @@ export const MentorTasksView = () => {
                             onChange={(e) => setTitle(e.target.value)}
                         />
                     </div>
+
+                    <div className="space-y-2 flex flex-col">
+                        <label className="text-sm font-medium">Relacionado con (Opcional)</label>
+                        <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={openCombobox}
+                                className="justify-between"
+                                >
+                                {selectedRelation
+                                    ? selectedRelation.label
+                                    : "Buscar alumno o lead..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start">
+                                <Command>
+                                    <CommandInput placeholder="Buscar..." />
+                                    <CommandList>
+                                        <CommandEmpty>No encontrado.</CommandEmpty>
+                                        <CommandGroup heading="Alumnos">
+                                            {relations.filter(r => r.type === 'student').map((relation) => (
+                                                <CommandItem
+                                                    key={relation.id}
+                                                    value={relation.label}
+                                                    onSelect={() => {
+                                                        setSelectedRelation(relation);
+                                                        setOpenCombobox(false);
+                                                    }}
+                                                >
+                                                    <Check
+                                                        className={cn(
+                                                            "mr-2 h-4 w-4",
+                                                            selectedRelation?.id === relation.id ? "opacity-100" : "opacity-0"
+                                                        )}
+                                                    />
+                                                    {relation.label}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                        <CommandGroup heading="Leads">
+                                            {relations.filter(r => r.type === 'lead').map((relation) => (
+                                                <CommandItem
+                                                    key={relation.id}
+                                                    value={relation.label}
+                                                    onSelect={() => {
+                                                        setSelectedRelation(relation);
+                                                        setOpenCombobox(false);
+                                                    }}
+                                                >
+                                                    <Check
+                                                        className={cn(
+                                                            "mr-2 h-4 w-4",
+                                                            selectedRelation?.id === relation.id ? "opacity-100" : "opacity-0"
+                                                        )}
+                                                    />
+                                                    {relation.label}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        {selectedRelation && (
+                             <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="self-start h-6 text-xs text-muted-foreground -mt-1"
+                                onClick={() => setSelectedRelation(null)}
+                            >
+                                <X size={12} className="mr-1" /> Quitar selección
+                            </Button>
+                        )}
+                    </div>
+
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Prioridad</label>
                         <Select value={priority} onValueChange={(val) => setPriority(val as TaskPriority)}>
@@ -228,7 +383,7 @@ export const MentorTasksView = () => {
             tasks.map((task) => (
                 <div 
                     key={task.id} 
-                    className={`group flex items-start gap-3 p-4 rounded-xl border transition-all ${
+                    className={`group relative flex items-start gap-3 p-4 rounded-xl border transition-all ${
                         task.completed 
                             ? "bg-gray-50 opacity-60" 
                             : "bg-white hover:border-primary/40 hover:shadow-sm"
@@ -241,11 +396,19 @@ export const MentorTasksView = () => {
                     />
                     
                     <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between pr-8">
                             <span className={`font-medium ${task.completed ? "line-through text-muted-foreground" : ""}`}>
                                 {task.title}
                             </span>
-                            {getPriorityBadge(task.priority)}
+                            <div className="flex items-center gap-2">
+                                {task.relatedName && (
+                                    <Badge variant="outline" className="text-[10px] h-5 bg-blue-50 text-blue-700 border-blue-100 flex items-center gap-1 font-normal">
+                                        {task.relatedType === 'student' ? <User size={8} /> : <Target size={8} />}
+                                        {task.relatedName}
+                                    </Badge>
+                                )}
+                                {getPriorityBadge(task.priority)}
+                            </div>
                         </div>
                         
                         {task.description && (
@@ -263,7 +426,7 @@ export const MentorTasksView = () => {
                     <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/10"
+                        className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/10"
                         onClick={() => deleteTask(task.id)}
                     >
                         <Trash2 size={16} />
