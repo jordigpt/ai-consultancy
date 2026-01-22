@@ -6,7 +6,7 @@ import { LeadCard } from "@/components/leads/LeadCard";
 import { LeadForm } from "@/components/leads/LeadForm";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Users, Calendar as CalendarIcon, GraduationCap, Loader2, Target, Plus, Bell } from "lucide-react";
+import { Search, Users, Calendar as CalendarIcon, GraduationCap, Loader2, Target, Plus, Bell, ClipboardList } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { MetricsOverview } from "@/components/dashboard/MetricsOverview";
 import { StudentList } from "@/components/dashboard/StudentList";
 import { CalendarView } from "@/components/dashboard/CalendarView";
 import { NotificationsView } from "@/components/dashboard/NotificationsView";
+import { MentorTasksView } from "@/components/tasks/MentorTasksView";
 
 const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -268,7 +269,7 @@ const Index = () => {
 
       <main className="container max-w-2xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
         <Tabs defaultValue="active" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-4 h-auto py-1">
+          <TabsList className="grid w-full grid-cols-6 mb-4 h-auto py-1">
             <TabsTrigger value="active" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
               <Users size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Activos</span>
             </TabsTrigger>
@@ -277,6 +278,9 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="calendar" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
               <CalendarIcon size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Agenda</span>
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
+              <ClipboardList size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Tareas</span>
             </TabsTrigger>
              <TabsTrigger value="leads" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
               <Target size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Leads</span>
@@ -341,6 +345,10 @@ const Index = () => {
               onOpenStudentDetails={openStudentDetails}
               onOpenLeadDetails={openLeadDetails}
             />
+          </TabsContent>
+
+          <TabsContent value="tasks" className="mt-0">
+            <MentorTasksView />
           </TabsContent>
 
           <TabsContent value="leads" className="mt-0 space-y-4">

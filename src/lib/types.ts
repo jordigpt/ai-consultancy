@@ -63,3 +63,15 @@ export interface Lead {
   nextCallDate?: Date;
   createdAt: Date;
 }
+
+// MENTOR TASKS TYPES
+export type TaskPriority = 'high' | 'medium' | 'low';
+
+export interface MentorTask {
+  id: string;
+  title: string;
+  description?: string;
+  priority: TaskPriority;
+  completed: boolean;
+  createdAt: Date;
+}
