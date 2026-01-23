@@ -28,7 +28,7 @@ export interface Student {
   id: string;
   firstName: string;
   lastName: string;
-  email?: string; // New field
+  email?: string; 
   occupation: string;
   context: string;
   aiLevel: AILevel;
@@ -79,4 +79,16 @@ export interface MentorTask {
   // Optional for UI
   relatedName?: string;
   relatedType?: 'student' | 'lead';
+}
+
+// NOTES TYPES
+export type NoteCategory = 'Reel' | 'Story' | 'Guía' | 'SOP' | 'Otro';
+
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  category: string; // Flexible string to allow custom categories later
+  isPinned: boolean;
+  createdAt: Date;
 }

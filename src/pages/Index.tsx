@@ -4,9 +4,9 @@ import { StudentDetails } from "@/components/dashboard/StudentDetails";
 import { LeadDetails } from "@/components/leads/LeadDetails";
 import { LeadCard } from "@/components/leads/LeadCard";
 import { LeadForm } from "@/components/leads/LeadForm";
+import { StudentForm } from "@/components/dashboard/StudentForm"; // Added import
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Users, Calendar as CalendarIcon, GraduationCap, Loader2, Target, Plus, Bell, ClipboardList, LayoutDashboard } from "lucide-react";
+import { Search, Plus, Loader2 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,18 +14,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { differenceInDays } from "date-fns";
 
 // Components
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { MetricsOverview } from "@/components/dashboard/MetricsOverview";
 import { StudentList } from "@/components/dashboard/StudentList";
 import { CalendarView } from "@/components/dashboard/CalendarView";
 import { NotificationsView } from "@/components/dashboard/NotificationsView";
 import { MentorTasksView } from "@/components/tasks/MentorTasksView";
-import { Overview } from "@/components/dashboard/Overview"; // Import Overview
+import { Overview } from "@/components/dashboard/Overview";
+import { NotesView } from "@/components/notes/NotesView";
 
 const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentView, setCurrentView] = useState("overview"); 
   
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -65,7 +67,7 @@ const Index = () => {
         id: s.id,
         firstName: s.first_name,
         lastName: s.last_name,
-        email: s.email, // Mapped email
+        email: s.email, 
         occupation: s.occupation,
         context: s.context || "",
         aiLevel: s.ai_level,
@@ -132,7 +134,7 @@ const Index = () => {
         user_id: user.id,
         first_name: data.firstName,
         last_name: data.lastName,
-        email: data.email, // Added email
+        email: data.email, 
         occupation: data.occupation,
         context: data.context,
         ai_level: data.aiLevel,
@@ -221,24 +223,18 @@ const Index = () => {
   };
 
   const convertLeadToStudent = (lead: Lead) => {
-      // Logic: Close Lead Sheet -> Open Add Student Modal pre-filled
       setLeadDetailsOpen(false);
       setIsAddStudentOpen(true);
       showSuccess("Completa los datos para registrar al nuevo alumno.");
   };
 
+  // Filter Data
   const activeStudents = students.filter(s => s.status === 'active' || !s.status);
   const graduatedStudents = students.filter(s => s.status === 'graduated');
   const filteredLeads = leads.filter(l => 
       l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       l.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  // Calculate notifications count
-  const notificationsCount = leads.filter(lead => {
-    const daysSinceCreation = differenceInDays(new Date(), new Date(lead.createdAt));
-    return daysSinceCreation >= 7 && lead.status !== 'won' && lead.status !== 'lost';
-  }).length;
 
   const openStudentDetails = (student: Student) => {
     setSelectedStudent(student);
@@ -250,190 +246,172 @@ const Index = () => {
       setLeadDetailsOpen(true);
   };
 
-  if (loading) {
-    return (
-        <div className="h-screen flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-    );
-  }
+  // --- RENDER CONTENT BASED ON VIEW ---
+  const renderContent = () => {
+      if (loading) {
+          return (
+              <div className="h-[50vh] flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+          );
+      }
 
-  return (
-    <div className="min-h-screen bg-gray-50/50 pb-20">
-      <DashboardHeader 
-        onSignOut={handleSignOut}
-        onAddStudent={handleAddStudent}
-        isAddStudentOpen={isAddStudentOpen}
-        setIsAddStudentOpen={setIsAddStudentOpen}
-        isSubmitting={isSubmitting}
-      />
-
-      <main className="container max-w-7xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
-        <Tabs defaultValue="overview" className="w-full">
-          {/* Scrollable Tabs List for Mobile */}
-          <div className="w-full overflow-x-auto pb-2 scrollbar-hide">
-            <TabsList className="inline-flex w-auto min-w-full justify-start sm:justify-center h-auto py-1 px-1 bg-white/50 backdrop-blur border">
-              <TabsTrigger value="overview" className="gap-2 px-3 py-2 text-xs sm:text-sm">
-                <LayoutDashboard size={16} /> <span className="hidden sm:inline">Panel</span> General
-              </TabsTrigger>
-              <TabsTrigger value="active" className="gap-2 px-3 py-2 text-xs sm:text-sm">
-                <Users size={16} /> Alumnos
-              </TabsTrigger>
-              <TabsTrigger value="leads" className="gap-2 px-3 py-2 text-xs sm:text-sm">
-                <Target size={16} /> Leads
-              </TabsTrigger>
-              <TabsTrigger value="calendar" className="gap-2 px-3 py-2 text-xs sm:text-sm">
-                <CalendarIcon size={16} /> Agenda
-              </TabsTrigger>
-              <TabsTrigger value="tasks" className="gap-2 px-3 py-2 text-xs sm:text-sm">
-                <ClipboardList size={16} /> Tareas
-              </TabsTrigger>
-              <TabsTrigger value="graduated" className="gap-2 px-3 py-2 text-xs sm:text-sm">
-                <GraduationCap size={16} /> Egresados
-              </TabsTrigger>
-              <TabsTrigger value="notifications" className="gap-2 px-3 py-2 text-xs sm:text-sm relative">
-                <Bell size={16} /> 
-                {notificationsCount > 0 && (
-                    <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
-                        {notificationsCount}
-                    </span>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          {/* --- NEW OVERVIEW TAB --- */}
-          <TabsContent value="overview" className="mt-2">
-            <Overview 
-              students={students} 
-              leads={leads}
-              onAddStudent={() => setIsAddStudentOpen(true)}
-              onAddLead={() => setIsAddLeadOpen(true)}
-              onAddTask={() => {}} // Not used as it's embedded
-              onOpenStudent={openStudentDetails}
-              onOpenLead={openLeadDetails}
-            />
-          </TabsContent>
-
-          <TabsContent value="active" className="mt-2 space-y-4 max-w-2xl mx-auto">
-             <div className="relative mb-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input 
-                  placeholder="Buscar alumno..." 
-                  className="pl-9 bg-white shadow-sm h-11 sm:h-10 text-base sm:text-sm"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+      switch (currentView) {
+        case 'overview':
+            return (
+                <Overview 
+                    students={students} 
+                    leads={leads}
+                    onAddStudent={() => setIsAddStudentOpen(true)}
+                    onAddLead={() => setIsAddLeadOpen(true)}
+                    onAddTask={() => setCurrentView('tasks')}
+                    onOpenStudent={openStudentDetails}
+                    onOpenLead={openLeadDetails}
                 />
-            </div>
-            <MetricsOverview students={activeStudents} />
-            <StudentList 
-              students={activeStudents} 
-              searchQuery={searchQuery} 
-              onStudentClick={openStudentDetails} 
-            />
-          </TabsContent>
-
-          <TabsContent value="graduated" className="mt-2 space-y-4 max-w-2xl mx-auto">
-             <div className="relative mb-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input 
-                  placeholder="Buscar egresado..." 
-                  className="pl-9 bg-white shadow-sm h-11 sm:h-10 text-base sm:text-sm"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-            </div>
-            <StudentList 
-              students={graduatedStudents} 
-              searchQuery={searchQuery} 
-              onStudentClick={openStudentDetails} 
-              emptyMessage="No hay alumnos egresados aún."
-            />
-          </TabsContent>
-
-          <TabsContent value="calendar" className="mt-2 max-w-2xl mx-auto">
-            <CalendarView 
-              students={students}
-              leads={leads}
-              onScheduleCall={handleScheduleGlobalCall}
-              isSubmitting={isSubmitting}
-              onOpenStudentDetails={openStudentDetails}
-              onOpenLeadDetails={openLeadDetails}
-            />
-          </TabsContent>
-
-          <TabsContent value="tasks" className="mt-2 max-w-2xl mx-auto">
-            <div className="bg-white p-4 rounded-xl border shadow-sm">
-                <MentorTasksView />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="leads" className="mt-2 space-y-4 max-w-2xl mx-auto">
-            <div className="flex gap-2">
-                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input 
-                    placeholder="Buscar lead..." 
-                    className="pl-9 bg-white shadow-sm h-11 sm:h-10 text-base sm:text-sm"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+            );
+        case 'active':
+            return (
+                <div className="space-y-4 max-w-2xl mx-auto">
+                    <div className="relative mb-2">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                        <Input 
+                            placeholder="Buscar alumno..." 
+                            className="pl-9 bg-white shadow-sm"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <MetricsOverview students={activeStudents} />
+                    <StudentList 
+                        students={activeStudents} 
+                        searchQuery={searchQuery} 
+                        onStudentClick={openStudentDetails} 
                     />
                 </div>
-                <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
-                    <DialogTrigger asChild>
-                         <Button size="icon" className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 bg-blue-600 hover:bg-blue-700">
-                             <Plus size={20} />
-                         </Button>
-                    </DialogTrigger>
-                    <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
-                        <DialogHeader>
-                            <DialogTitle>Nuevo Lead</DialogTitle>
-                        </DialogHeader>
-                        <LeadForm onSubmit={handleAddLead} isLoading={isSubmitting} />
-                    </DialogContent>
-                </Dialog>
-            </div>
-
-            {filteredLeads.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground">
-                    No hay leads registrados aún.
+            );
+        case 'graduated':
+            return (
+                <div className="space-y-4 max-w-2xl mx-auto">
+                    <div className="relative mb-2">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                        <Input 
+                            placeholder="Buscar egresado..." 
+                            className="pl-9 bg-white shadow-sm"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <StudentList 
+                        students={graduatedStudents} 
+                        searchQuery={searchQuery} 
+                        onStudentClick={openStudentDetails} 
+                        emptyMessage="No hay alumnos egresados aún."
+                    />
                 </div>
-            ) : (
-                <div className="space-y-3">
-                    {filteredLeads.map(lead => (
-                        <LeadCard key={lead.id} lead={lead} onClick={() => openLeadDetails(lead)} />
-                    ))}
+            );
+        case 'calendar':
+            return (
+                 <div className="max-w-2xl mx-auto">
+                    <CalendarView 
+                        students={students}
+                        leads={leads}
+                        onScheduleCall={handleScheduleGlobalCall}
+                        isSubmitting={isSubmitting}
+                        onOpenStudentDetails={openStudentDetails}
+                        onOpenLeadDetails={openLeadDetails}
+                    />
                 </div>
-            )}
-          </TabsContent>
+            );
+        case 'tasks':
+            return (
+                <div className="max-w-2xl mx-auto bg-white p-4 rounded-xl border shadow-sm">
+                    <MentorTasksView />
+                </div>
+            );
+        case 'notes':
+            return <NotesView />;
+        case 'leads':
+            return (
+                <div className="space-y-4 max-w-2xl mx-auto">
+                    <div className="flex gap-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                            <Input 
+                                placeholder="Buscar lead..." 
+                                className="pl-9 bg-white shadow-sm"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="icon" className="shrink-0 bg-blue-600 hover:bg-blue-700">
+                                    <Plus size={20} />
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
+                                <DialogHeader>
+                                    <DialogTitle>Nuevo Lead</DialogTitle>
+                                </DialogHeader>
+                                <LeadForm onSubmit={handleAddLead} isLoading={isSubmitting} />
+                            </DialogContent>
+                        </Dialog>
+                    </div>
 
-          <TabsContent value="notifications" className="mt-2 max-w-2xl mx-auto">
-            <NotificationsView leads={leads} onLeadClick={openLeadDetails} />
-          </TabsContent>
-        </Tabs>
-      </main>
+                    {filteredLeads.length === 0 ? (
+                        <div className="text-center py-10 text-muted-foreground">
+                            No hay leads registrados aún.
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {filteredLeads.map(lead => (
+                                <LeadCard key={lead.id} lead={lead} onClick={() => openLeadDetails(lead)} />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        default:
+            return null;
+      }
+  };
 
-      <StudentDetails 
-        student={selectedStudent} 
-        isOpen={studentDetailsOpen} 
-        onClose={() => {
-            setStudentDetailsOpen(false);
-            fetchData();
-        }}
-        onUpdateStudent={fetchData}
-      />
+  return (
+    <AppLayout activeView={currentView} onNavigate={setCurrentView} onSignOut={handleSignOut}>
+        {renderContent()}
 
-      <LeadDetails 
-        lead={selectedLead}
-        isOpen={leadDetailsOpen}
-        onClose={() => {
-            setLeadDetailsOpen(false);
-            fetchData();
-        }}
-        onUpdate={fetchData}
-        onConvertToStudent={convertLeadToStudent}
-      />
-    </div>
+        {/* Global Student Create Dialog */}
+        <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
+           <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
+                <DialogHeader>
+                  <DialogTitle>Registrar Nuevo Alumno</DialogTitle>
+                </DialogHeader>
+                <StudentForm onSubmit={handleAddStudent} isLoading={isSubmitting} />
+            </DialogContent>
+        </Dialog>
+        
+        {/* Modals */}
+        <StudentDetails 
+            student={selectedStudent} 
+            isOpen={studentDetailsOpen} 
+            onClose={() => {
+                setStudentDetailsOpen(false);
+                fetchData();
+            }}
+            onUpdateStudent={fetchData}
+        />
+
+        <LeadDetails 
+            lead={selectedLead}
+            isOpen={leadDetailsOpen}
+            onClose={() => {
+                setLeadDetailsOpen(false);
+                fetchData();
+            }}
+            onUpdate={fetchData}
+            onConvertToStudent={convertLeadToStudent}
+        />
+    </AppLayout>
   );
 };
 
