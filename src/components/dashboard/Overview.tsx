@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { Student, Lead } from "@/lib/types";
+import { Student, Lead, MentorTask, TaskPriority } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Calendar } from "@/components/ui/calendar"; // From shadcn
+import { Calendar } from "@/components/ui/calendar"; 
 import { 
   Users, 
   DollarSign, 
@@ -14,17 +14,22 @@ import {
   CalendarClock,
   Briefcase,
   StickyNote,
-  MoreHorizontal,
   ChevronRight,
-  UserPlus
+  UserPlus,
+  CheckSquare,
+  AlertTriangle,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  User
 } from "lucide-react";
-import { format, isSameDay, isAfter, startOfDay, isBefore } from "date-fns";
+import { format, isSameDay, isAfter, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { AddNoteDialog } from "@/components/notes/AddNoteDialog";
 
 interface OverviewProps {
   students: Student[];
   leads: Lead[];
+  mentorTasks: MentorTask[];
   onAddStudent: () => void;
   onAddLead: () => void;
   onAddTask: () => void;
@@ -35,6 +40,7 @@ interface OverviewProps {
 export const Overview = ({ 
   students, 
   leads, 
+  mentorTasks,
   onAddStudent, 
   onAddLead,
   onAddTask,
@@ -66,6 +72,25 @@ export const Overview = ({
 
   const callsToday = allCalls.filter(c => isSameDay(new Date(c.date), today));
   const upcomingCalls = allCalls.slice(0, 5);
+
+  // --- TASKS SORTING ---
+  const priorityOrder: Record<TaskPriority, number> = { high: 3, medium: 2, low: 1 };
+  
+  const sortedTasks = [...mentorTasks].sort((a, b) => {
+      // 1. Sort by Priority
+      const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
+      if (priorityDiff !== 0) return priorityDiff;
+      // 2. Sort by Date
+      return b.createdAt.getTime() - a.createdAt.getTime();
+  }).slice(0, 5); // Take top 5
+
+  const getPriorityIcon = (p: TaskPriority) => {
+    switch(p) {
+        case 'high': return <AlertTriangle size={14} className="text-red-500" />;
+        case 'medium': return <ArrowUpCircle size={14} className="text-orange-500" />;
+        case 'low': return <ArrowDownCircle size={14} className="text-blue-500" />;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -208,43 +233,69 @@ export const Overview = ({
                 </CardContent>
             </Card>
 
-            {/* RECENT ACTIVITY / LEADS (Optional, simpler view) */}
+            {/* TASKS LIST & RECENT ACTIVITY */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <Card>
-                    <CardHeader className="p-4 pb-2">
-                         <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leads Recientes</CardTitle>
+                 <Card className="flex flex-col">
+                    <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+                         <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                            <CheckSquare size={14} /> Tareas Prioritarias
+                         </CardTitle>
+                         <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={onAddTask}>
+                            <Plus size={12} className="mr-1" /> Nueva
+                         </Button>
                     </CardHeader>
-                    <CardContent className="p-4 pt-2 space-y-3">
-                        {leads.slice(0, 3).map(lead => (
-                            <div key={lead.id} className="flex items-center justify-between" onClick={() => onOpenLead(lead)}>
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-2 h-2 rounded-full ${lead.interestLevel === 'high' ? 'bg-red-500' : 'bg-blue-400'}`} />
-                                    <div>
-                                        <p className="text-sm font-medium hover:underline cursor-pointer">{lead.name}</p>
-                                        <p className="text-xs text-muted-foreground">{format(new Date(lead.createdAt), "d MMM", { locale: es })}</p>
-                                    </div>
-                                </div>
+                    <CardContent className="p-4 pt-2 flex-1">
+                        {sortedTasks.length === 0 ? (
+                            <div className="h-full flex flex-col items-center justify-center text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg bg-slate-50">
+                                <p className="text-sm">¡Todo listo!</p>
+                                <p className="text-xs mt-1">No tienes tareas pendientes.</p>
                             </div>
-                        ))}
-                         <Button variant="ghost" size="sm" className="w-full text-xs mt-2" onClick={onAddLead}>Ver todos</Button>
+                        ) : (
+                            <div className="space-y-3">
+                                {sortedTasks.map(task => (
+                                    <div key={task.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-100">
+                                        <div className="mt-0.5">
+                                            {getPriorityIcon(task.priority)}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`text-sm font-medium leading-tight ${task.priority === 'high' ? 'text-slate-900' : 'text-slate-700'}`}>
+                                                {task.title}
+                                            </p>
+                                            {task.relatedName && (
+                                                <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                                                    <User size={10} />
+                                                    <span className="truncate">{task.relatedName}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                                <Button variant="link" size="sm" className="w-full text-xs h-6 mt-2 text-muted-foreground" onClick={onAddTask}>
+                                    Ver todas las tareas
+                                </Button>
+                            </div>
+                        )}
                     </CardContent>
                  </Card>
                  
-                 <Card className="bg-slate-900 text-slate-50 border-none">
-                     <CardHeader className="p-4 pb-2">
-                         <CardTitle className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Note Bank</CardTitle>
+                 <Card className="flex flex-col">
+                    <CardHeader className="p-4 pb-2">
+                         <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leads Recientes</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-4 pt-2">
-                         <p className="text-sm text-slate-300 mb-4">
-                             Captura ideas rápidamente para no perder el contexto.
-                         </p>
-                         <Button 
-                             size="sm" 
-                             className="w-full bg-slate-700 hover:bg-slate-600 text-white border-none"
-                             onClick={() => setIsAddNoteOpen(true)}
-                        >
-                             <Plus size={16} className="mr-2" /> Agregar Nota
-                         </Button>
+                    <CardContent className="p-4 pt-2 space-y-3 flex-1">
+                        {leads.slice(0, 3).map(lead => (
+                            <div key={lead.id} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors" onClick={() => onOpenLead(lead)}>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-2 h-2 rounded-full shrink-0 ${lead.interestLevel === 'high' ? 'bg-red-500' : lead.interestLevel === 'medium' ? 'bg-orange-400' : 'bg-blue-400'}`} />
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium truncate">{lead.name}</p>
+                                        <p className="text-xs text-muted-foreground truncate">{lead.email}</p>
+                                    </div>
+                                </div>
+                                <ChevronRight size={14} className="text-muted-foreground/50" />
+                            </div>
+                        ))}
+                         <Button variant="ghost" size="sm" className="w-full text-xs mt-auto" onClick={onAddLead}>Ver pipeline completo</Button>
                     </CardContent>
                  </Card>
             </div>

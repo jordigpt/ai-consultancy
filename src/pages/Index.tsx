@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Student, Lead } from "@/lib/types";
+import { Student, Lead, MentorTask } from "@/lib/types";
 import { StudentDetails } from "@/components/dashboard/StudentDetails";
 import { LeadDetails } from "@/components/leads/LeadDetails";
 import { LeadCard } from "@/components/leads/LeadCard";
 import { LeadForm } from "@/components/leads/LeadForm";
-import { StudentForm } from "@/components/dashboard/StudentForm"; // Added import
+import { StudentForm } from "@/components/dashboard/StudentForm"; 
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Loader2 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
@@ -26,6 +26,7 @@ import { NotesView } from "@/components/notes/NotesView";
 const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [mentorTasks, setMentorTasks] = useState<MentorTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState("overview"); 
   
@@ -46,7 +47,7 @@ const Index = () => {
     try {
       setLoading(true);
       
-      // Fetch Students
+      // 1. Fetch Students
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select(`*, tasks (*), calls (*)`)
@@ -54,13 +55,26 @@ const Index = () => {
 
       if (studentsError) throw studentsError;
 
-      // Fetch Leads
+      // 2. Fetch Leads
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (leadsError) throw leadsError;
+
+      // 3. Fetch Mentor Tasks (Pending only for overview efficiency)
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('mentor_tasks')
+        .select(`
+            *,
+            students (id, first_name, last_name),
+            leads (id, name)
+        `)
+        .eq('completed', false)
+        .order('created_at', { ascending: false });
+
+      if (tasksError) throw tasksError;
 
       // Transform Students
       const transformedStudents: Student[] = studentsData.map((s: any) => ({
@@ -104,8 +118,36 @@ const Index = () => {
         createdAt: new Date(l.created_at)
       }));
 
+      // Transform Tasks
+      const transformedTasks: MentorTask[] = tasksData.map((t: any) => {
+        let relatedName = undefined;
+        let relatedType: 'student' | 'lead' | undefined = undefined;
+
+        if (t.students) {
+            relatedName = `${t.students.first_name} ${t.students.last_name}`;
+            relatedType = 'student';
+        } else if (t.leads) {
+            relatedName = t.leads.name;
+            relatedType = 'lead';
+        }
+
+        return {
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            priority: t.priority,
+            completed: t.completed,
+            createdAt: new Date(t.created_at),
+            studentId: t.student_id,
+            leadId: t.lead_id,
+            relatedName,
+            relatedType
+        };
+      });
+
       setStudents(transformedStudents);
       setLeads(transformedLeads);
+      setMentorTasks(transformedTasks);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -262,6 +304,7 @@ const Index = () => {
                 <Overview 
                     students={students} 
                     leads={leads}
+                    mentorTasks={mentorTasks}
                     onAddStudent={() => setIsAddStudentOpen(true)}
                     onAddLead={() => setIsAddLeadOpen(true)}
                     onAddTask={() => setCurrentView('tasks')}
