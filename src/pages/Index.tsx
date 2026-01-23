@@ -264,6 +264,27 @@ const Index = () => {
     }
   };
 
+  const handleToggleTask = async (task: MentorTask) => {
+    try {
+        // Optimistic UI Update
+        const updatedTasks = mentorTasks.filter(t => t.id !== task.id);
+        setMentorTasks(updatedTasks);
+        
+        const { error } = await supabase
+            .from('mentor_tasks')
+            .update({ completed: !task.completed })
+            .eq('id', task.id);
+
+        if (error) {
+            // Revert on error
+            fetchData();
+            throw error;
+        }
+    } catch (error) {
+        showError("Error al completar tarea");
+    }
+  };
+
   const convertLeadToStudent = (lead: Lead) => {
       setLeadDetailsOpen(false);
       setIsAddStudentOpen(true);
@@ -310,6 +331,7 @@ const Index = () => {
                     onAddTask={() => setCurrentView('tasks')}
                     onOpenStudent={openStudentDetails}
                     onOpenLead={openLeadDetails}
+                    onToggleTask={handleToggleTask}
                 />
             );
         case 'active':

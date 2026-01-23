@@ -27,12 +27,12 @@ export const FinancialDetails = ({ control }: FinancialDetailsProps) => {
                 <DollarSign size={16} /> Estado del Pago
               </FormLabel>
               <div className="text-xs text-muted-foreground">
-                {field.value ? "Pagado totalmente." : "Pago pendiente."}
+                {field.value ? "El alumno abonó el total." : "Queda saldo pendiente."}
               </div>
             </div>
             <FormControl>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{field.value ? "Pagado" : "Deuda"}</span>
+                <span className="text-sm font-medium">{field.value ? "Pagado Total" : "Con Deuda"}</span>
                 <Switch
                   checked={field.value}
                   onCheckedChange={field.onChange}
@@ -43,26 +43,27 @@ export const FinancialDetails = ({ control }: FinancialDetailsProps) => {
         )}
       />
 
-      {!paidInFull && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-300">
-          <FormField
-            control={control}
-            name="amountPaid"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Monto Pagado ($)</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number" 
-                    placeholder="0.00" 
-                    inputMode="decimal"
-                    {...field} 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-300">
+        <FormField
+          control={control}
+          name="amountPaid"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Monto Cobrado ($)</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number" 
+                  placeholder="Ej. 1500" 
+                  inputMode="decimal"
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {!paidInFull && (
           <FormField
             control={control}
             name="amountOwed"
@@ -72,7 +73,7 @@ export const FinancialDetails = ({ control }: FinancialDetailsProps) => {
                 <FormControl>
                   <Input 
                     type="number" 
-                    placeholder="0.00" 
+                    placeholder="Ej. 500" 
                     inputMode="decimal"
                     {...field}
                   />
@@ -81,8 +82,8 @@ export const FinancialDetails = ({ control }: FinancialDetailsProps) => {
               </FormItem>
             )}
           />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

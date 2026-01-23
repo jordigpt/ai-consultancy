@@ -35,6 +35,7 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
   });
 
   const handleSubmit = (values: StudentFormValues) => {
+    // Si está pagado total, amountOwed es 0, pero amountPaid es lo que ingresó el usuario
     onSubmit({
       firstName: values.firstName,
       lastName: values.lastName,
@@ -45,8 +46,8 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
       businessModel: values.businessModel as any,
       startDate: values.startDate,
       paidInFull: values.paidInFull,
-      amountPaid: values.paidInFull ? undefined : Number(values.amountPaid),
-      amountOwed: values.paidInFull ? undefined : Number(values.amountOwed),
+      amountPaid: Number(values.amountPaid) || 0,
+      amountOwed: values.paidInFull ? 0 : Number(values.amountOwed),
     });
   };
 
