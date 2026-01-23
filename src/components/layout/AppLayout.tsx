@@ -14,7 +14,8 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  ChevronRight
+  ChevronRight,
+  PieChart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ const MENU_ITEMS = [
   { id: 'overview', label: 'Panel General', icon: LayoutDashboard },
   { id: 'active', label: 'Alumnos Activos', icon: Users },
   { id: 'leads', label: 'Pipeline Leads', icon: Target },
+  { id: 'goals', label: 'Objetivos', icon: PieChart },
   { id: 'calendar', label: 'Agenda', icon: Calendar },
   { id: 'tasks', label: 'Mis Tareas', icon: ClipboardList },
   { id: 'notes', label: 'Note Bank', icon: StickyNote },

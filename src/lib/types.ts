@@ -92,3 +92,10 @@ export interface Note {
   isPinned: boolean;
   createdAt: Date;
 }
+
+// SETTINGS TYPES
+export interface UserSettings {
+  userId: string;
+  monthlyGoal: number;
+  currency: string;
+}

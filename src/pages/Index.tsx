@@ -22,6 +22,7 @@ import { NotificationsView } from "@/components/dashboard/NotificationsView";
 import { MentorTasksView } from "@/components/tasks/MentorTasksView";
 import { Overview } from "@/components/dashboard/Overview";
 import { NotesView } from "@/components/notes/NotesView";
+import { MonthlyGoalView } from "@/components/dashboard/MonthlyGoalView";
 
 const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -30,6 +31,9 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState("overview"); 
   
+  // Settings
+  const [monthlyGoal, setMonthlyGoal] = useState(10000);
+
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   
@@ -47,6 +51,16 @@ const Index = () => {
     try {
       setLoading(true);
       
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // 0. Fetch Settings (Optional, fails silently if not exists)
+      if (user) {
+        const { data: settings } = await supabase.from('user_settings').select('monthly_goal').eq('user_id', user.id).single();
+        if (settings) {
+            setMonthlyGoal(settings.monthly_goal);
+        }
+      }
+
       // 1. Fetch Students
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
@@ -326,12 +340,21 @@ const Index = () => {
                     students={students} 
                     leads={leads}
                     mentorTasks={mentorTasks}
+                    monthlyGoal={monthlyGoal}
                     onAddStudent={() => setIsAddStudentOpen(true)}
                     onAddLead={() => setIsAddLeadOpen(true)}
                     onAddTask={() => setCurrentView('tasks')}
                     onOpenStudent={openStudentDetails}
                     onOpenLead={openLeadDetails}
                     onToggleTask={handleToggleTask}
+                />
+            );
+        case 'goals':
+            return (
+                <MonthlyGoalView 
+                    students={students} 
+                    currentGoal={monthlyGoal} 
+                    onGoalUpdate={setMonthlyGoal} 
                 />
             );
         case 'active':

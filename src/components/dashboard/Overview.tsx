@@ -34,6 +34,7 @@ interface OverviewProps {
   students: Student[];
   leads: Lead[];
   mentorTasks: MentorTask[];
+  monthlyGoal: number;
   onAddStudent: () => void;
   onAddLead: () => void;
   onAddTask: () => void;
@@ -46,6 +47,7 @@ export const Overview = ({
   students, 
   leads, 
   mentorTasks,
+  monthlyGoal,
   onAddStudent, 
   onAddLead,
   onAddTask,
@@ -67,11 +69,10 @@ export const Overview = ({
   // Progress Bar: (Paid / Total Potential) * 100
   const collectionProgress = totalPotentialRevenue > 0 ? (totalAmountPaid / totalPotentialRevenue) * 100 : 0;
 
-  // Monthly Goal
-  const MONTHLY_GOAL = 10000;
+  // Monthly Goal Logic
   const currentMonthStudents = students.filter(s => isSameMonth(new Date(s.startDate), new Date()));
   const monthlyRevenue = currentMonthStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
-  const monthlyProgress = Math.min((monthlyRevenue / MONTHLY_GOAL) * 100, 100);
+  const monthlyProgress = Math.min((monthlyRevenue / (monthlyGoal || 1)) * 100, 100);
 
   // Pipeline Stats
   const hotLeads = leads.filter(l => l.interestLevel === 'high' && l.status !== 'won' && l.status !== 'lost');
@@ -461,7 +462,7 @@ export const Overview = ({
                      <div className="flex justify-between items-end">
                          <div>
                              <p className="text-xs font-medium text-white/80 uppercase tracking-wider">Objetivo Mensual</p>
-                             <h3 className="text-2xl font-bold mt-0.5">${(monthlyRevenue/1000).toFixed(1)}k <span className="text-sm font-normal text-white/70">/ $10k</span></h3>
+                             <h3 className="text-2xl font-bold mt-0.5">${(monthlyRevenue/1000).toFixed(1)}k <span className="text-sm font-normal text-white/70">/ ${(monthlyGoal/1000).toFixed(1)}k</span></h3>
                          </div>
                      </div>
                      <div className="space-y-1.5">
