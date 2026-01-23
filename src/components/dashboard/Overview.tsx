@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Student, Lead } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar"; // From shadcn
 import { 
   Users, 
   DollarSign, 
@@ -12,11 +13,14 @@ import {
   Plus, 
   CalendarClock,
   Briefcase,
-  MoreHorizontal
+  StickyNote,
+  MoreHorizontal,
+  ChevronRight,
+  UserPlus
 } from "lucide-react";
-import { format, isSameDay, isAfter, startOfDay, addDays, formatDistanceToNow } from "date-fns";
+import { format, isSameDay, isAfter, startOfDay, isBefore } from "date-fns";
 import { es } from "date-fns/locale";
-import { MentorTasksView } from "@/components/tasks/MentorTasksView";
+import { AddNoteDialog } from "@/components/notes/AddNoteDialog";
 
 interface OverviewProps {
   students: Student[];
@@ -33,9 +37,12 @@ export const Overview = ({
   leads, 
   onAddStudent, 
   onAddLead,
+  onAddTask,
   onOpenStudent,
   onOpenLead
 }: OverviewProps) => {
+  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
+  const [date, setDate] = useState<Date | undefined>(new Date());
 
   // --- KPI CALCULATIONS ---
   const activeStudents = students.filter(s => s.status === 'active');
@@ -43,7 +50,7 @@ export const Overview = ({
   const hotLeads = leads.filter(l => l.interestLevel === 'high' && l.status !== 'won' && l.status !== 'lost');
   const newLeadsCount = leads.filter(l => l.status === 'new').length;
   
-  // --- UPCOMING CALLS LOGIC ---
+  // --- CALLS LOGIC ---
   const today = startOfDay(new Date());
 
   const studentCalls = students.flatMap(s => s.calls.map(c => ({ ...c, type: 'student', details: s, name: `${s.firstName} ${s.lastName}` })));
@@ -53,143 +60,146 @@ export const Overview = ({
 
   const allCalls = [...studentCalls, ...leadCalls]
     // @ts-ignore
-    .filter(c => !c.completed && isAfter(new Date(c.date), new Date(new Date().getTime() - 2 * 60 * 60 * 1000))) // Future or recent calls (2h ago)
+    .filter(c => !c.completed && (isAfter(new Date(c.date), new Date(new Date().getTime() - 2 * 60 * 60 * 1000)) || isSameDay(new Date(c.date), today)))
     // @ts-ignore
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 5); // Take only 5
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const callsToday = allCalls.filter(c => isSameDay(new Date(c.date), today));
+  const upcomingCalls = allCalls.slice(0, 5);
 
   return (
-    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
-      {/* --- TOP ROW: KPI CARDS --- */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="space-y-6">
+      
+      <div className="flex flex-col lg:flex-row gap-6">
         
-        {/* Card 1: Active Students */}
-        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 shadow-sm col-span-2 sm:col-span-1">
-          <CardContent className="p-3 sm:p-4 flex flex-col justify-between h-full">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-[10px] sm:text-xs font-medium text-blue-600 uppercase tracking-wider">Alumnos Activos</p>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mt-1">{activeStudents.length}</h2>
-              </div>
-              <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg text-blue-600">
-                <Users size={16} className="sm:w-5 sm:h-5" />
-              </div>
-            </div>
-            <div className="mt-2 sm:mt-4 flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground">
-               <span className="text-emerald-600 font-medium flex items-center">
-                 <ArrowUpRight size={10} className="mr-1" /> +1 este mes
-               </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card 2: Financials */}
-        <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100 shadow-sm col-span-2 sm:col-span-1">
-          <CardContent className="p-3 sm:p-4 flex flex-col justify-between h-full">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-[10px] sm:text-xs font-medium text-emerald-600 uppercase tracking-wider">Cobros Pendientes</p>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mt-1">${totalRevenuePending.toLocaleString()}</h2>
-              </div>
-              <div className="p-1.5 sm:p-2 bg-emerald-100 rounded-lg text-emerald-600">
-                <DollarSign size={16} className="sm:w-5 sm:h-5" />
-              </div>
-            </div>
-            <div className="mt-2 sm:mt-4 w-full">
-               <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                 <span>Progreso de cobro</span>
-                 <span>65%</span>
-               </div>
-               <Progress value={65} className="h-1.5 bg-emerald-200" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card 3: Pipeline */}
-        <Card className="bg-gradient-to-br from-orange-50 to-amber-50 border-orange-100 shadow-sm col-span-2 sm:col-span-1">
-          <CardContent className="p-3 sm:p-4 flex flex-col justify-between h-full">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-[10px] sm:text-xs font-medium text-orange-600 uppercase tracking-wider">Pipeline (Leads)</p>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mt-1">{leads.length}</h2>
-              </div>
-              <div className="p-1.5 sm:p-2 bg-orange-100 rounded-lg text-orange-600">
-                <Target size={16} className="sm:w-5 sm:h-5" />
-              </div>
-            </div>
-            <div className="mt-2 sm:mt-4 flex gap-2 flex-wrap">
-                <div className="px-2 py-0.5 bg-white/60 rounded text-[10px] sm:text-xs font-medium text-orange-800 border border-orange-100">
-                    🔥 {hotLeads.length} Alta
-                </div>
-                <div className="px-2 py-0.5 bg-white/60 rounded text-[10px] sm:text-xs font-medium text-blue-800 border border-blue-100">
-                    🆕 {newLeadsCount} Nuevos
-                </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card 4: Action / Calls */}
-        <Card 
-            className="bg-white border-dashed border-2 border-gray-200 shadow-none hover:border-primary/50 transition-colors cursor-pointer group active:bg-gray-50 col-span-2 sm:col-span-1" 
-            onClick={onAddStudent}
-        >
-          <CardContent className="p-3 sm:p-4 flex flex-row sm:flex-col items-center justify-center h-full text-center space-x-3 sm:space-x-0 sm:space-y-2">
-            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-primary/5 group-hover:bg-primary/10 flex items-center justify-center text-primary transition-colors shrink-0">
-                <Plus size={20} className="sm:w-6 sm:h-6" />
-            </div>
-            <div className="text-left sm:text-center">
-                <p className="font-semibold text-gray-900 text-sm sm:text-base">Registrar Alumno</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Acción Rápida</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* --- MAIN GRID --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        
-        {/* LEFT COLUMN (2/3) */}
-        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+        {/* --- LEFT COLUMN (MAIN) --- */}
+        <div className="flex-1 space-y-6 min-w-0">
             
-            {/* 1. UPCOMING SCHEDULE */}
-            <Card>
-                <CardHeader className="p-3 sm:p-6 sm:pb-3 flex flex-row items-center justify-between">
-                    <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                        <CalendarClock size={16} className="text-primary sm:w-[18px] sm:h-[18px]" /> Próximas Llamadas
+            {/* KPI ROW (Compact) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                 {/* Card 1: Active Students */}
+                <Card className="bg-gradient-to-br from-white to-blue-50/50 border-blue-100 shadow-sm">
+                    <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                             <div className="p-1.5 bg-blue-100 rounded-md text-blue-600">
+                                <Users size={14} />
+                            </div>
+                            <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full flex items-center">
+                                <ArrowUpRight size={8} className="mr-0.5" /> 1
+                            </span>
+                        </div>
+                        <h2 className="text-2xl font-bold text-slate-800">{activeStudents.length}</h2>
+                        <p className="text-xs text-muted-foreground font-medium">Alumnos Activos</p>
+                    </CardContent>
+                </Card>
+
+                 {/* Card 2: Revenue */}
+                 <Card className="bg-gradient-to-br from-white to-emerald-50/50 border-emerald-100 shadow-sm">
+                    <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                             <div className="p-1.5 bg-emerald-100 rounded-md text-emerald-600">
+                                <DollarSign size={14} />
+                            </div>
+                        </div>
+                        <h2 className="text-2xl font-bold text-slate-800">${(totalRevenuePending / 1000).toFixed(1)}k</h2>
+                        <p className="text-xs text-muted-foreground font-medium">Por Cobrar</p>
+                        <Progress value={65} className="h-1 mt-2 bg-emerald-100" />
+                    </CardContent>
+                </Card>
+
+                 {/* Card 3: Leads */}
+                 <Card className="bg-gradient-to-br from-white to-orange-50/50 border-orange-100 shadow-sm">
+                    <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                             <div className="p-1.5 bg-orange-100 rounded-md text-orange-600">
+                                <Target size={14} />
+                            </div>
+                             {hotLeads.length > 0 && (
+                                <span className="text-[10px] font-medium text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">
+                                    {hotLeads.length} Hot
+                                </span>
+                             )}
+                        </div>
+                        <h2 className="text-2xl font-bold text-slate-800">{leads.length}</h2>
+                        <p className="text-xs text-muted-foreground font-medium">Total Pipeline</p>
+                    </CardContent>
+                </Card>
+
+                {/* Card 4: New Leads */}
+                <Card className="bg-gradient-to-br from-white to-indigo-50/50 border-indigo-100 shadow-sm">
+                    <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                             <div className="p-1.5 bg-indigo-100 rounded-md text-indigo-600">
+                                <Briefcase size={14} />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">Esta semana</span>
+                        </div>
+                        <h2 className="text-2xl font-bold text-slate-800">{newLeadsCount}</h2>
+                        <p className="text-xs text-muted-foreground font-medium">Nuevos Leads</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* UPCOMING CALLS LIST */}
+            <Card className="border-none shadow-sm bg-white">
+                <CardHeader className="px-6 py-4 border-b flex flex-row items-center justify-between">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <CalendarClock size={18} className="text-primary" /> Agenda Próxima
                     </CardTitle>
-                    <Badge variant={callsToday.length > 0 ? "default" : "secondary"} className="text-[10px] sm:text-xs">
+                    <Badge variant="outline" className="font-normal">
                         {callsToday.length} hoy
                     </Badge>
                 </CardHeader>
-                <CardContent className="p-3 sm:p-6 pt-0">
-                    {allCalls.length === 0 ? (
-                        <div className="text-center py-6 sm:py-8 text-muted-foreground bg-slate-50 rounded-lg border border-dashed text-sm">
-                            Sin llamadas próximas.
+                <CardContent className="p-0">
+                    {upcomingCalls.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                            <p className="text-sm">No tienes llamadas próximas.</p>
+                            <Button variant="link" size="sm" onClick={() => {}} className="mt-1">
+                                Ver Calendario Completo
+                            </Button>
                         </div>
                     ) : (
-                        <div className="space-y-2 sm:space-y-3">
-                            {allCalls.map((call, idx) => (
+                        <div className="divide-y">
+                            {upcomingCalls.map((call, idx) => (
                                 <div 
                                     key={`${call.type}-${call.id}-${idx}`} 
-                                    className="flex items-center p-2 sm:p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer active:scale-[0.99]"
+                                    className="flex items-center p-4 hover:bg-slate-50 transition-colors cursor-pointer group"
                                     onClick={() => call.type === 'student' ? onOpenStudent(call.details as Student) : onOpenLead(call.details as Lead)}
                                 >
-                                    <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm mr-3 shrink-0 ${
-                                        call.type === 'lead' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'
-                                    }`}>
-                                        {call.type === 'lead' ? <Target size={14} className="sm:w-[18px] sm:h-[18px]" /> : <Users size={14} className="sm:w-[18px] sm:h-[18px]" />}
+                                    <div className="flex flex-col items-center justify-center w-12 h-12 rounded-lg bg-slate-100 border text-slate-600 mr-4 group-hover:bg-white group-hover:border-primary/30 transition-colors">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
+                                            {format(new Date(call.date), "MMM", { locale: es })}
+                                        </span>
+                                        <span className="text-lg font-bold leading-none mt-0.5">
+                                            {format(new Date(call.date), "d")}
+                                        </span>
                                     </div>
+                                    
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="font-medium text-sm truncate">{call.name}</h4>
-                                        <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
-                                            {format(new Date(call.date), "EEEE d, HH:mm", { locale: es })}
-                                            {call.type === 'lead' && <span className="text-orange-600 bg-orange-50 px-1 rounded text-[10px] ml-1 font-medium border border-orange-100 shrink-0">Lead</span>}
-                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <h4 className="font-semibold text-sm truncate text-slate-900 group-hover:text-primary transition-colors">
+                                                {call.name}
+                                            </h4>
+                                            {call.type === 'lead' && (
+                                                <Badge variant="secondary" className="text-[10px] px-1.5 h-4 bg-orange-100 text-orange-700 hover:bg-orange-100">
+                                                    Lead
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                <CalendarClock size={12} /> {format(new Date(call.date), "HH:mm")} hs
+                                            </span>
+                                            {isSameDay(new Date(call.date), today) && (
+                                                <span className="text-[10px] font-medium text-green-600 bg-green-50 px-1.5 rounded-full">
+                                                    Hoy
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <Button size="icon" variant="ghost" className="shrink-0 h-8 w-8">
-                                        <MoreHorizontal size={14} />
+                                    
+                                    <Button variant="ghost" size="icon" className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <ChevronRight size={18} />
                                     </Button>
                                 </div>
                             ))}
@@ -198,72 +208,152 @@ export const Overview = ({
                 </CardContent>
             </Card>
 
-            {/* 2. RECENT LEADS */}
-            <Card>
-                <CardHeader className="p-3 sm:p-6 sm:pb-3 flex flex-row items-center justify-between">
-                    <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                        <Briefcase size={16} className="text-orange-500 sm:w-[18px] sm:h-[18px]" /> Leads Recientes
-                    </CardTitle>
-                    <Button variant="ghost" size="sm" className="text-xs h-8 px-2" onClick={onAddLead}>
-                        <Plus size={12} className="mr-1" /> Nuevo
-                    </Button>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-6 pt-0">
-                    <div className="space-y-0 divide-y">
-                        {leads.slice(0, 4).map(lead => (
-                            <div 
-                                key={lead.id} 
-                                className="py-2.5 sm:py-3 flex items-center justify-between hover:bg-gray-50 px-2 rounded-md cursor-pointer transition-colors -mx-2 active:bg-gray-100"
-                                onClick={() => onOpenLead(lead)}
-                            >
-                                <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                                    <div className={`w-2 h-2 rounded-full shrink-0 ${
-                                         lead.interestLevel === 'high' ? 'bg-red-500' : 
-                                         lead.interestLevel === 'medium' ? 'bg-orange-500' : 'bg-blue-400'
-                                    }`} />
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-medium truncate">{lead.name}</p>
-                                        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{lead.email || lead.phone || "Sin contacto"}</p>
+            {/* RECENT ACTIVITY / LEADS (Optional, simpler view) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <Card>
+                    <CardHeader className="p-4 pb-2">
+                         <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leads Recientes</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-2 space-y-3">
+                        {leads.slice(0, 3).map(lead => (
+                            <div key={lead.id} className="flex items-center justify-between" onClick={() => onOpenLead(lead)}>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-2 h-2 rounded-full ${lead.interestLevel === 'high' ? 'bg-red-500' : 'bg-blue-400'}`} />
+                                    <div>
+                                        <p className="text-sm font-medium hover:underline cursor-pointer">{lead.name}</p>
+                                        <p className="text-xs text-muted-foreground">{format(new Date(lead.createdAt), "d MMM", { locale: es })}</p>
                                     </div>
-                                </div>
-                                <div className="text-right shrink-0">
-                                    <span className={`text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full border ${
-                                        lead.interestLevel === 'high' ? 'bg-red-50 text-red-700 border-red-100' : 
-                                        lead.interestLevel === 'medium' ? 'bg-orange-50 text-orange-700 border-orange-100' : 'bg-gray-100 text-gray-600'
-                                    }`}>
-                                        {lead.interestLevel === 'high' ? 'Alta' : lead.interestLevel === 'medium' ? 'Media' : 'Baja'}
-                                    </span>
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                                        {formatDistanceToNow(new Date(lead.createdAt), { locale: es, addSuffix: true })}
-                                    </p>
                                 </div>
                             </div>
                         ))}
-                    </div>
-                    {leads.length === 0 && (
-                        <div className="text-center py-4 text-xs text-muted-foreground">
-                            No hay leads registrados.
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                         <Button variant="ghost" size="sm" className="w-full text-xs mt-2" onClick={onAddLead}>Ver todos</Button>
+                    </CardContent>
+                 </Card>
+                 
+                 <Card className="bg-slate-900 text-slate-50 border-none">
+                     <CardHeader className="p-4 pb-2">
+                         <CardTitle className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Note Bank</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-2">
+                         <p className="text-sm text-slate-300 mb-4">
+                             Captura ideas rápidamente para no perder el contexto.
+                         </p>
+                         <Button 
+                             size="sm" 
+                             className="w-full bg-slate-700 hover:bg-slate-600 text-white border-none"
+                             onClick={() => setIsAddNoteOpen(true)}
+                        >
+                             <Plus size={16} className="mr-2" /> Agregar Nota
+                         </Button>
+                    </CardContent>
+                 </Card>
+            </div>
+
         </div>
 
-        {/* RIGHT COLUMN (1/3) - TASKS */}
-        <div className="lg:col-span-1">
-             <Card className="h-full flex flex-col border-none shadow-none bg-transparent">
-                <CardHeader className="px-0 pt-0 pb-2 sm:pb-4">
-                     <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                        Lista de Tareas
-                    </CardTitle>
-                </CardHeader>
-                <div className="flex-1">
-                     <MentorTasksView />
-                </div>
+        {/* --- RIGHT COLUMN (WIDGETS) --- */}
+        <div className="lg:w-80 space-y-6 flex flex-col shrink-0">
+            
+            {/* iOS Style Calendar Widget */}
+            <Card className="border-none shadow-md overflow-hidden bg-white relative">
+                 {/* Red Header Bar (aesthetic) */}
+                <div className="h-1.5 w-full bg-red-500 absolute top-0 left-0" />
+                <CardContent className="p-0">
+                    <div className="p-4 pb-2">
+                        <h3 className="text-lg font-bold text-slate-900 leading-none">
+                            {format(today, "MMMM", { locale: es }).charAt(0).toUpperCase() + format(today, "MMMM", { locale: es }).slice(1)}
+                        </h3>
+                        <p className="text-sm text-muted-foreground font-medium">
+                            {format(today, "EEEE, d", { locale: es })}
+                        </p>
+                    </div>
+                    <div className="flex justify-center pb-2 scale-90 origin-top">
+                        <Calendar
+                            mode="single"
+                            selected={date}
+                            onSelect={setDate}
+                            className="p-0 pointer-events-none" // Widget display mostly
+                            classNames={{
+                                head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
+                                cell: "h-8 w-8 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                                day: "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
+                                day_selected: "bg-red-500 text-white hover:bg-red-500 hover:text-white focus:bg-red-500 focus:text-white rounded-full",
+                                day_today: "bg-slate-100 text-slate-900 font-bold rounded-full",
+                            }}
+                        />
+                    </div>
+                </CardContent>
             </Card>
+
+            {/* Quick Actions Widget */}
+            <div className="space-y-3">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1">Acciones Rápidas</h4>
+                
+                <div className="grid grid-cols-2 gap-3">
+                     <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col items-center justify-center gap-2 hover:border-blue-300 hover:bg-blue-50 border-dashed"
+                        onClick={onAddStudent}
+                    >
+                         <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                             <UserPlus size={18} />
+                         </div>
+                         <span className="text-xs font-medium">Alumno</span>
+                     </Button>
+
+                     <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col items-center justify-center gap-2 hover:border-orange-300 hover:bg-orange-50 border-dashed"
+                        onClick={onAddLead}
+                    >
+                         <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                             <Target size={18} />
+                         </div>
+                         <span className="text-xs font-medium">Lead</span>
+                     </Button>
+
+                     <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col items-center justify-center gap-2 hover:border-yellow-300 hover:bg-yellow-50 border-dashed"
+                        onClick={() => setIsAddNoteOpen(true)}
+                    >
+                         <div className="h-8 w-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
+                             <StickyNote size={18} />
+                         </div>
+                         <span className="text-xs font-medium">Nota</span>
+                     </Button>
+
+                     <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col items-center justify-center gap-2 hover:border-indigo-300 hover:bg-indigo-50 border-dashed"
+                        onClick={onAddTask}
+                    >
+                         <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                             <Plus size={18} />
+                         </div>
+                         <span className="text-xs font-medium">Tarea</span>
+                     </Button>
+                </div>
+            </div>
+
+            {/* Upcoming Birthdays or simple Info Widget */}
+             <Card className="bg-gradient-to-br from-violet-500 to-fuchsia-600 border-none text-white shadow-md">
+                 <CardContent className="p-4 flex items-center justify-between">
+                     <div>
+                         <p className="text-xs font-medium text-white/80">Objetivo Mensual</p>
+                         <h3 className="text-xl font-bold mt-0.5">$10.0k</h3>
+                     </div>
+                     <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                         <Target size={20} className="text-white" />
+                     </div>
+                 </CardContent>
+             </Card>
+
         </div>
 
       </div>
+
+      <AddNoteDialog open={isAddNoteOpen} onOpenChange={setIsAddNoteOpen} />
     </div>
   );
 };

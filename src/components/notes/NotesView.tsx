@@ -2,28 +2,14 @@ import React, { useState, useEffect } from "react";
 import { Note } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, StickyNote, Filter, Trash2, Pin, Search, Loader2 } from "lucide-react";
+import { Plus, StickyNote, Trash2, Pin, Search, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import { AddNoteDialog } from "./AddNoteDialog";
 
 const DEFAULT_CATEGORIES = ["Reel", "Story", "Guía", "SOP", "Idea", "Otro"];
 
@@ -33,12 +19,6 @@ export const NotesView = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | "all">("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
-
-  // Form State
-  const [newTitle, setNewTitle] = useState("");
-  const [newContent, setNewContent] = useState("");
-  const [newCategory, setNewCategory] = useState("Idea");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchNotes = async () => {
     try {
@@ -73,35 +53,6 @@ export const NotesView = () => {
     fetchNotes();
   }, []);
 
-  const handleAddNote = async () => {
-    if (!newTitle.trim()) return;
-
-    try {
-      setIsSubmitting(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { error } = await supabase.from('notes').insert({
-        user_id: user.id,
-        title: newTitle,
-        content: newContent,
-        category: newCategory,
-      });
-
-      if (error) throw error;
-
-      showSuccess("Nota creada");
-      setNewTitle("");
-      setNewContent("");
-      setIsAddOpen(false);
-      fetchNotes();
-    } catch (error) {
-      showError("Error al crear nota");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleDelete = async (id: string) => {
     try {
       const { error } = await supabase.from('notes').delete().eq('id', id);
@@ -118,7 +69,7 @@ export const NotesView = () => {
       // Optimistic update
       const updatedNotes = notes.map(n => 
         n.id === note.id ? { ...n, isPinned: !n.isPinned } : n
-      ).sort((a, b) => (b.isPinned === a.isPinned ? 0 : b.isPinned ? 1 : -1)); // Re-sort locally
+      ).sort((a, b) => (b.isPinned === a.isPinned ? 0 : b.isPinned ? 1 : -1)); 
       
       setNotes(updatedNotes);
 
@@ -130,7 +81,7 @@ export const NotesView = () => {
       if (error) throw error;
     } catch (error) {
         showError("Error al actualizar");
-        fetchNotes(); // Revert on error
+        fetchNotes(); 
     }
   };
 
@@ -161,54 +112,15 @@ export const NotesView = () => {
             <p className="text-muted-foreground text-sm">Captura tus ideas, guiones y procesos.</p>
         </div>
 
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-                <Button className="shadow-md">
-                    <Plus className="mr-2 h-4 w-4" /> Nueva Nota
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                    <DialogTitle>Crear Nota</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Título</label>
-                        <Input 
-                            placeholder="Ej. Idea para Reel sobre AI..." 
-                            value={newTitle}
-                            onChange={(e) => setNewTitle(e.target.value)}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Categoría</label>
-                        <Select value={newCategory} onValueChange={setNewCategory}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {DEFAULT_CATEGORIES.map(cat => (
-                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Contenido</label>
-                        <Textarea 
-                            placeholder="Desarrolla tu idea aquí..." 
-                            className="min-h-[150px]"
-                            value={newContent}
-                            onChange={(e) => setNewContent(e.target.value)}
-                        />
-                    </div>
-                    <Button className="w-full" onClick={handleAddNote} disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Guardar Nota
-                    </Button>
-                </div>
-            </DialogContent>
-        </Dialog>
+        <Button className="shadow-md" onClick={() => setIsAddOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Nueva Nota
+        </Button>
+
+        <AddNoteDialog 
+            open={isAddOpen} 
+            onOpenChange={setIsAddOpen} 
+            onNoteAdded={fetchNotes} 
+        />
       </div>
 
       {/* Filters */}
