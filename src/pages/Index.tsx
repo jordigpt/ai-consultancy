@@ -6,7 +6,7 @@ import { LeadCard } from "@/components/leads/LeadCard";
 import { LeadForm } from "@/components/leads/LeadForm";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Users, Calendar as CalendarIcon, GraduationCap, Loader2, Target, Plus, Bell, ClipboardList } from "lucide-react";
+import { Search, Users, Calendar as CalendarIcon, GraduationCap, Loader2, Target, Plus, Bell, ClipboardList, LayoutDashboard } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { StudentList } from "@/components/dashboard/StudentList";
 import { CalendarView } from "@/components/dashboard/CalendarView";
 import { NotificationsView } from "@/components/dashboard/NotificationsView";
 import { MentorTasksView } from "@/components/tasks/MentorTasksView";
+import { Overview } from "@/components/dashboard/Overview"; // Import Overview
 
 const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -267,35 +268,54 @@ const Index = () => {
         isSubmitting={isSubmitting}
       />
 
-      <main className="container max-w-2xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
-        <Tabs defaultValue="active" className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-4 h-auto py-1">
-            <TabsTrigger value="active" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
-              <Users size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Activos</span>
-            </TabsTrigger>
-            <TabsTrigger value="graduated" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
-              <GraduationCap size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Egresados</span>
-            </TabsTrigger>
-            <TabsTrigger value="calendar" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
-              <CalendarIcon size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Agenda</span>
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
-              <ClipboardList size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Tareas</span>
-            </TabsTrigger>
-             <TabsTrigger value="leads" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0">
-              <Target size={16} className="shrink-0" /> <span className="truncate hidden xs:inline">Leads</span>
-            </TabsTrigger>
-             <TabsTrigger value="notifications" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1.5 px-0 relative">
-              <Bell size={16} className="shrink-0" /> 
-              {notificationsCount > 0 && (
-                  <span className="absolute top-1 right-1 sm:top-0.5 sm:right-0.5 flex h-3 w-3 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-red-600 text-[8px] sm:text-[10px] font-bold text-white">
-                      {notificationsCount}
-                  </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+      <main className="container max-w-7xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
+        <Tabs defaultValue="overview" className="w-full">
+          {/* Scrollable Tabs List for Mobile */}
+          <div className="w-full overflow-x-auto pb-2 scrollbar-hide">
+            <TabsList className="inline-flex w-auto min-w-full justify-start sm:justify-center h-auto py-1 px-1 bg-white/50 backdrop-blur border">
+              <TabsTrigger value="overview" className="gap-2 px-3 py-2 text-xs sm:text-sm">
+                <LayoutDashboard size={16} /> <span className="hidden sm:inline">Panel</span> General
+              </TabsTrigger>
+              <TabsTrigger value="active" className="gap-2 px-3 py-2 text-xs sm:text-sm">
+                <Users size={16} /> Alumnos
+              </TabsTrigger>
+              <TabsTrigger value="leads" className="gap-2 px-3 py-2 text-xs sm:text-sm">
+                <Target size={16} /> Leads
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="gap-2 px-3 py-2 text-xs sm:text-sm">
+                <CalendarIcon size={16} /> Agenda
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="gap-2 px-3 py-2 text-xs sm:text-sm">
+                <ClipboardList size={16} /> Tareas
+              </TabsTrigger>
+              <TabsTrigger value="graduated" className="gap-2 px-3 py-2 text-xs sm:text-sm">
+                <GraduationCap size={16} /> Egresados
+              </TabsTrigger>
+              <TabsTrigger value="notifications" className="gap-2 px-3 py-2 text-xs sm:text-sm relative">
+                <Bell size={16} /> 
+                {notificationsCount > 0 && (
+                    <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
+                        {notificationsCount}
+                    </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="active" className="mt-0 space-y-4">
+          {/* --- NEW OVERVIEW TAB --- */}
+          <TabsContent value="overview" className="mt-2">
+            <Overview 
+              students={students} 
+              leads={leads}
+              onAddStudent={() => setIsAddStudentOpen(true)}
+              onAddLead={() => setIsAddLeadOpen(true)}
+              onAddTask={() => {}} // Not used as it's embedded
+              onOpenStudent={openStudentDetails}
+              onOpenLead={openLeadDetails}
+            />
+          </TabsContent>
+
+          <TabsContent value="active" className="mt-2 space-y-4 max-w-2xl mx-auto">
              <div className="relative mb-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input 
@@ -313,7 +333,7 @@ const Index = () => {
             />
           </TabsContent>
 
-          <TabsContent value="graduated" className="mt-0 space-y-4">
+          <TabsContent value="graduated" className="mt-2 space-y-4 max-w-2xl mx-auto">
              <div className="relative mb-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input 
@@ -323,11 +343,6 @@ const Index = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
-             <div className="bg-yellow-50/50 p-3 rounded-xl border border-yellow-100 text-center">
-                <p className="text-xs sm:text-sm text-yellow-800">
-                    Historial de alumnos egresados.
-                </p>
-             </div>
             <StudentList 
               students={graduatedStudents} 
               searchQuery={searchQuery} 
@@ -336,7 +351,7 @@ const Index = () => {
             />
           </TabsContent>
 
-          <TabsContent value="calendar" className="mt-0">
+          <TabsContent value="calendar" className="mt-2 max-w-2xl mx-auto">
             <CalendarView 
               students={students}
               leads={leads}
@@ -347,11 +362,13 @@ const Index = () => {
             />
           </TabsContent>
 
-          <TabsContent value="tasks" className="mt-0">
-            <MentorTasksView />
+          <TabsContent value="tasks" className="mt-2 max-w-2xl mx-auto">
+            <div className="bg-white p-4 rounded-xl border shadow-sm">
+                <MentorTasksView />
+            </div>
           </TabsContent>
 
-          <TabsContent value="leads" className="mt-0 space-y-4">
+          <TabsContent value="leads" className="mt-2 space-y-4 max-w-2xl mx-auto">
             <div className="flex gap-2">
                  <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -390,7 +407,7 @@ const Index = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="notifications" className="mt-0">
+          <TabsContent value="notifications" className="mt-2 max-w-2xl mx-auto">
             <NotificationsView leads={leads} onLeadClick={openLeadDetails} />
           </TabsContent>
         </Tabs>
