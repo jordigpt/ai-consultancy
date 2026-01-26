@@ -97,5 +97,6 @@ export interface Note {
 export interface UserSettings {
   userId: string;
   monthlyGoal: number;
+  gumroadRevenue: number;
   currency: string;
 }

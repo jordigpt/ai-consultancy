@@ -31,6 +31,7 @@ const Index = () => {
   
   // Settings
   const [monthlyGoal, setMonthlyGoal] = useState(10000);
+  const [gumroadRevenue, setGumroadRevenue] = useState(0);
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -53,9 +54,10 @@ const Index = () => {
 
       // 0. Fetch Settings (Optional, fails silently if not exists)
       if (user) {
-        const { data: settings } = await supabase.from('user_settings').select('monthly_goal').eq('user_id', user.id).single();
+        const { data: settings } = await supabase.from('user_settings').select('monthly_goal, gumroad_revenue').eq('user_id', user.id).single();
         if (settings) {
-            setMonthlyGoal(settings.monthly_goal);
+            setMonthlyGoal(settings.monthly_goal || 10000);
+            setGumroadRevenue(settings.gumroad_revenue || 0);
         }
       }
 
@@ -175,6 +177,11 @@ const Index = () => {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+  };
+
+  const handleUpdateSettings = (newGoal: number, newGumroad: number) => {
+      setMonthlyGoal(newGoal);
+      setGumroadRevenue(newGumroad);
   };
 
   const handleAddStudent = async (data: Omit<Student, "id" | "tasks" | "calls" | "status">) => {
@@ -339,6 +346,7 @@ const Index = () => {
                     leads={leads}
                     mentorTasks={mentorTasks}
                     monthlyGoal={monthlyGoal}
+                    gumroadRevenue={gumroadRevenue}
                     onAddStudent={() => setIsAddStudentOpen(true)}
                     onAddLead={() => setIsAddLeadOpen(true)}
                     onAddTask={() => setCurrentView('tasks')}
@@ -353,7 +361,8 @@ const Index = () => {
                 <MonthlyGoalView 
                     students={students} 
                     currentGoal={monthlyGoal} 
-                    onGoalUpdate={setMonthlyGoal} 
+                    gumroadRevenue={gumroadRevenue}
+                    onSettingsUpdate={handleUpdateSettings} 
                 />
             );
         case 'active':

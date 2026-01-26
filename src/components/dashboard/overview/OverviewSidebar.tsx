@@ -11,6 +11,7 @@ import { es } from "date-fns/locale";
 interface OverviewSidebarProps {
   students: Student[];
   monthlyGoal: number;
+  gumroadRevenue: number;
   onAddStudent: () => void;
   onAddLead: () => void;
   onAddTask: () => void;
@@ -20,6 +21,7 @@ interface OverviewSidebarProps {
 export const OverviewSidebar = ({ 
   students, 
   monthlyGoal, 
+  gumroadRevenue,
   onAddStudent, 
   onAddLead, 
   onAddTask,
@@ -30,8 +32,11 @@ export const OverviewSidebar = ({
 
   // Monthly Goal Logic
   const currentMonthStudents = students.filter(s => isSameMonth(new Date(s.startDate), new Date()));
-  const monthlyRevenue = currentMonthStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
-  const monthlyProgress = Math.min((monthlyRevenue / (monthlyGoal || 1)) * 100, 100);
+  const studentsRevenue = currentMonthStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
+  
+  // Total
+  const totalMonthlyRevenue = studentsRevenue + gumroadRevenue;
+  const monthlyProgress = Math.min((totalMonthlyRevenue / (monthlyGoal || 1)) * 100, 100);
 
   return (
     <div className="lg:w-80 space-y-6 flex flex-col shrink-0">
@@ -126,7 +131,7 @@ export const OverviewSidebar = ({
                     <div className="flex justify-between items-end">
                         <div>
                             <p className="text-xs font-medium text-white/80 uppercase tracking-wider">Objetivo Mensual</p>
-                            <h3 className="text-2xl font-bold mt-0.5">${(monthlyRevenue/1000).toFixed(1)}k <span className="text-sm font-normal text-white/70">/ ${(monthlyGoal/1000).toFixed(1)}k</span></h3>
+                            <h3 className="text-2xl font-bold mt-0.5">${(totalMonthlyRevenue/1000).toFixed(1)}k <span className="text-sm font-normal text-white/70">/ ${(monthlyGoal/1000).toFixed(1)}k</span></h3>
                         </div>
                     </div>
                     <div className="space-y-1.5">

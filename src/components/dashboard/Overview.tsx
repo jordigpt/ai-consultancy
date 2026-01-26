@@ -13,6 +13,7 @@ interface OverviewProps {
   leads: Lead[];
   mentorTasks: MentorTask[];
   monthlyGoal: number;
+  gumroadRevenue: number;
   onAddStudent: () => void;
   onAddLead: () => void;
   onAddTask: () => void;
@@ -27,6 +28,7 @@ export const Overview = ({
   leads, 
   mentorTasks,
   monthlyGoal,
+  gumroadRevenue,
   onAddStudent, 
   onAddLead,
   onAddTask,
@@ -79,6 +81,7 @@ export const Overview = ({
         <OverviewSidebar 
             students={students}
             monthlyGoal={monthlyGoal}
+            gumroadRevenue={gumroadRevenue}
             onAddStudent={onAddStudent}
             onAddLead={onAddLead}
             onAddTask={onAddTask}
