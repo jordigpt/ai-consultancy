@@ -6,9 +6,10 @@ import { Users, DollarSign, Target, Briefcase } from "lucide-react";
 interface StatsCardsProps {
   students: Student[];
   leads: Lead[];
+  onNavigate: (view: string) => void;
 }
 
-export const StatsCards = ({ students, leads }: StatsCardsProps) => {
+export const StatsCards = ({ students, leads, onNavigate }: StatsCardsProps) => {
   const activeStudents = students.filter(s => s.status === 'active');
   
   // Revenue Stats
@@ -25,7 +26,10 @@ export const StatsCards = ({ students, leads }: StatsCardsProps) => {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
          {/* Card 1: Active Students */}
-        <Card className="bg-gradient-to-br from-white to-blue-50/50 border-blue-100 shadow-sm">
+        <Card 
+            className="bg-gradient-to-br from-white to-blue-50/50 border-blue-100 shadow-sm cursor-pointer hover:shadow-md transition-all hover:border-blue-300"
+            onClick={() => onNavigate('active')}
+        >
             <CardContent className="p-4">
                 <div className="flex justify-between items-start mb-2">
                      <div className="p-1.5 bg-blue-100 rounded-md text-blue-600">
@@ -63,7 +67,10 @@ export const StatsCards = ({ students, leads }: StatsCardsProps) => {
         </Card>
 
          {/* Card 3: Leads */}
-         <Card className="bg-gradient-to-br from-white to-orange-50/50 border-orange-100 shadow-sm">
+         <Card 
+            className="bg-gradient-to-br from-white to-orange-50/50 border-orange-100 shadow-sm cursor-pointer hover:shadow-md transition-all hover:border-orange-300"
+            onClick={() => onNavigate('leads')}
+         >
             <CardContent className="p-4">
                 <div className="flex justify-between items-start mb-2">
                      <div className="p-1.5 bg-orange-100 rounded-md text-orange-600">
@@ -81,7 +88,10 @@ export const StatsCards = ({ students, leads }: StatsCardsProps) => {
         </Card>
 
         {/* Card 4: New Leads */}
-        <Card className="bg-gradient-to-br from-white to-indigo-50/50 border-indigo-100 shadow-sm">
+        <Card 
+            className="bg-gradient-to-br from-white to-indigo-50/50 border-indigo-100 shadow-sm cursor-pointer hover:shadow-md transition-all hover:border-indigo-300"
+            onClick={() => onNavigate('leads')}
+        >
             <CardContent className="p-4">
                 <div className="flex justify-between items-start mb-2">
                      <div className="p-1.5 bg-indigo-100 rounded-md text-indigo-600">

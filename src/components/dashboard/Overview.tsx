@@ -19,6 +19,7 @@ interface OverviewProps {
   onOpenStudent: (s: Student) => void;
   onOpenLead: (l: Lead) => void;
   onToggleTask: (task: MentorTask) => void;
+  onNavigate: (view: string) => void;
 }
 
 export const Overview = ({ 
@@ -31,7 +32,8 @@ export const Overview = ({
   onAddTask,
   onOpenStudent,
   onOpenLead,
-  onToggleTask
+  onToggleTask,
+  onNavigate
 }: OverviewProps) => {
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
 
@@ -44,7 +46,11 @@ export const Overview = ({
         {/* --- LEFT COLUMN (MAIN) --- */}
         <div className="flex-1 space-y-6 min-w-0">
             
-            <StatsCards students={students} leads={leads} />
+            <StatsCards 
+                students={students} 
+                leads={leads} 
+                onNavigate={onNavigate}
+            />
 
             <UpcomingCalls 
                 students={students} 

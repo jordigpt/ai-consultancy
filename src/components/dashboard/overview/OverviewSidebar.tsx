@@ -59,7 +59,7 @@ export const OverviewSidebar = ({
                             cell: "h-8 w-8 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
                             day: "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
                             day_selected: "bg-red-500 text-white hover:bg-red-500 hover:text-white focus:bg-red-500 focus:text-white rounded-full",
-                            day_today: "bg-slate-100 text-slate-900 font-bold rounded-full",
+                            day_today: "bg-slate-900 text-white font-bold rounded-full hover:bg-slate-700 hover:text-white",
                         }}
                     />
                 </div>

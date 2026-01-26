@@ -11,14 +11,12 @@ import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { differenceInDays } from "date-fns";
 
 // Components
 import { AppLayout } from "@/components/layout/AppLayout";
 import { MetricsOverview } from "@/components/dashboard/MetricsOverview";
 import { StudentList } from "@/components/dashboard/StudentList";
 import { CalendarView } from "@/components/dashboard/CalendarView";
-import { NotificationsView } from "@/components/dashboard/NotificationsView";
 import { MentorTasksView } from "@/components/tasks/MentorTasksView";
 import { Overview } from "@/components/dashboard/Overview";
 import { NotesView } from "@/components/notes/NotesView";
@@ -347,6 +345,7 @@ const Index = () => {
                     onOpenStudent={openStudentDetails}
                     onOpenLead={openLeadDetails}
                     onToggleTask={handleToggleTask}
+                    onNavigate={(view) => setCurrentView(view)}
                 />
             );
         case 'goals':
@@ -431,19 +430,9 @@ const Index = () => {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
-                        <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
-                            <DialogTrigger asChild>
-                                <Button size="icon" className="shrink-0 bg-blue-600 hover:bg-blue-700">
-                                    <Plus size={20} />
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
-                                <DialogHeader>
-                                    <DialogTitle>Nuevo Lead</DialogTitle>
-                                </DialogHeader>
-                                <LeadForm onSubmit={handleAddLead} isLoading={isSubmitting} />
-                            </DialogContent>
-                        </Dialog>
+                        <Button size="icon" className="shrink-0 bg-blue-600 hover:bg-blue-700" onClick={() => setIsAddLeadOpen(true)}>
+                            <Plus size={20} />
+                        </Button>
                     </div>
 
                     {filteredLeads.length === 0 ? (
@@ -475,6 +464,16 @@ const Index = () => {
                   <DialogTitle>Registrar Nuevo Alumno</DialogTitle>
                 </DialogHeader>
                 <StudentForm onSubmit={handleAddStudent} isLoading={isSubmitting} />
+            </DialogContent>
+        </Dialog>
+        
+        {/* Global Lead Create Dialog - Moved outside switch */}
+        <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
+            <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
+                <DialogHeader>
+                    <DialogTitle>Nuevo Lead</DialogTitle>
+                </DialogHeader>
+                <LeadForm onSubmit={handleAddLead} isLoading={isSubmitting} />
             </DialogContent>
         </Dialog>
         
