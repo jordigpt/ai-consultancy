@@ -45,7 +45,8 @@ import {
   Target,
   Check,
   ChevronsUpDown,
-  X
+  X,
+  Pencil
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
@@ -62,7 +63,8 @@ interface RelationOption {
 export const MentorTasksView = () => {
   const [tasks, setTasks] = useState<MentorTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<MentorTask | null>(null);
 
   // Form States
   const [title, setTitle] = useState("");
@@ -151,7 +153,37 @@ export const MentorTasksView = () => {
     fetchData();
   }, []);
 
-  const handleAddTask = async () => {
+  const resetForm = () => {
+      setTitle("");
+      setDescription("");
+      setPriority("medium");
+      setSelectedRelation(null);
+      setEditingTask(null);
+  };
+
+  const handleOpenAdd = () => {
+      resetForm();
+      setIsDialogOpen(true);
+  };
+
+  const handleOpenEdit = (task: MentorTask) => {
+      setEditingTask(task);
+      setTitle(task.title);
+      setDescription(task.description || "");
+      setPriority(task.priority);
+      
+      if (task.studentId) {
+          setSelectedRelation({ id: task.studentId, label: task.relatedName || "", type: 'student' });
+      } else if (task.leadId) {
+          setSelectedRelation({ id: task.leadId, label: task.relatedName || "", type: 'lead' });
+      } else {
+          setSelectedRelation(null);
+      }
+      
+      setIsDialogOpen(true);
+  };
+
+  const handleSaveTask = async () => {
     if (!title.trim()) return;
 
     try {
@@ -168,19 +200,24 @@ export const MentorTasksView = () => {
         lead_id: selectedRelation?.type === 'lead' ? selectedRelation.id : null
       };
 
-      const { error } = await supabase.from('mentor_tasks').insert(payload);
+      if (editingTask) {
+          const { error } = await supabase
+              .from('mentor_tasks')
+              .update(payload)
+              .eq('id', editingTask.id);
+          if (error) throw error;
+          showSuccess("Tarea actualizada");
+      } else {
+          const { error } = await supabase.from('mentor_tasks').insert(payload);
+          if (error) throw error;
+          showSuccess("Tarea creada");
+      }
 
-      if (error) throw error;
-
-      showSuccess("Tarea personal agregada");
-      setTitle("");
-      setDescription("");
-      setPriority("medium");
-      setSelectedRelation(null);
-      setIsAddOpen(false);
-      fetchData(); // Reload to get the relations populated
+      setIsDialogOpen(false);
+      resetForm();
+      fetchData(); 
     } catch (error) {
-      showError("Error al crear tarea");
+      showError("Error al guardar tarea");
     } finally {
       setIsSubmitting(false);
     }
@@ -245,15 +282,15 @@ export const MentorTasksView = () => {
             </p>
         </div>
         
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-                <Button className="shadow-md">
+                <Button className="shadow-md" onClick={handleOpenAdd}>
                     <Plus className="mr-2 h-4 w-4" /> Nueva Tarea
                 </Button>
             </DialogTrigger>
             <DialogContent className="overflow-visible">
                 <DialogHeader>
-                    <DialogTitle>Agregar Tarea Personal</DialogTitle>
+                    <DialogTitle>{editingTask ? "Editar Tarea" : "Agregar Tarea Personal"}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
                     <div className="space-y-2">
@@ -364,9 +401,9 @@ export const MentorTasksView = () => {
                             className="min-h-[100px]"
                         />
                     </div>
-                    <Button className="w-full" onClick={handleAddTask} disabled={isSubmitting}>
+                    <Button className="w-full" onClick={handleSaveTask} disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Guardar Tarea
+                        {editingTask ? "Guardar Cambios" : "Crear Tarea"}
                     </Button>
                 </div>
             </DialogContent>
@@ -377,7 +414,7 @@ export const MentorTasksView = () => {
         {tasks.length === 0 ? (
             <div className="text-center py-12 border-2 border-dashed rounded-xl bg-gray-50/50">
                 <p className="text-muted-foreground">No tienes tareas pendientes.</p>
-                <Button variant="link" onClick={() => setIsAddOpen(true)}>Crear la primera</Button>
+                <Button variant="link" onClick={handleOpenAdd}>Crear la primera</Button>
             </div>
         ) : (
             tasks.map((task) => (
@@ -396,7 +433,7 @@ export const MentorTasksView = () => {
                     />
                     
                     <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between pr-8">
+                        <div className="flex items-center justify-between pr-16 sm:pr-20">
                             <span className={`font-medium ${task.completed ? "line-through text-muted-foreground" : ""}`}>
                                 {task.title}
                             </span>
@@ -423,14 +460,24 @@ export const MentorTasksView = () => {
                         </div>
                     </div>
 
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/10"
-                        onClick={() => deleteTask(task.id)}
-                    >
-                        <Trash2 size={16} />
-                    </Button>
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-muted-foreground hover:text-blue-500 hover:bg-blue-50"
+                            onClick={() => handleOpenEdit(task)}
+                        >
+                            <Pencil size={14} />
+                        </Button>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => deleteTask(task.id)}
+                        >
+                            <Trash2 size={14} />
+                        </Button>
+                    </div>
                 </div>
             ))
         )}
