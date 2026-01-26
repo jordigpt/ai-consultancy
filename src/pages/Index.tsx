@@ -280,6 +280,7 @@ const Index = () => {
                     leads={leads} 
                     onLeadClick={openLeadDetails} 
                     onAddLead={() => setIsAddLeadOpen(true)} 
+                    onUpdate={fetchData}
                 />
             );
         default:

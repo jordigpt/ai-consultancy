@@ -5,15 +5,16 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Search, Plus, LayoutList, KanbanSquare } from "lucide-react";
 import { LeadCard } from "@/components/leads/LeadCard";
-import { LeadKanban } from "@/components/leads/LeadKanban"; // Importamos el nuevo componente
+import { LeadKanban } from "@/components/leads/LeadKanban";
 
 interface LeadsViewProps {
   leads: Lead[];
   onLeadClick: (lead: Lead) => void;
   onAddLead: () => void;
+  onUpdate: () => void;
 }
 
-export const LeadsView = ({ leads, onLeadClick, onAddLead }: LeadsViewProps) => {
+export const LeadsView = ({ leads, onLeadClick, onAddLead, onUpdate }: LeadsViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
 
@@ -73,7 +74,11 @@ export const LeadsView = ({ leads, onLeadClick, onAddLead }: LeadsViewProps) => 
                         </div>
                     ) : (
                         <div className="animate-in fade-in duration-300 h-full">
-                            <LeadKanban leads={filteredLeads} onLeadClick={onLeadClick} />
+                            <LeadKanban 
+                                leads={filteredLeads} 
+                                onLeadClick={onLeadClick} 
+                                onUpdate={onUpdate}
+                            />
                         </div>
                     )}
                 </>
