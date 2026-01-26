@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import { Lead } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Plus } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Search, Plus, LayoutList, KanbanSquare } from "lucide-react";
 import { LeadCard } from "@/components/leads/LeadCard";
+import { LeadKanban } from "@/components/leads/LeadKanban"; // Importamos el nuevo componente
 
 interface LeadsViewProps {
   leads: Lead[];
@@ -13,6 +15,7 @@ interface LeadsViewProps {
 
 export const LeadsView = ({ leads, onLeadClick, onAddLead }: LeadsViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"list" | "board">("list");
 
   const filteredLeads = leads.filter(l => 
       l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -20,33 +23,62 @@ export const LeadsView = ({ leads, onLeadClick, onAddLead }: LeadsViewProps) => 
   );
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
-        <div className="flex gap-2">
-            <div className="relative flex-1">
+    <div className="space-y-4 h-full flex flex-col">
+        {/* Header Controls */}
+        <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+             {/* Search Bar */}
+            <div className="relative flex-1 w-full sm:max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input 
-                    placeholder="Buscar lead..." 
+                    placeholder="Buscar lead por nombre o email..." 
                     className="pl-9 bg-white shadow-sm"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
-            <Button size="icon" className="shrink-0 bg-blue-600 hover:bg-blue-700" onClick={onAddLead}>
-                <Plus size={20} />
-            </Button>
+
+            {/* Actions: Toggle View & Add Button */}
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+                <div className="bg-slate-100 p-1 rounded-lg border border-slate-200">
+                    <ToggleGroup type="single" value={viewMode} onValueChange={(val) => val && setViewMode(val as "list" | "board")}>
+                        <ToggleGroupItem value="list" aria-label="Vista Lista" size="sm" className="h-7 w-7 p-0 data-[state=on]:bg-white data-[state=on]:shadow-sm">
+                            <LayoutList size={16} />
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="board" aria-label="Vista Tablero" size="sm" className="h-7 w-7 p-0 data-[state=on]:bg-white data-[state=on]:shadow-sm">
+                            <KanbanSquare size={16} />
+                        </ToggleGroupItem>
+                    </ToggleGroup>
+                </div>
+
+                <Button className="bg-blue-600 hover:bg-blue-700 shadow-sm" onClick={onAddLead}>
+                    <Plus size={16} className="mr-2" /> Nuevo Lead
+                </Button>
+            </div>
         </div>
 
-        {filteredLeads.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground">
-                No hay leads registrados aún.
-            </div>
-        ) : (
-            <div className="space-y-3">
-                {filteredLeads.map(lead => (
-                    <LeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} />
-                ))}
-            </div>
-        )}
+        {/* Content Area */}
+        <div className="flex-1">
+            {filteredLeads.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-muted-foreground border-2 border-dashed rounded-xl bg-slate-50/50">
+                    <p>No se encontraron leads.</p>
+                    {searchQuery && <Button variant="link" onClick={() => setSearchQuery("")} className="mt-2">Limpiar búsqueda</Button>}
+                </div>
+            ) : (
+                <>
+                    {viewMode === "list" ? (
+                        <div className="space-y-3 max-w-3xl mx-auto animate-in fade-in duration-300">
+                            {filteredLeads.map(lead => (
+                                <LeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="animate-in fade-in duration-300 h-full">
+                            <LeadKanban leads={filteredLeads} onLeadClick={onLeadClick} />
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
     </div>
   );
 };
