@@ -1,38 +1,47 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Student, Lead, MentorTask } from "@/lib/types";
 import { StudentDetails } from "@/components/dashboard/StudentDetails";
 import { LeadDetails } from "@/components/leads/LeadDetails";
-import { LeadCard } from "@/components/leads/LeadCard";
 import { LeadForm } from "@/components/leads/LeadForm";
 import { StudentForm } from "@/components/dashboard/StudentForm"; 
-import { Input } from "@/components/ui/input";
-import { Search, Plus, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+// Hooks
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 // Components
 import { AppLayout } from "@/components/layout/AppLayout";
-import { MetricsOverview } from "@/components/dashboard/MetricsOverview";
-import { StudentList } from "@/components/dashboard/StudentList";
 import { CalendarView } from "@/components/dashboard/CalendarView";
 import { MentorTasksView } from "@/components/tasks/MentorTasksView";
 import { Overview } from "@/components/dashboard/Overview";
 import { NotesView } from "@/components/notes/NotesView";
 import { MonthlyGoalView } from "@/components/dashboard/MonthlyGoalView";
 
+// Views
+import { ActiveStudentsView } from "@/components/dashboard/views/ActiveStudentsView";
+import { GraduatedStudentsView } from "@/components/dashboard/views/GraduatedStudentsView";
+import { LeadsView } from "@/components/dashboard/views/LeadsView";
+
 const Index = () => {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [mentorTasks, setMentorTasks] = useState<MentorTask[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    students,
+    leads,
+    mentorTasks,
+    monthlyGoal,
+    gumroadRevenue,
+    loading,
+    fetchData,
+    setMentorTasks,
+    setMonthlyGoal,
+    setGumroadRevenue
+  } = useDashboardData();
+
   const [currentView, setCurrentView] = useState("overview"); 
   
-  // Settings
-  const [monthlyGoal, setMonthlyGoal] = useState(10000);
-  const [gumroadRevenue, setGumroadRevenue] = useState(0);
-
+  // Selected Items for Details Modals
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   
@@ -42,138 +51,7 @@ const Index = () => {
   // UI States
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Fetch Data from Supabase
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // 0. Fetch Settings (Optional, fails silently if not exists)
-      if (user) {
-        const { data: settings } = await supabase.from('user_settings').select('monthly_goal, gumroad_revenue').eq('user_id', user.id).single();
-        if (settings) {
-            setMonthlyGoal(settings.monthly_goal || 10000);
-            setGumroadRevenue(settings.gumroad_revenue || 0);
-        }
-      }
-
-      // 1. Fetch Students
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select(`*, tasks (*), calls (*)`)
-        .order('created_at', { ascending: false });
-
-      if (studentsError) throw studentsError;
-
-      // 2. Fetch Leads
-      const { data: leadsData, error: leadsError } = await supabase
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (leadsError) throw leadsError;
-
-      // 3. Fetch Mentor Tasks (Pending only for overview efficiency)
-      const { data: tasksData, error: tasksError } = await supabase
-        .from('mentor_tasks')
-        .select(`
-            *,
-            students (id, first_name, last_name),
-            leads (id, name)
-        `)
-        .eq('completed', false)
-        .order('created_at', { ascending: false });
-
-      if (tasksError) throw tasksError;
-
-      // Transform Students
-      const transformedStudents: Student[] = studentsData.map((s: any) => ({
-        id: s.id,
-        firstName: s.first_name,
-        lastName: s.last_name,
-        email: s.email, 
-        occupation: s.occupation,
-        context: s.context || "",
-        aiLevel: s.ai_level,
-        businessModel: s.business_model,
-        startDate: new Date(s.start_date),
-        status: s.status || 'active', 
-        paidInFull: s.paid_in_full,
-        amountPaid: s.amount_paid,
-        amountOwed: s.amount_owed,
-        roadmapUrl: s.roadmap_url,
-        tasks: s.tasks.map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          completed: t.completed
-        })).sort((a: any, b: any) => b.id.localeCompare(a.id)),
-        calls: s.calls.map((c: any) => ({
-          id: c.id,
-          date: new Date(c.date),
-          completed: c.completed,
-          notes: c.notes
-        })).sort((a: any, b: any) => b.date - a.date)
-      }));
-
-      // Transform Leads
-      const transformedLeads: Lead[] = leadsData.map((l: any) => ({
-        id: l.id,
-        name: l.name,
-        email: l.email || "",
-        phone: l.phone || "",
-        status: l.status,
-        interestLevel: l.interest_level,
-        notes: l.notes || "",
-        nextCallDate: l.next_call_date ? new Date(l.next_call_date) : undefined,
-        createdAt: new Date(l.created_at)
-      }));
-
-      // Transform Tasks
-      const transformedTasks: MentorTask[] = tasksData.map((t: any) => {
-        let relatedName = undefined;
-        let relatedType: 'student' | 'lead' | undefined = undefined;
-
-        if (t.students) {
-            relatedName = `${t.students.first_name} ${t.students.last_name}`;
-            relatedType = 'student';
-        } else if (t.leads) {
-            relatedName = t.leads.name;
-            relatedType = 'lead';
-        }
-
-        return {
-            id: t.id,
-            title: t.title,
-            description: t.description,
-            priority: t.priority,
-            completed: t.completed,
-            createdAt: new Date(t.created_at),
-            studentId: t.student_id,
-            leadId: t.lead_id,
-            relatedName,
-            relatedType
-        };
-      });
-
-      setStudents(transformedStudents);
-      setLeads(transformedLeads);
-      setMentorTasks(transformedTasks);
-
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      showError("Error al cargar los datos");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -310,14 +188,6 @@ const Index = () => {
       showSuccess("Completa los datos para registrar al nuevo alumno.");
   };
 
-  // Filter Data
-  const activeStudents = students.filter(s => s.status === 'active' || !s.status);
-  const graduatedStudents = students.filter(s => s.status === 'graduated');
-  const filteredLeads = leads.filter(l => 
-      l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const openStudentDetails = (student: Student) => {
     setSelectedStudent(student);
     setStudentDetailsOpen(true);
@@ -327,6 +197,10 @@ const Index = () => {
       setSelectedLead(lead);
       setLeadDetailsOpen(true);
   };
+
+  // Filter Data
+  const activeStudents = students.filter(s => s.status === 'active' || !s.status);
+  const graduatedStudents = students.filter(s => s.status === 'graduated');
 
   // --- RENDER CONTENT BASED ON VIEW ---
   const renderContent = () => {
@@ -367,43 +241,17 @@ const Index = () => {
             );
         case 'active':
             return (
-                <div className="space-y-4 max-w-2xl mx-auto">
-                    <div className="relative mb-2">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                        <Input 
-                            placeholder="Buscar alumno..." 
-                            className="pl-9 bg-white shadow-sm"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                    <MetricsOverview students={activeStudents} />
-                    <StudentList 
-                        students={activeStudents} 
-                        searchQuery={searchQuery} 
-                        onStudentClick={openStudentDetails} 
-                    />
-                </div>
+                <ActiveStudentsView 
+                    students={activeStudents} 
+                    onStudentClick={openStudentDetails} 
+                />
             );
         case 'graduated':
             return (
-                <div className="space-y-4 max-w-2xl mx-auto">
-                    <div className="relative mb-2">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                        <Input 
-                            placeholder="Buscar egresado..." 
-                            className="pl-9 bg-white shadow-sm"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                    <StudentList 
-                        students={graduatedStudents} 
-                        searchQuery={searchQuery} 
-                        onStudentClick={openStudentDetails} 
-                        emptyMessage="No hay alumnos egresados aún."
-                    />
-                </div>
+                <GraduatedStudentsView 
+                    students={graduatedStudents} 
+                    onStudentClick={openStudentDetails} 
+                />
             );
         case 'calendar':
             return (
@@ -428,34 +276,11 @@ const Index = () => {
             return <NotesView />;
         case 'leads':
             return (
-                <div className="space-y-4 max-w-2xl mx-auto">
-                    <div className="flex gap-2">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                            <Input 
-                                placeholder="Buscar lead..." 
-                                className="pl-9 bg-white shadow-sm"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-                        <Button size="icon" className="shrink-0 bg-blue-600 hover:bg-blue-700" onClick={() => setIsAddLeadOpen(true)}>
-                            <Plus size={20} />
-                        </Button>
-                    </div>
-
-                    {filteredLeads.length === 0 ? (
-                        <div className="text-center py-10 text-muted-foreground">
-                            No hay leads registrados aún.
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {filteredLeads.map(lead => (
-                                <LeadCard key={lead.id} lead={lead} onClick={() => openLeadDetails(lead)} />
-                            ))}
-                        </div>
-                    )}
-                </div>
+                <LeadsView 
+                    leads={leads} 
+                    onLeadClick={openLeadDetails} 
+                    onAddLead={() => setIsAddLeadOpen(true)} 
+                />
             );
         default:
             return null;
@@ -476,7 +301,7 @@ const Index = () => {
             </DialogContent>
         </Dialog>
         
-        {/* Global Lead Create Dialog - Moved outside switch */}
+        {/* Global Lead Create Dialog */}
         <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
             <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
                 <DialogHeader>
