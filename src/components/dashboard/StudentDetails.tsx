@@ -16,7 +16,8 @@ import { StudentFinances } from "./details/StudentFinances";
 import { StudentCalls } from "./details/StudentCalls"; 
 import { StudentTasks } from "./details/StudentTasks"; 
 import { StudentRoadmap } from "./details/StudentRoadmap"; 
-import { StudentTimeline } from "./details/StudentTimeline"; // New
+import { StudentTimeline } from "./details/StudentTimeline";
+import { StudentNotes } from "./details/StudentNotes"; // Imported
 import { StudentInfo } from "./StudentInfo";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
@@ -118,6 +119,11 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
                         {student.context || "Sin contexto adicional."}
                         </div>
                     </div>
+
+                    <Separator />
+                    
+                    {/* Added Student Notes Section */}
+                    <StudentNotes student={student} onUpdate={onUpdateStudent} />
 
                     <Separator />
 

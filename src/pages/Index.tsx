@@ -67,7 +67,7 @@ const Index = () => {
       setGumroadRevenue(newGumroad);
   };
 
-  const handleAddStudent = async (data: Omit<Student, "id" | "tasks" | "calls" | "status">) => {
+  const handleAddStudent = async (data: Omit<Student, "id" | "tasks" | "calls" | "status" | "notes">) => {
     try {
       setIsSubmitting(true);
       

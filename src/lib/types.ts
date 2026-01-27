@@ -29,6 +29,12 @@ export interface Call {
   leadId?: string;    // Optional linkage
 }
 
+export interface StudentNote {
+  id: string;
+  content: string;
+  createdAt: Date;
+}
+
 export interface Student {
   id: string;
   firstName: string;
@@ -52,6 +58,7 @@ export interface Student {
   
   tasks: Task[];
   calls: Call[];
+  notes: StudentNote[]; // Added
 }
 
 // LEADS TYPES
