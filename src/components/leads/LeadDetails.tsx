@@ -118,7 +118,8 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                     <Select value={lead.status} onValueChange={(val) => handleUpdateStatus(val as LeadStatus)}>
                         <SelectTrigger className={
                             lead.status === 'won' ? 'border-green-500 bg-green-50 text-green-700' : 
-                            lead.status === 'lost' ? 'border-red-500 bg-red-50 text-red-700' : ''
+                            lead.status === 'lost' ? 'border-red-500 bg-red-50 text-red-700' : 
+                            lead.status === 'paused' ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : ''
                         }>
                             <SelectValue />
                         </SelectTrigger>
@@ -126,6 +127,7 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                             <SelectItem value="new">🆕 Nuevo</SelectItem>
                             <SelectItem value="contacted">📞 Contactado</SelectItem>
                             <SelectItem value="qualified">✅ Calificado</SelectItem>
+                            <SelectItem value="paused">⏸️ En Pausa</SelectItem>
                             <SelectItem value="won">🎉 Ganado (Cliente)</SelectItem>
                             <SelectItem value="lost">❌ Perdido</SelectItem>
                         </SelectContent>

@@ -30,6 +30,7 @@ const COLUMNS: { id: LeadStatus; title: string; color: string; borderColor: stri
   { id: 'new', title: 'Nuevos', color: 'bg-slate-50/80', borderColor: 'border-slate-200' },
   { id: 'contacted', title: 'Contactados', color: 'bg-blue-50/50', borderColor: 'border-blue-100' },
   { id: 'qualified', title: 'Calificados', color: 'bg-indigo-50/50', borderColor: 'border-indigo-100' },
+  { id: 'paused', title: 'En Pausa', color: 'bg-yellow-50/50', borderColor: 'border-yellow-100' },
   { id: 'won', title: 'Ganados', color: 'bg-green-50/50', borderColor: 'border-green-100' },
   { id: 'lost', title: 'Perdidos', color: 'bg-red-50/50', borderColor: 'border-red-100' },
 ];

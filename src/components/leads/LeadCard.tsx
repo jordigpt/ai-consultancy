@@ -29,6 +29,7 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
           case 'new': return <Badge variant="outline">Nuevo</Badge>;
           case 'contacted': return <Badge variant="secondary">Contactado</Badge>;
           case 'qualified': return <Badge className="bg-indigo-500 hover:bg-indigo-600">Calificado</Badge>;
+          case 'paused': return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">En Pausa</Badge>;
           case 'won': return <Badge className="bg-green-500 hover:bg-green-600">Cerrado</Badge>;
           case 'lost': return <Badge variant="destructive">Perdido</Badge>;
           default: return null;

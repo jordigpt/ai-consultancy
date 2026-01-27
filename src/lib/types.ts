@@ -62,7 +62,7 @@ export interface Student {
 }
 
 // LEADS TYPES
-export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'lost' | 'won';
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'paused' | 'lost' | 'won';
 export type InterestLevel = 'low' | 'medium' | 'high';
 
 export interface Lead {
