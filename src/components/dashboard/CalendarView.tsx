@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { CalendarIcon, Plus, Clock, CalendarDays, CalendarPlus, Loader2, Phone } from "lucide-react";
 import { format, isSameDay, startOfDay, isAfter } from "date-fns";
 import { downloadCallIcs, downloadLeadCallIcs } from "@/utils/calendar";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CalendarViewProps {
   students: Student[];
@@ -29,6 +30,7 @@ export const CalendarView = ({
 }: CalendarViewProps) => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [isAddCallOpen, setIsAddCallOpen] = useState(false);
+  const isMobile = useIsMobile();
   
   // New Call Form State
   const [newCallStudentId, setNewCallStudentId] = useState("");
@@ -84,7 +86,8 @@ export const CalendarView = ({
           mode="single"
           selected={date}
           onSelect={setDate}
-          className="rounded-md border shadow-none w-full max-w-[300px] sm:max-w-none"
+          className="rounded-md border shadow-none"
+          numberOfMonths={isMobile ? 1 : 2}
         />
       </div>
 
