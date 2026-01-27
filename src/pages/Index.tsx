@@ -19,11 +19,13 @@ import { MentorTasksView } from "@/components/tasks/MentorTasksView";
 import { Overview } from "@/components/dashboard/Overview";
 import { NotesView } from "@/components/notes/NotesView";
 import { MonthlyGoalView } from "@/components/dashboard/MonthlyGoalView";
+import { CommandCenter } from "@/components/dashboard/CommandCenter";
 
 // Views
 import { ActiveStudentsView } from "@/components/dashboard/views/ActiveStudentsView";
 import { GraduatedStudentsView } from "@/components/dashboard/views/GraduatedStudentsView";
 import { LeadsView } from "@/components/dashboard/views/LeadsView";
+import { AddNoteDialog } from "@/components/notes/AddNoteDialog";
 
 const Index = () => {
   const {
@@ -51,6 +53,8 @@ const Index = () => {
   // UI States
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
+  const [isCommandCenterOpen, setIsCommandCenterOpen] = useState(false);
+  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSignOut = async () => {
@@ -289,8 +293,30 @@ const Index = () => {
   };
 
   return (
-    <AppLayout activeView={currentView} onNavigate={setCurrentView} onSignOut={handleSignOut}>
+    <AppLayout 
+        activeView={currentView} 
+        onNavigate={setCurrentView} 
+        onSignOut={handleSignOut}
+        onOpenCommandCenter={() => setIsCommandCenterOpen(true)}
+    >
         {renderContent()}
+
+        {/* Command Center */}
+        <CommandCenter 
+            open={isCommandCenterOpen}
+            onOpenChange={setIsCommandCenterOpen}
+            students={students}
+            leads={leads}
+            actions={{
+                onNavigate: setCurrentView,
+                onAddStudent: () => setIsAddStudentOpen(true),
+                onAddLead: () => setIsAddLeadOpen(true),
+                onAddTask: () => setCurrentView('tasks'),
+                onAddNote: () => setIsAddNoteOpen(true),
+                onOpenStudent: openStudentDetails,
+                onOpenLead: openLeadDetails
+            }}
+        />
 
         {/* Global Student Create Dialog */}
         <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
@@ -311,6 +337,12 @@ const Index = () => {
                 <LeadForm onSubmit={handleAddLead} isLoading={isSubmitting} />
             </DialogContent>
         </Dialog>
+
+        {/* Global Note Create Dialog */}
+        <AddNoteDialog 
+            open={isAddNoteOpen}
+            onOpenChange={setIsAddNoteOpen}
+        />
         
         {/* Modals */}
         <StudentDetails 

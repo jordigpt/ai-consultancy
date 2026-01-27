@@ -15,7 +15,9 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChevronRight,
-  PieChart
+  PieChart,
+  Search,
+  Command
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +26,7 @@ interface AppLayoutProps {
   activeView: string;
   onNavigate: (view: string) => void;
   onSignOut: () => void;
+  onOpenCommandCenter?: () => void;
 }
 
 const MENU_ITEMS = [
@@ -37,7 +40,7 @@ const MENU_ITEMS = [
   { id: 'graduated', label: 'Egresados', icon: GraduationCap },
 ];
 
-export const AppLayout = ({ children, activeView, onNavigate, onSignOut }: AppLayoutProps) => {
+export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenCommandCenter }: AppLayoutProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -89,6 +92,21 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut }: AppLa
         </h1>
         <p className="text-xs text-muted-foreground">Tracking System</p>
       </div>
+      
+      {/* Mobile Search Trigger */}
+      <div className="px-3 mb-4">
+        <Button 
+            variant="outline" 
+            className="w-full justify-start text-muted-foreground gap-2 relative shadow-sm"
+            onClick={() => {
+                if (onOpenCommandCenter) onOpenCommandCenter();
+                setIsMobileMenuOpen(false);
+            }}
+        >
+            <Search size={16} />
+            <span className="text-sm">Buscar...</span>
+        </Button>
+      </div>
 
       <nav className="flex-1 px-3 space-y-1">
         {MENU_ITEMS.map((item) => (
@@ -137,7 +155,40 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut }: AppLa
                 </Button>
             </div>
 
-            <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+            {/* Desktop Search Trigger */}
+            <div className={cn("px-3 py-4", isCollapsed ? "flex justify-center" : "")}>
+                {isCollapsed ? (
+                    <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                            <Button 
+                                variant="outline" 
+                                size="icon" 
+                                className="h-9 w-9"
+                                onClick={onOpenCommandCenter}
+                            >
+                                <Search size={16} />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">Buscar (Cmd+K)</TooltipContent>
+                    </Tooltip>
+                ) : (
+                    <Button 
+                        variant="outline" 
+                        className="w-full justify-between text-muted-foreground h-9 px-3 shadow-sm bg-gray-50/50 hover:bg-gray-100 border-gray-200"
+                        onClick={onOpenCommandCenter}
+                    >
+                        <span className="flex items-center gap-2">
+                            <Search size={14} />
+                            <span className="text-sm">Buscar...</span>
+                        </span>
+                        <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-white px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                            <span className="text-xs">⌘</span>K
+                        </kbd>
+                    </Button>
+                )}
+            </div>
+
+            <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
                 {MENU_ITEMS.map((item) => (
                     <NavItem key={item.id} item={item} isCollapsed={isCollapsed} />
                 ))}
@@ -190,8 +241,11 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut }: AppLa
                         AI Consultancy
                     </span>
             </div>
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider hidden sm:block">
-                {MENU_ITEMS.find(i => i.id === activeView)?.label}
+            
+            <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" onClick={onOpenCommandCenter}>
+                    <Search size={20} />
+                </Button>
             </div>
             </header>
 
