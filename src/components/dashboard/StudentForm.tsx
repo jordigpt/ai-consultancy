@@ -48,6 +48,7 @@ export const StudentForm = ({ onSubmit, isLoading }: StudentFormProps) => {
       paidInFull: values.paidInFull,
       amountPaid: Number(values.amountPaid) || 0,
       amountOwed: values.paidInFull ? 0 : Number(values.amountOwed),
+      healthScore: "green", // Default to green
     });
   };
 

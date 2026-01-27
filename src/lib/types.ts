@@ -11,10 +11,13 @@ export type BusinessModel =
 
 export type StudentStatus = "active" | "graduated";
 
+export type HealthScore = "green" | "yellow" | "red";
+
 export interface Task {
   id: string;
   title: string;
   completed: boolean;
+  createdAt?: Date; // Added for timeline
 }
 
 export interface Call {
@@ -37,6 +40,7 @@ export interface Student {
   businessModel: BusinessModel;
   startDate: Date;
   status: StudentStatus;
+  healthScore: HealthScore; // Added field
   
   // Finanzas
   paidInFull: boolean;

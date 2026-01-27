@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Student, BusinessModel } from "@/lib/types";
+import { Student, BusinessModel, HealthScore } from "@/lib/types";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -12,10 +12,11 @@ import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { BrainCircuit, CalendarDays, Pencil, Mail, Check, X } from "lucide-react";
+import { BrainCircuit, CalendarDays, Pencil, Mail, Check, X, Activity } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
+import { cn } from "@/lib/utils";
 
 interface StudentInfoProps {
   student: Student;
@@ -62,6 +63,22 @@ export const StudentInfo = ({ student, onUpdate }: StudentInfoProps) => {
       showError("Error al actualizar nivel");
     }
   };
+  
+  const updateHealthScore = async (newScore: HealthScore) => {
+      try {
+          const { error } = await supabase
+            .from('students')
+            .update({ health_score: newScore })
+            .eq('id', student.id);
+            
+          if (error) throw error;
+          
+          onUpdate({ ...student, healthScore: newScore });
+          showSuccess("Score de salud actualizado");
+      } catch (error) {
+          showError("Error al actualizar score");
+      }
+  };
 
   const updateEmail = async () => {
     try {
@@ -88,36 +105,61 @@ export const StudentInfo = ({ student, onUpdate }: StudentInfoProps) => {
 
   return (
     <div className="space-y-3">
-       {/* Email Section */}
-       <div className="p-3 bg-secondary/50 rounded-lg flex flex-col justify-center space-y-1">
-             <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase font-bold">
-                <Mail size={14} /> Contacto
+       {/* Health Score & Contact Grid */}
+       <div className="grid grid-cols-2 gap-3">
+           {/* Health Score */}
+           <div className="p-3 bg-white border rounded-lg space-y-2">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase font-bold">
+                    <Activity size={14} /> Health Score
+                </div>
+                <Select value={student.healthScore} onValueChange={(val) => updateHealthScore(val as HealthScore)}>
+                    <SelectTrigger className={cn(
+                        "h-8 text-xs font-semibold border-0 ring-1 ring-inset ring-gray-200",
+                        student.healthScore === 'green' && "bg-emerald-50 text-emerald-700 ring-emerald-200",
+                        student.healthScore === 'yellow' && "bg-yellow-50 text-yellow-700 ring-yellow-200",
+                        student.healthScore === 'red' && "bg-red-50 text-red-700 ring-red-200",
+                    )}>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="green">🟢 Bueno / Al día</SelectItem>
+                        <SelectItem value="yellow">🟡 En Riesgo</SelectItem>
+                        <SelectItem value="red">🔴 Crítico</SelectItem>
+                    </SelectContent>
+                </Select>
+           </div>
+
+           {/* Contact */}
+           <div className="p-3 bg-secondary/50 rounded-lg flex flex-col justify-center space-y-1">
+                 <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase font-bold">
+                    <Mail size={14} /> Contacto
+                </div>
+                
+                {isEditingEmail ? (
+                    <div className="flex gap-2">
+                        <Input 
+                            value={email} 
+                            onChange={(e) => setEmail(e.target.value)} 
+                            className="h-8 text-sm bg-background" 
+                            placeholder="email@ejemplo.com"
+                        />
+                        <Button size="icon" className="h-8 w-8 shrink-0 bg-green-600 hover:bg-green-700" onClick={updateEmail}>
+                            <Check size={14} />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={cancelEditEmail}>
+                            <X size={14} />
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="flex items-center justify-between group cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setIsEditingEmail(true)}>
+                        <span className="text-sm font-medium truncate">
+                            {student.email || <span className="text-muted-foreground italic text-xs">Sin email</span>}
+                        </span>
+                        <Pencil size={12} className="opacity-0 group-hover:opacity-50 transition-opacity text-muted-foreground" />
+                    </div>
+                )}
             </div>
-            
-            {isEditingEmail ? (
-                <div className="flex gap-2">
-                    <Input 
-                        value={email} 
-                        onChange={(e) => setEmail(e.target.value)} 
-                        className="h-8 text-sm bg-background" 
-                        placeholder="email@ejemplo.com"
-                    />
-                    <Button size="icon" className="h-8 w-8 shrink-0 bg-green-600 hover:bg-green-700" onClick={updateEmail}>
-                        <Check size={14} />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={cancelEditEmail}>
-                        <X size={14} />
-                    </Button>
-                </div>
-            ) : (
-                <div className="flex items-center justify-between group cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setIsEditingEmail(true)}>
-                    <span className="text-sm font-medium truncate">
-                        {student.email || <span className="text-muted-foreground italic text-xs">Sin email registrado (click para agregar)</span>}
-                    </span>
-                    <Pencil size={12} className="opacity-0 group-hover:opacity-50 transition-opacity text-muted-foreground" />
-                </div>
-            )}
-        </div>
+       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Popover>

@@ -78,6 +78,7 @@ export const useDashboardData = () => {
         businessModel: s.business_model,
         startDate: new Date(s.start_date),
         status: s.status || 'active', 
+        healthScore: s.health_score || 'green', // Default to green
         paidInFull: s.paid_in_full,
         amountPaid: s.amount_paid,
         amountOwed: s.amount_owed,
@@ -85,7 +86,8 @@ export const useDashboardData = () => {
         tasks: s.tasks.map((t: any) => ({
           id: t.id,
           title: t.title,
-          completed: t.completed
+          completed: t.completed,
+          createdAt: new Date(t.created_at) // Added createdAt for timeline
         })).sort((a: any, b: any) => b.id.localeCompare(a.id)),
         calls: s.calls.map((c: any) => ({
           id: c.id,

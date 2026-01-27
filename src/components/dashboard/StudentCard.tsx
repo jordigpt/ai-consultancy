@@ -1,8 +1,9 @@
-import { Student } from "@/lib/types";
+import { Student, HealthScore } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BrainCircuit, CheckSquare, Clock, AlertCircle } from "lucide-react";
 import { differenceInDays } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface StudentCardProps {
   student: Student;
@@ -32,19 +33,36 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
   const daysRemaining = calculateDaysRemaining();
   const isUrgent = daysRemaining <= 7; // Última semana
 
+  const getHealthColor = (score: HealthScore) => {
+    switch (score) {
+        case 'green': return 'bg-emerald-500';
+        case 'yellow': return 'bg-yellow-500';
+        case 'red': return 'bg-red-500 animate-pulse';
+        default: return 'bg-emerald-500';
+    }
+  };
+
+  const getHealthBorder = (score: HealthScore) => {
+      if (score === 'red') return 'border-red-300 bg-red-50/10 shadow-sm';
+      return 'hover:border-primary/50';
+  };
+
   return (
     <Card 
-      className={`cursor-pointer transition-all hover:shadow-md group animate-in fade-in slide-in-from-bottom-4 duration-500 ${
-        isUrgent && student.status === 'active' 
-          ? 'border-red-200 bg-red-50/30 hover:border-red-400' 
-          : 'hover:border-primary/50'
-      }`}
+      className={cn(
+          "cursor-pointer transition-all hover:shadow-md group animate-in fade-in slide-in-from-bottom-4 duration-500",
+          getHealthBorder(student.healthScore)
+      )}
       onClick={onClick}
     >
       <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-            {student.firstName[0]}{student.lastName[0]}
+          <div className="relative">
+             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                {student.firstName[0]}{student.lastName[0]}
+             </div>
+             {/* Health Indicator Badge */}
+             <div className={cn("absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white", getHealthColor(student.healthScore))} />
           </div>
           <div>
             <h3 className="font-semibold leading-none">{student.firstName} {student.lastName}</h3>
@@ -55,17 +73,17 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
           {student.status === 'active' && (
              <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
                isUrgent 
-                 ? "bg-red-100 text-red-700 border-red-200 animate-pulse" 
+                 ? "bg-red-100 text-red-700 border-red-200" 
                  : "bg-emerald-100 text-emerald-700 border-emerald-200"
              }`}>
                {isUrgent ? <AlertCircle size={10} /> : <Clock size={10} />}
-               {daysRemaining} días rest.
+               {daysRemaining} días
              </div>
           )}
           {student.paidInFull ? (
-            <div className="h-2 w-2 rounded-full bg-green-500 mt-1" title="Pagado" />
+            <Badge variant="outline" className="text-[10px] h-4 border-green-200 text-green-700 bg-green-50">Pagado</Badge>
           ) : (
-             <div className="h-2 w-2 rounded-full bg-red-500 mt-1" title="Pago Pendiente" />
+            <Badge variant="outline" className="text-[10px] h-4 border-red-200 text-red-700 bg-red-50">Deuda</Badge>
           )}
         </div>
       </CardHeader>
