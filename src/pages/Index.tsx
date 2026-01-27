@@ -105,7 +105,7 @@ const Index = () => {
     }
   };
 
-  const handleAddLead = async (data: Omit<Lead, "id" | "createdAt" | "status">) => {
+  const handleAddLead = async (data: Omit<Lead, "id" | "createdAt" | "status" | "calls">) => {
       try {
         setIsSubmitting(true);
         const { data: { user } } = await supabase.auth.getUser();
@@ -122,8 +122,19 @@ const Index = () => {
             status: 'new'
         };
 
-        const { error } = await supabase.from('leads').insert(dbData);
+        const { data: newLead, error } = await supabase.from('leads').insert(dbData).select().single();
         if (error) throw error;
+
+        // If nextCallDate was set, create a record in 'calls' table too
+        if (data.nextCallDate) {
+            const { error: callError } = await supabase.from('calls').insert({
+                lead_id: newLead.id,
+                user_id: user.id,
+                date: data.nextCallDate.toISOString(),
+                completed: false
+            });
+            if (callError) console.error("Error creating initial call record", callError);
+        }
 
         showSuccess("Lead creado");
         setIsAddLeadOpen(false);

@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { Lead, InterestLevel } from "@/lib/types";
 
 interface LeadFormProps {
-  onSubmit: (data: Omit<Lead, "id" | "createdAt" | "status">) => void;
+  onSubmit: (data: Omit<Lead, "id" | "createdAt" | "status" | "calls">) => void;
   isLoading?: boolean;
   initialData?: Lead;
 }

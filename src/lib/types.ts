@@ -22,6 +22,8 @@ export interface Call {
   date: Date;
   notes?: string;
   completed: boolean;
+  studentId?: string; // Optional linkage
+  leadId?: string;    // Optional linkage
 }
 
 export interface Student {
@@ -60,8 +62,9 @@ export interface Lead {
   status: LeadStatus;
   interestLevel: InterestLevel;
   notes: string;
-  nextCallDate?: Date;
+  nextCallDate?: Date; // Keep for sorting/legacy, but calls[] is the source of truth for list
   createdAt: Date;
+  calls: Call[]; // Added list of calls
 }
 
 // MENTOR TASKS TYPES

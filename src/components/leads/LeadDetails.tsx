@@ -7,7 +7,6 @@ import {
   SheetHeader, 
   SheetTitle, 
   SheetDescription,
-  SheetFooter
 } from "@/components/ui/sheet";
 import { 
     Select,
@@ -17,13 +16,13 @@ import {
     SelectValue, 
 } from "@/components/ui/select";
 import { LeadForm } from "./LeadForm";
+import { LeadCalls } from "./LeadCalls";
 import { Separator } from "@/components/ui/separator";
-import { UserCheck, Trash2, Edit, CalendarClock, CalendarPlus } from "lucide-react";
+import { UserCheck, Trash2, Edit, CalendarClock, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { format, isPast } from "date-fns";
-import { downloadLeadCallIcs } from "@/utils/calendar";
 import { cn } from "@/lib/utils";
 
 interface LeadDetailsProps {
@@ -57,6 +56,9 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
 
   const handleEdit = async (data: any) => {
       try {
+        // We update the basic info. Note: nextCallDate in the form updates the lead field, 
+        // but for full consistency we might want to ensure calls are synced.
+        // For now, simple update of lead table.
         const { error } = await supabase
             .from('leads')
             .update({
@@ -144,36 +146,9 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                 )}
 
                 <Separator />
-
-                {lead.nextCallDate && lead.status !== 'won' && lead.status !== 'lost' && (
-                    <div className={cn(
-                        "flex items-center justify-between p-3 rounded-lg border",
-                        isPast(lead.nextCallDate) ? "bg-red-50 border-red-100 text-red-800" : "bg-blue-50 border-blue-100 text-blue-800"
-                    )}>
-                        <div className="flex items-center gap-3">
-                            <CalendarClock size={20} />
-                            <div>
-                                <p className="text-xs font-semibold uppercase opacity-70">
-                                    {isPast(lead.nextCallDate) ? "Llamada Vencida" : "Próxima Llamada"}
-                                </p>
-                                <p className="font-medium">
-                                    {format(lead.nextCallDate, "EEEE d MMMM, HH:mm")} hs
-                                </p>
-                            </div>
-                        </div>
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="hover:bg-white/50"
-                            onClick={() => downloadLeadCallIcs(lead)}
-                            title="Agregar a Calendario"
-                        >
-                            <CalendarPlus size={20} />
-                        </Button>
-                    </div>
-                )}
-
-                <div className="space-y-4 text-sm">
+                
+                {/* Contact Info */}
+                <div className="space-y-4 text-sm bg-slate-50 p-4 rounded-lg border">
                     {lead.email && (
                         <div className="grid grid-cols-3 gap-2">
                             <span className="font-medium text-muted-foreground">Email:</span>
@@ -190,19 +165,27 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                         <span className="font-medium text-muted-foreground">Interés:</span>
                         <span className="col-span-2 capitalize">{lead.interestLevel === 'high' ? '🔥 Alto' : lead.interestLevel === 'medium' ? '🌤️ Medio' : '❄️ Bajo'}</span>
                     </div>
-                    {lead.notes && (
-                        <div className="space-y-1">
-                            <span className="font-medium text-muted-foreground">Notas:</span>
-                            <div className="p-3 bg-muted rounded-md whitespace-pre-wrap">
-                                {lead.notes}
-                            </div>
-                        </div>
-                    )}
                 </div>
 
-                <div className="flex gap-2 pt-4">
+                {lead.notes && (
+                    <div className="space-y-1">
+                        <span className="font-medium text-muted-foreground text-sm">Notas:</span>
+                        <div className="p-3 bg-muted rounded-md whitespace-pre-wrap text-sm">
+                            {lead.notes}
+                        </div>
+                    </div>
+                )}
+                
+                <Separator />
+
+                {/* New Calls Component */}
+                <LeadCalls lead={lead} onUpdate={onUpdate} />
+
+                <Separator />
+
+                <div className="flex gap-2 pt-2">
                      <Button variant="outline" className="flex-1" onClick={() => setIsEditing(true)}>
-                        <Edit className="mr-2 h-4 w-4" /> Editar
+                        <Edit className="mr-2 h-4 w-4" /> Editar Datos
                      </Button>
                      
                      <Dialog open={isDeleting} onOpenChange={setIsDeleting}>
