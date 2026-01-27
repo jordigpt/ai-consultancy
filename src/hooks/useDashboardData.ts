@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Student, Lead, MentorTask } from "@/lib/types";
+import { Student, Lead, MentorTask, Note } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 
@@ -7,6 +7,7 @@ export const useDashboardData = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [mentorTasks, setMentorTasks] = useState<MentorTask[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Settings
@@ -56,6 +57,14 @@ export const useDashboardData = () => {
         .order('created_at', { ascending: false });
 
       if (tasksError) throw tasksError;
+
+      // 4. Fetch Notes (New for Global Search)
+      const { data: notesData, error: notesError } = await supabase
+        .from('notes')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (notesError) throw notesError;
 
       // Transform Students
       const transformedStudents: Student[] = studentsData.map((s: any) => ({
@@ -126,9 +135,20 @@ export const useDashboardData = () => {
         };
       });
 
+      // Transform Notes
+      const transformedNotes: Note[] = notesData.map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        content: n.content,
+        category: n.category,
+        isPinned: n.is_pinned,
+        createdAt: new Date(n.created_at)
+      }));
+
       setStudents(transformedStudents);
       setLeads(transformedLeads);
       setMentorTasks(transformedTasks);
+      setNotes(transformedNotes);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -146,6 +166,7 @@ export const useDashboardData = () => {
     students,
     leads,
     mentorTasks,
+    notes,
     monthlyGoal,
     gumroadRevenue,
     loading,
@@ -153,6 +174,7 @@ export const useDashboardData = () => {
     setStudents,
     setLeads,
     setMentorTasks,
+    setNotes,
     setMonthlyGoal,
     setGumroadRevenue
   };

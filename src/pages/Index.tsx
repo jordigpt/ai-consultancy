@@ -32,6 +32,7 @@ const Index = () => {
     students,
     leads,
     mentorTasks,
+    notes,
     monthlyGoal,
     gumroadRevenue,
     loading,
@@ -307,6 +308,8 @@ const Index = () => {
             onOpenChange={setIsCommandCenterOpen}
             students={students}
             leads={leads}
+            mentorTasks={mentorTasks}
+            notes={notes}
             actions={{
                 onNavigate: setCurrentView,
                 onAddStudent: () => setIsAddStudentOpen(true),
