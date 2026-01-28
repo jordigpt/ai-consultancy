@@ -13,7 +13,7 @@ export const MetricsOverview = ({ students }: MetricsOverviewProps) => {
       </div>
       <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col items-center justify-center">
         <span className="text-3xl font-bold text-green-600">
-          {students.filter(s => s.paidInFull).length}
+          {students.filter(s => s.paidInFull || (s.amountOwed !== undefined && s.amountOwed <= 0)).length}
         </span>
         <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Pagados</span>
       </div>
