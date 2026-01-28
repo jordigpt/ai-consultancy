@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Student } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { StudentCalls } from "./details/StudentCalls";
 import { StudentTasks } from "./details/StudentTasks"; 
 import { StudentRoadmap } from "./details/StudentRoadmap"; 
 import { StudentTimeline } from "./details/StudentTimeline";
-import { StudentNotes } from "./details/StudentNotes";
+import { StudentNotes } from "./details/StudentNotes"; // Imported
 import { StudentInfo } from "./StudentInfo";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
@@ -31,8 +31,6 @@ interface StudentDetailsProps {
 
 export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: StudentDetailsProps) => {
   if (!student) return null;
-
-  const isPaid = student.paidInFull || (student.amountOwed || 0) <= 0;
 
   const toggleStatus = async () => {
     const newStatus = student.status === 'active' ? 'graduated' : 'active';
@@ -70,10 +68,10 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
                     {student.status === 'graduated' && (
                         <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Egresado</Badge>
                     )}
-                    {isPaid ? (
-                      <Badge variant="default" className="bg-green-600 hover:bg-green-700">Pagado</Badge>
+                    {student.paidInFull ? (
+                    <Badge variant="default" className="bg-green-600 hover:bg-green-700">Pagado</Badge>
                     ) : (
-                      <Badge variant="destructive">Deuda: ${student.amountOwed}</Badge>
+                    <Badge variant="destructive">Deuda: ${student.amountOwed}</Badge>
                     )}
                 </div>
             </div>
@@ -109,7 +107,7 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
 
             <div className="px-6 py-4 h-[calc(100vh-250px)] overflow-y-auto">
                 <TabsContent value="overview" className="space-y-6 mt-0">
-                    <StudentFinances student={student} onUpdate={onUpdateStudent} />
+                    <StudentFinances student={student} />
                     
                     <StudentInfo student={student} onUpdate={onUpdateStudent} />
 
@@ -124,6 +122,7 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
 
                     <Separator />
                     
+                    {/* Added Student Notes Section */}
                     <StudentNotes student={student} onUpdate={onUpdateStudent} />
 
                     <Separator />

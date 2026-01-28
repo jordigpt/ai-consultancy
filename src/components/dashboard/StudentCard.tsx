@@ -13,21 +13,25 @@ interface StudentCardProps {
 export const StudentCard = ({ student, onClick }: StudentCardProps) => {
   const completedTasks = student.tasks.filter(t => t.completed).length;
   
-  // Logic: Treated as paid if marked as paid OR if debt is <= 0
-  const isPaid = student.paidInFull || (student.amountOwed || 0) <= 0;
-
+  // Lógica del ciclo de facturación (30 días)
   const calculateDaysRemaining = () => {
     const today = new Date();
     const start = new Date(student.startDate);
+    
+    // Días totales desde el inicio
     const daysPassed = differenceInDays(today, start);
     
-    if (daysPassed < 0) return 30;
+    if (daysPassed < 0) return 30; // Si la fecha es futura, el ciclo empieza completo
+    
+    // Días dentro del ciclo actual (0 a 29)
     const daysIntoCycle = daysPassed % 30;
+    
+    // Días restantes para terminar el ciclo
     return 30 - daysIntoCycle;
   };
 
   const daysRemaining = calculateDaysRemaining();
-  const isUrgent = daysRemaining <= 7;
+  const isUrgent = daysRemaining <= 7; // Última semana
 
   const getHealthColor = (score: HealthScore) => {
     switch (score) {
@@ -57,6 +61,7 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                 {student.firstName[0]}{student.lastName[0]}
              </div>
+             {/* Health Indicator Badge */}
              <div className={cn("absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white", getHealthColor(student.healthScore))} />
           </div>
           <div>
@@ -75,7 +80,7 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
                {daysRemaining} días
              </div>
           )}
-          {isPaid ? (
+          {student.paidInFull ? (
             <Badge variant="outline" className="text-[10px] h-4 border-green-200 text-green-700 bg-green-50">Pagado</Badge>
           ) : (
             <Badge variant="outline" className="text-[10px] h-4 border-red-200 text-red-700 bg-red-50">Deuda</Badge>
