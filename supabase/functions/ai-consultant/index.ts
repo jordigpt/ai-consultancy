@@ -31,7 +31,7 @@ serve(async (req) => {
 
     const { messages } = await req.json();
 
-    // --- RECOPILACIÓN DE DATOS (Misma lógica potente que antes) ---
+    // --- RECOPILACIÓN DE DATOS ---
     const supabaseAdmin = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -93,8 +93,8 @@ serve(async (req) => {
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiKey) throw new Error("Falta configurar GEMINI_API_KEY en Supabase Secrets");
 
-    // USANDO GEMINI 1.5 PRO (El modelo más inteligente)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiKey}`;
+    // Usamos el modelo FLASH que es más estable en disponibilidad de API actualmente
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
 
     // Transformar mensajes al formato de Gemini
     // User -> user
