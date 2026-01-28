@@ -33,6 +33,9 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
   const daysRemaining = calculateDaysRemaining();
   const isUrgent = daysRemaining <= 7; // Última semana
 
+  // Check if actually paid (either flag is true OR debt is 0)
+  const isPaid = student.paidInFull || (student.amountOwed !== undefined && student.amountOwed <= 0);
+
   const getHealthColor = (score: HealthScore) => {
     switch (score) {
         case 'green': return 'bg-emerald-500';
@@ -80,7 +83,7 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
                {daysRemaining} días
              </div>
           )}
-          {student.paidInFull ? (
+          {isPaid ? (
             <Badge variant="outline" className="text-[10px] h-4 border-green-200 text-green-700 bg-green-50">Pagado</Badge>
           ) : (
             <Badge variant="outline" className="text-[10px] h-4 border-red-200 text-red-700 bg-red-50">Deuda</Badge>

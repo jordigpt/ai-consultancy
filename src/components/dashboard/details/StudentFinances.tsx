@@ -33,15 +33,17 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
       const paid = parseFloat(amountPaid) || 0;
       const owed = parseFloat(amountOwed) || 0;
 
-      // Si marca pagado total, la deuda debe ser 0
-      const finalOwed = paidInFull ? 0 : owed;
+      // LÓGICA CORREGIDA: Si marca el switch O si la deuda es 0, se considera pagado total.
+      const finalPaidInFull = paidInFull || owed <= 0;
+      // Si está pagado total, forzamos deuda a 0.
+      const finalOwed = finalPaidInFull ? 0 : owed;
 
       const { error } = await supabase
         .from('students')
         .update({
           amount_paid: paid,
           amount_owed: finalOwed,
-          paid_in_full: paidInFull
+          paid_in_full: finalPaidInFull
         })
         .eq('id', student.id);
 
@@ -52,7 +54,7 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
           ...student,
           amountPaid: paid,
           amountOwed: finalOwed,
-          paidInFull: paidInFull
+          paidInFull: finalPaidInFull
         });
       }
 
@@ -72,6 +74,9 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
     setPaidInFull(student.paidInFull);
     setIsEditing(false);
   };
+
+  // Helper para determinar si visualmente está pagado
+  const isPaid = student.paidInFull || (student.amountOwed !== undefined && student.amountOwed <= 0);
 
   if (isEditing) {
     return (
@@ -133,7 +138,7 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
   // View Mode
   return (
     <div className={`p-4 rounded-lg border space-y-2 relative group transition-colors ${
-        student.paidInFull 
+        isPaid 
             ? "bg-green-50 border-green-100" 
             : "bg-red-50 border-red-100"
     }`}>
@@ -147,24 +152,24 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
         </Button>
 
       <h4 className={`text-sm font-semibold flex items-center gap-2 ${
-          student.paidInFull ? "text-green-800" : "text-red-800"
+          isPaid ? "text-green-800" : "text-red-800"
       }`}>
         <DollarSign size={14} /> Estado de Cuenta
       </h4>
       
       <div className="flex justify-between text-sm items-center">
-        <span className={student.paidInFull ? "text-green-700" : "text-red-700"}>Pagado:</span>
+        <span className={isPaid ? "text-green-700" : "text-red-700"}>Pagado:</span>
         <span className="font-mono font-medium text-base">${student.amountPaid}</span>
       </div>
       
-      {!student.paidInFull && (
+      {!isPaid && (
         <div className="flex justify-between text-sm items-center border-t border-red-200/50 pt-1 mt-1">
             <span className="text-red-600 font-medium">Restante:</span>
             <span className="font-mono font-bold text-red-700 text-base">${student.amountOwed}</span>
         </div>
       )}
 
-      {student.paidInFull && (
+      {isPaid && (
           <div className="text-xs text-green-600 font-medium flex items-center gap-1 mt-1">
               <Check size={12} /> Cuenta al día
           </div>

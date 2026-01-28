@@ -52,6 +52,9 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
     }
   };
 
+  // Helper para determinar si está pagado
+  const isPaid = student.paidInFull || (student.amountOwed !== undefined && student.amountOwed <= 0);
+
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full sm:max-w-md md:max-w-lg overflow-y-auto p-0 gap-0">
@@ -68,10 +71,10 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
                     {student.status === 'graduated' && (
                         <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Egresado</Badge>
                     )}
-                    {student.paidInFull ? (
-                    <Badge variant="default" className="bg-green-600 hover:bg-green-700">Pagado</Badge>
+                    {isPaid ? (
+                        <Badge variant="default" className="bg-green-600 hover:bg-green-700">Pagado</Badge>
                     ) : (
-                    <Badge variant="destructive">Deuda: ${student.amountOwed}</Badge>
+                        <Badge variant="destructive">Deuda: ${student.amountOwed}</Badge>
                     )}
                 </div>
             </div>
@@ -107,7 +110,7 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
 
             <div className="px-6 py-4 h-[calc(100vh-250px)] overflow-y-auto">
                 <TabsContent value="overview" className="space-y-6 mt-0">
-                    <StudentFinances student={student} />
+                    <StudentFinances student={student} onUpdate={onUpdateStudent} />
                     
                     <StudentInfo student={student} onUpdate={onUpdateStudent} />
 
