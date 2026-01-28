@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
-import { Bot, Send, User, Sparkles, Loader2 } from "lucide-react";
+import { Bot, Send, User, Sparkles, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ export const AiConsultantView = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hola. Tengo acceso completo a tus métricas, alumnos, leads y tareas. Analicemos tu negocio. ¿Qué te preocupa hoy o qué área quieres optimizar?"
+      content: "Hola. Tengo acceso completo a tus métricas, alumnos, leads y tareas (vía Gemini 1.5 Pro). Analicemos tu negocio. ¿Qué te preocupa hoy o qué área quieres optimizar?"
     }
   ]);
   const [input, setInput] = useState("");
@@ -45,20 +45,40 @@ export const AiConsultantView = () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("No session");
+      if (!session) throw new Error("No hay sesión activa.");
 
       const { data, error } = await supabase.functions.invoke('ai-consultant', {
         body: { messages: newMessages }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Intentamos leer el mensaje de error del cuerpo si existe
+        let errorDetails = error.message;
+        try {
+            // A veces el error viene como string JSON en el body de la respuesta
+            if (error instanceof  Error && 'context' in error) {
+                 // @ts-ignore
+                 const context = await error.context.json();
+                 if (context.error) errorDetails = context.error;
+            }
+        } catch (e) {
+            // Fallback
+        }
+        throw new Error(errorDetails);
+      }
 
       setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
 
-    } catch (error) {
-      console.error(error);
-      showError("Error al conectar con el consultor AI.");
-      setMessages(prev => [...prev, { role: "assistant", content: "Lo siento, hubo un error de conexión. Por favor verifica que la Edge Function tenga la API Key de OpenAI configurada." }]);
+    } catch (error: any) {
+      console.error("AI Error:", error);
+      const errorMsg = error.message || "Error desconocido";
+      
+      showError("Error al conectar con Gemini");
+      
+      setMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: `⚠️ **Error de conexión:** \n\n${errorMsg}\n\n*Verifica que el secreto GEMINI_API_KEY esté correctamente configurado en Supabase Edge Functions.*` 
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +99,7 @@ export const AiConsultantView = () => {
         </div>
         <div>
             <h2 className="text-xl font-bold flex items-center gap-2">
-                Consultor AI Estratégico
+                Consultor AI (Gemini Pro)
             </h2>
             <p className="text-sm text-muted-foreground">
                 Experto en operaciones y escalado con acceso a tus datos en tiempo real.
@@ -111,7 +131,9 @@ export const AiConsultantView = () => {
                     "p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap shadow-sm",
                     msg.role === "user"
                       ? "bg-slate-900 text-white rounded-tr-none"
-                      : "bg-white text-slate-800 border border-slate-100 rounded-tl-none"
+                      : "bg-white text-slate-800 border border-slate-100 rounded-tl-none",
+                     // Estilo especial para mensajes de error
+                     msg.content.includes("Error de conexión") && msg.role === "assistant" ? "bg-red-50 text-red-800 border-red-200" : ""
                   )}
                 >
                   {msg.content}
@@ -126,7 +148,7 @@ export const AiConsultantView = () => {
                 </Avatar>
                 <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-none flex items-center gap-2 text-sm text-muted-foreground">
                     <Sparkles size={14} className="animate-spin text-violet-500" /> 
-                    Analizando datos del negocio...
+                    Analizando datos del negocio con Gemini...
                 </div>
               </div>
             )}
@@ -155,7 +177,7 @@ export const AiConsultantView = () => {
             </Button>
           </div>
           <div className="text-[10px] text-center text-muted-foreground mt-2">
-            La IA tiene acceso a: Alumnos, Finanzas, Leads, Tareas y Notas.
+            Potenciado por Google Gemini 1.5 Pro. Acceso a datos en tiempo real.
           </div>
         </div>
       </Card>
