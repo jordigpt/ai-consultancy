@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Student } from "@/lib/types";
-import { DollarSign, Pencil, Check, X, Loader2 } from "lucide-react";
+import { DollarSign, Pencil, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -20,7 +20,8 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
   const [paidInFull, setPaidInFull] = useState(student.paidInFull);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset local state when student changes
+  const isPaid = student.paidInFull || (student.amountOwed || 0) <= 0;
+
   React.useEffect(() => {
     setAmountPaid(student.amountPaid?.toString() || "0");
     setAmountOwed(student.amountOwed?.toString() || "0");
@@ -31,17 +32,24 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
     try {
       setIsSubmitting(true);
       const paid = parseFloat(amountPaid) || 0;
-      const owed = parseFloat(amountOwed) || 0;
+      let owed = parseFloat(amountOwed) || 0;
+      let finalPaidInFull = paidInFull;
 
-      // Si marca pagado total, la deuda debe ser 0
-      const finalOwed = paidInFull ? 0 : owed;
+      if (owed <= 0) {
+          finalPaidInFull = true;
+          owed = 0;
+      }
+
+      if (finalPaidInFull) {
+          owed = 0;
+      }
 
       const { error } = await supabase
         .from('students')
         .update({
           amount_paid: paid,
-          amount_owed: finalOwed,
-          paid_in_full: paidInFull
+          amount_owed: owed,
+          paid_in_full: finalPaidInFull
         })
         .eq('id', student.id);
 
@@ -51,8 +59,8 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
         onUpdate({
           ...student,
           amountPaid: paid,
-          amountOwed: finalOwed,
-          paidInFull: paidInFull
+          amountOwed: owed,
+          paidInFull: finalPaidInFull
         });
       }
 
@@ -130,10 +138,9 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
     );
   }
 
-  // View Mode
   return (
     <div className={`p-4 rounded-lg border space-y-2 relative group transition-colors ${
-        student.paidInFull 
+        isPaid 
             ? "bg-green-50 border-green-100" 
             : "bg-red-50 border-red-100"
     }`}>
@@ -147,24 +154,24 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
         </Button>
 
       <h4 className={`text-sm font-semibold flex items-center gap-2 ${
-          student.paidInFull ? "text-green-800" : "text-red-800"
+          isPaid ? "text-green-800" : "text-red-800"
       }`}>
         <DollarSign size={14} /> Estado de Cuenta
       </h4>
       
       <div className="flex justify-between text-sm items-center">
-        <span className={student.paidInFull ? "text-green-700" : "text-red-700"}>Pagado:</span>
+        <span className={isPaid ? "text-green-700" : "text-red-700"}>Pagado:</span>
         <span className="font-mono font-medium text-base">${student.amountPaid}</span>
       </div>
       
-      {!student.paidInFull && (
+      {!isPaid && (
         <div className="flex justify-between text-sm items-center border-t border-red-200/50 pt-1 mt-1">
             <span className="text-red-600 font-medium">Restante:</span>
             <span className="font-mono font-bold text-red-700 text-base">${student.amountOwed}</span>
         </div>
       )}
 
-      {student.paidInFull && (
+      {isPaid && (
           <div className="text-xs text-green-600 font-medium flex items-center gap-1 mt-1">
               <Check size={12} /> Cuenta al día
           </div>
