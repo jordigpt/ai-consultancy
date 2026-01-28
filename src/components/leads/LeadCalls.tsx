@@ -5,11 +5,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Phone, Plus, Trash2, Clock, Pencil, CalendarPlus } from "lucide-react";
+import { Phone, Plus, Trash2, Clock, Pencil, CalendarPlus, CheckCircle2, Circle } from "lucide-react";
 import { format, isFuture } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { downloadLeadCallIcs } from "@/utils/calendar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface LeadCallsProps {
   lead: Lead;
@@ -50,9 +51,6 @@ export const LeadCalls = ({ lead, onUpdate }: LeadCallsProps) => {
       const { error: insertError } = await supabase.from('calls').insert(newCallData);
       if (insertError) throw insertError;
 
-      // 2. Update lead next_call_date if this call is in the future
-      // We do a simple check: if it's future, we set it as next_call_date for visibility
-      // Or we could trigger a calculation, but this is a good heuristic for now.
       if (isFuture(dateTime)) {
          const { error: updateError } = await supabase
             .from('leads')
@@ -68,6 +66,25 @@ export const LeadCalls = ({ lead, onUpdate }: LeadCallsProps) => {
     } catch (error) {
       console.error(error);
       showError("Error al agendar llamada");
+    }
+  };
+
+  const toggleCallAttendance = async (call: Call) => {
+    try {
+      const newStatus = !call.completed;
+      
+      const { error } = await supabase
+        .from('calls')
+        .update({ completed: newStatus })
+        .eq('id', call.id);
+
+      if (error) throw error;
+
+      showSuccess(newStatus ? "Marcado como asistió" : "Marcado como pendiente");
+      onUpdate();
+    } catch (error) {
+      console.error(error);
+      showError("Error al actualizar estado");
     }
   };
 
@@ -93,10 +110,6 @@ export const LeadCalls = ({ lead, onUpdate }: LeadCallsProps) => {
 
       if (error) throw error;
 
-       // Optionally update lead if this was the next call or becomes the next call
-       // For simplicity we just update the call. The next_call_date on lead might become stale
-       // but typically users will look at the list here.
-       // To be safe, if we edit a call to be in future, we update the lead's main date too.
        if (isFuture(dateTime)) {
             await supabase
             .from('leads')
@@ -176,32 +189,59 @@ export const LeadCalls = ({ lead, onUpdate }: LeadCallsProps) => {
         </Dialog>
       </div>
 
+      <TooltipProvider>
       <div className="space-y-2">
         {lead.calls && lead.calls.length > 0 ? (
           lead.calls.map(call => (
-            <div key={call.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg bg-white shadow-sm gap-3">
+            <div 
+              key={call.id} 
+              className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg shadow-sm gap-3 transition-colors ${
+                call.completed ? "bg-green-50/50 border-green-100" : "bg-white"
+              }`}
+            >
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
-                  <Phone size={14} />
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => toggleCallAttendance(call)}
+                      className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all hover:scale-105 ${
+                        call.completed 
+                          ? "bg-green-100 text-green-600 hover:bg-green-200" 
+                          : "bg-orange-100 text-orange-600 hover:bg-orange-200"
+                      }`}
+                    >
+                      {call.completed ? <CheckCircle2 size={20} /> : <Circle size={20} />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{call.completed ? "Marcar como pendiente" : "Marcar que asistió"}</p>
+                  </TooltipContent>
+                </Tooltip>
+
                 <div>
-                  <p className="text-sm font-medium">
+                  <p className={`text-sm font-medium ${call.completed ? "text-green-800 line-through opacity-70" : ""}`}>
                     {format(call.date, "EEEE, d MMMM")}
                   </p>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock size={10} />
-                    <span>{format(call.date, "HH:mm")} hs</span>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                        <Clock size={10} />
+                        <span>{format(call.date, "HH:mm")} hs</span>
+                    </div>
+                    {call.completed && (
+                      <span className="text-green-600 font-medium bg-green-100 px-1.5 rounded text-[10px]">
+                        Asistió
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
+
               <div className="flex gap-2 justify-end sm:justify-start border-t sm:border-t-0 pt-2 sm:pt-0 mt-1 sm:mt-0">
                  <Button 
                   variant="ghost" 
                   size="icon" 
                   className="h-8 w-8 text-muted-foreground hover:text-green-600 hover:bg-green-50" 
-                  onClick={() => downloadLeadCallIcs(lead)} // This uses lead name, ideally we pass the specific call date but the util takes lead. Ideally we update util or just use lead's current call. 
-                  // Wait, downloadLeadCallIcs uses lead.nextCallDate. We should update it to take a specific date if possible, but for now we can rely on standard behavior or pass a modified object.
-                  // Actually, let's just make it simple.
+                  onClick={() => downloadLeadCallIcs(lead)}
                   title="Agregar a Calendario"
                 >
                   <CalendarPlus size={16} />
@@ -220,12 +260,13 @@ export const LeadCalls = ({ lead, onUpdate }: LeadCallsProps) => {
             No hay llamadas registradas.
             {lead.nextCallDate && (
                 <div className="mt-2 text-xs bg-yellow-50 text-yellow-800 p-2 rounded">
-                    Nota: Hay una "Próxima Llamada" ({format(lead.nextCallDate, "d MMM")}) en la ficha antigua, pero no está en el nuevo historial.
+                    Nota: Hay una "Próxima Llamada" ({format(lead.nextCallDate, "d MMM")}) pero no está en el nuevo historial.
                 </div>
             )}
           </div>
         )}
       </div>
+      </TooltipProvider>
 
       <Dialog open={!!editingCall} onOpenChange={(open) => !open && setEditingCall(null)}>
         <DialogContent className="w-[95vw] rounded-xl sm:max-w-[425px]">

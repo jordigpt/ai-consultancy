@@ -5,11 +5,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Phone, Plus, Trash2, Clock, Pencil, CalendarPlus } from "lucide-react";
+import { Phone, Plus, Trash2, Clock, Pencil, CalendarPlus, CheckCircle2, Circle } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { downloadCallIcs } from "@/utils/calendar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface StudentCallsProps {
   student: Student;
@@ -67,6 +68,29 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
     }
   };
 
+  const toggleCallAttendance = async (call: Call) => {
+    try {
+      const newStatus = !call.completed;
+      
+      const { error } = await supabase
+        .from('calls')
+        .update({ completed: newStatus })
+        .eq('id', call.id);
+
+      if (error) throw error;
+
+      const updatedCalls = student.calls.map(c => 
+        c.id === call.id ? { ...c, completed: newStatus } : c
+      );
+      
+      onUpdate({ ...student, calls: updatedCalls });
+      showSuccess(newStatus ? "Marcado como asistió" : "Marcado como pendiente");
+    } catch (error) {
+      console.error(error);
+      showError("Error al actualizar estado");
+    }
+  };
+
   const startEditingCall = (call: Call) => {
     setEditingCall(call);
     setEditCallDate(call.date);
@@ -121,7 +145,6 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
           <Phone size={16} /> Llamadas / Consultoría
         </h3>
         
-        {/* Cambiado de Popover a Dialog para mejor UX móvil */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline" className="h-8 text-xs sm:text-sm">
@@ -166,24 +189,53 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
         </Dialog>
       </div>
 
+      <TooltipProvider>
       <div className="space-y-2">
         {student.calls && student.calls.length > 0 ? (
           student.calls.map(call => (
-            <div key={call.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg bg-white shadow-sm gap-3">
+            <div 
+              key={call.id} 
+              className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg shadow-sm gap-3 transition-colors ${
+                call.completed ? "bg-green-50/50 border-green-100" : "bg-white"
+              }`}
+            >
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                  <Phone size={14} />
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => toggleCallAttendance(call)}
+                      className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all hover:scale-105 ${
+                        call.completed 
+                          ? "bg-green-100 text-green-600 hover:bg-green-200" 
+                          : "bg-blue-50 text-blue-300 hover:bg-blue-100 hover:text-blue-500"
+                      }`}
+                    >
+                      {call.completed ? <CheckCircle2 size={20} /> : <Circle size={20} />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{call.completed ? "Marcar como pendiente" : "Marcar que asistió"}</p>
+                  </TooltipContent>
+                </Tooltip>
+
                 <div>
-                  <p className="text-sm font-medium">
+                  <p className={`text-sm font-medium ${call.completed ? "text-green-800 line-through opacity-70" : ""}`}>
                     {format(call.date, "EEEE, d MMMM")}
                   </p>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock size={10} />
-                    <span>{format(call.date, "HH:mm")} hs</span>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                       <Clock size={10} />
+                       <span>{format(call.date, "HH:mm")} hs</span>
+                    </div>
+                    {call.completed && (
+                      <span className="text-green-600 font-medium bg-green-100 px-1.5 rounded text-[10px]">
+                        Asistió
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
+
               <div className="flex gap-2 justify-end sm:justify-start border-t sm:border-t-0 pt-2 sm:pt-0 mt-1 sm:mt-0">
                  <Button 
                   variant="ghost" 
@@ -209,6 +261,7 @@ export const StudentCalls = ({ student, onUpdate }: StudentCallsProps) => {
           </div>
         )}
       </div>
+      </TooltipProvider>
 
       <Dialog open={!!editingCall} onOpenChange={(open) => !open && setEditingCall(null)}>
         <DialogContent className="w-[95vw] rounded-xl sm:max-w-[425px]">
