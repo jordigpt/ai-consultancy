@@ -18,7 +18,7 @@ export const AiConsultantView = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hola. Tengo acceso completo a tus métricas, alumnos, leads y tareas (vía Gemini 2.0 Flash). Analicemos tu negocio. ¿Qué te preocupa hoy o qué área quieres optimizar?"
+      content: "Hola. Tengo acceso completo a tus métricas, alumnos, leads y tareas (vía Gemini 1.5 Flash). Analicemos tu negocio. ¿Qué te preocupa hoy o qué área quieres optimizar?"
     }
   ]);
   const [input, setInput] = useState("");
@@ -95,7 +95,7 @@ export const AiConsultantView = () => {
         </div>
         <div>
             <h2 className="text-xl font-bold flex items-center gap-2">
-                Consultor AI (Gemini 2.0 Flash)
+                Consultor AI (Gemini 1.5 Flash)
             </h2>
             <p className="text-sm text-muted-foreground">
                 Experto en operaciones y escalado con acceso a tus datos en tiempo real.
@@ -143,7 +143,7 @@ export const AiConsultantView = () => {
                 </Avatar>
                 <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-none flex items-center gap-2 text-sm text-muted-foreground">
                     <Sparkles size={14} className="animate-spin text-violet-500" /> 
-                    Analizando datos con Gemini 2.0...
+                    Analizando datos con Gemini 1.5...
                 </div>
               </div>
             )}
@@ -172,7 +172,7 @@ export const AiConsultantView = () => {
             </Button>
           </div>
           <div className="text-[10px] text-center text-muted-foreground mt-2">
-            Potenciado por Google Gemini 2.0 Flash. Acceso a datos en tiempo real.
+            Potenciado por Google Gemini 1.5 Flash. Acceso a datos en tiempo real.
           </div>
         </div>
       </Card>

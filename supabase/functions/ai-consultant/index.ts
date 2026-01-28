@@ -93,8 +93,8 @@ serve(async (req) => {
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiKey) throw new Error("Falta configurar GEMINI_API_KEY en Supabase Secrets");
 
-    // Usamos Gemini 2.0 Flash (Experimental) que es muy rápido y potente
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`;
+    // Usamos Gemini 1.5 Flash (Versión estable v1)
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
 
     // Transformar mensajes al formato de Gemini
     const geminiContents = messages.map((msg: any) => ({
