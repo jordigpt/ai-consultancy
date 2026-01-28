@@ -18,7 +18,7 @@ export const AiConsultantView = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hola. Tengo acceso completo a tus métricas, alumnos, leads y tareas (vía Gemini 1.5 Pro). Analicemos tu negocio. ¿Qué te preocupa hoy o qué área quieres optimizar?"
+      content: "Hola. Tengo acceso completo a tus métricas, alumnos, leads y tareas (vía Gemini 2.0 Flash). Analicemos tu negocio. ¿Qué te preocupa hoy o qué área quieres optimizar?"
     }
   ]);
   const [input, setInput] = useState("");
@@ -52,15 +52,11 @@ export const AiConsultantView = () => {
       });
 
       if (error) {
-        // Intentamos leer el mensaje de error del cuerpo si existe
         let errorDetails = error.message;
         try {
-            // A veces el error viene como string JSON en el body de la respuesta
-            if (error instanceof  Error && 'context' in error) {
-                 // @ts-ignore
-                 const context = await error.context.json();
-                 if (context.error) errorDetails = context.error;
-            }
+             // @ts-ignore
+             const context = await error.context.json();
+             if (context.error) errorDetails = context.error;
         } catch (e) {
             // Fallback
         }
@@ -99,7 +95,7 @@ export const AiConsultantView = () => {
         </div>
         <div>
             <h2 className="text-xl font-bold flex items-center gap-2">
-                Consultor AI (Gemini Pro)
+                Consultor AI (Gemini 2.0 Flash)
             </h2>
             <p className="text-sm text-muted-foreground">
                 Experto en operaciones y escalado con acceso a tus datos en tiempo real.
@@ -132,7 +128,6 @@ export const AiConsultantView = () => {
                     msg.role === "user"
                       ? "bg-slate-900 text-white rounded-tr-none"
                       : "bg-white text-slate-800 border border-slate-100 rounded-tl-none",
-                     // Estilo especial para mensajes de error
                      msg.content.includes("Error de conexión") && msg.role === "assistant" ? "bg-red-50 text-red-800 border-red-200" : ""
                   )}
                 >
@@ -148,7 +143,7 @@ export const AiConsultantView = () => {
                 </Avatar>
                 <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-none flex items-center gap-2 text-sm text-muted-foreground">
                     <Sparkles size={14} className="animate-spin text-violet-500" /> 
-                    Analizando datos del negocio con Gemini...
+                    Analizando datos con Gemini 2.0...
                 </div>
               </div>
             )}
@@ -177,7 +172,7 @@ export const AiConsultantView = () => {
             </Button>
           </div>
           <div className="text-[10px] text-center text-muted-foreground mt-2">
-            Potenciado por Google Gemini 1.5 Pro. Acceso a datos en tiempo real.
+            Potenciado por Google Gemini 2.0 Flash. Acceso a datos en tiempo real.
           </div>
         </div>
       </Card>

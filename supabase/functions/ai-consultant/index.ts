@@ -93,12 +93,10 @@ serve(async (req) => {
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiKey) throw new Error("Falta configurar GEMINI_API_KEY en Supabase Secrets");
 
-    // Usamos el modelo FLASH que es más estable en disponibilidad de API actualmente
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+    // Usamos Gemini 2.0 Flash (Experimental) que es muy rápido y potente
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`;
 
     // Transformar mensajes al formato de Gemini
-    // User -> user
-    // Assistant -> model
     const geminiContents = messages.map((msg: any) => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content }]
@@ -124,7 +122,6 @@ serve(async (req) => {
         throw new Error(data.error.message || "Error desconocido de Gemini");
     }
 
-    // Extraer respuesta
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No pude generar una respuesta.";
 
     return new Response(JSON.stringify({ reply }), {
