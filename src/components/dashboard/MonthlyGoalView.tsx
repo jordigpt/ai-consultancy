@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Target, TrendingUp, Save, Loader2, ShoppingBag, Bot } from "lucide-react";
+import { Target, TrendingUp, Save, Loader2, ShoppingBag, Bot, Briefcase } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { isSameMonth, format } from "date-fns";
@@ -14,7 +14,8 @@ interface MonthlyGoalViewProps {
   students: Student[];
   currentGoal: number;
   gumroadRevenue: number;
-  onSettingsUpdate: (goal: number, gumroad: number) => void;
+  agencyRevenue: number;
+  onSettingsUpdate: (goal: number, gumroad: number, agency: number) => void;
 }
 
 const DEFAULT_SYSTEM_PROMPT = `Eres un consultor experto en negocios digitales, operaciones y ventas de alto ticket.
@@ -33,9 +34,10 @@ ESTILO DE RESPUESTA:
 - Mantén las respuestas concisas pero densas en valor.
 - Habla como un socio de negocios senior, no como un asistente virtual básico.`;
 
-export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, onSettingsUpdate }: MonthlyGoalViewProps) => {
+export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, agencyRevenue, onSettingsUpdate }: MonthlyGoalViewProps) => {
   const [goalInput, setGoalInput] = useState(currentGoal.toString());
   const [gumroadInput, setGumroadInput] = useState(gumroadRevenue.toString());
+  const [agencyInput, setAgencyInput] = useState(agencyRevenue.toString());
   const [systemPrompt, setSystemPrompt] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(true);
@@ -43,7 +45,8 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, onSetti
   useEffect(() => {
     setGoalInput(currentGoal.toString());
     setGumroadInput(gumroadRevenue.toString());
-  }, [currentGoal, gumroadRevenue]);
+    setAgencyInput(agencyRevenue.toString());
+  }, [currentGoal, gumroadRevenue, agencyRevenue]);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -74,8 +77,9 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, onSetti
   const handleSaveSettings = async () => {
     const newGoal = parseFloat(goalInput);
     const newGumroad = parseFloat(gumroadInput);
+    const newAgency = parseFloat(agencyInput);
 
-    if (isNaN(newGoal) || newGoal < 0 || isNaN(newGumroad) || newGumroad < 0) {
+    if (isNaN(newGoal) || newGoal < 0 || isNaN(newGumroad) || newGumroad < 0 || isNaN(newAgency) || newAgency < 0) {
         showError("Ingresa montos válidos");
         return;
     }
@@ -93,13 +97,14 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, onSetti
                 user_id: user.id, 
                 monthly_goal: newGoal,
                 gumroad_revenue: newGumroad,
+                agency_revenue: newAgency,
                 system_prompt: systemPrompt
             });
 
         if (error) throw error;
 
-        onSettingsUpdate(newGoal, newGumroad);
-        showSuccess("Configuración y Prompt actualizados");
+        onSettingsUpdate(newGoal, newGumroad, newAgency);
+        showSuccess("Configuración actualizada");
     } catch (error) {
         console.error(error);
         showError("Error al guardar configuración");
@@ -108,11 +113,15 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, onSetti
     }
   };
 
-  // Calculations (Same as before)
+  // Calculations
   const currentMonthStudents = students.filter(s => isSameMonth(new Date(s.startDate), new Date()));
   const studentRevenueThisMonth = currentMonthStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
   const pendingRevenueThisMonth = currentMonthStudents.reduce((acc, curr) => acc + (curr.amountOwed || 0), 0);
-  const totalRevenue = studentRevenueThisMonth + (parseFloat(gumroadInput) || 0);
+  
+  const manualGumroad = parseFloat(gumroadInput) || 0;
+  const manualAgency = parseFloat(agencyInput) || 0;
+  
+  const totalRevenue = studentRevenueThisMonth + manualGumroad + manualAgency;
   const totalPotentialThisMonth = totalRevenue + pendingRevenueThisMonth;
   const goalValue = parseFloat(goalInput) || 1;
   const progress = Math.min((totalRevenue / goalValue) * 100, 100);
@@ -137,7 +146,7 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, onSetti
             <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none">
                 <CardHeader>
                     <CardTitle className="text-white">Progreso Financiero</CardTitle>
-                    <CardDescription className="text-slate-400">Consultoría + Gumroad</CardDescription>
+                    <CardDescription className="text-slate-400">Consultoría + Agencia + Productos</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div>
@@ -167,7 +176,7 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, onSetti
             <Card>
                 <CardHeader>
                     <CardTitle>Metas Financieras</CardTitle>
-                    <CardDescription>Ajusta tus objetivos mensuales.</CardDescription>
+                    <CardDescription>Ajusta tus objetivos e ingresos manuales.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
@@ -182,19 +191,36 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, onSetti
                             />
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium flex items-center gap-2">
-                             Ingresos Gumroad/Otros
-                             <span className="text-xs text-muted-foreground bg-slate-100 px-2 py-0.5 rounded-full">Manual</span>
-                        </label>
-                        <div className="relative">
-                            <ShoppingBag className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                            <Input 
-                                type="number" 
-                                value={gumroadInput} 
-                                onChange={(e) => setGumroadInput(e.target.value)}
-                                className="pl-9 text-lg font-bold"
-                            />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                                Ingresos Agencia
+                            </label>
+                            <div className="relative">
+                                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                <Input 
+                                    type="number" 
+                                    value={agencyInput} 
+                                    onChange={(e) => setAgencyInput(e.target.value)}
+                                    className="pl-9 font-medium"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                                Ingresos Gumroad
+                            </label>
+                            <div className="relative">
+                                <ShoppingBag className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                <Input 
+                                    type="number" 
+                                    value={gumroadInput} 
+                                    onChange={(e) => setGumroadInput(e.target.value)}
+                                    className="pl-9 font-medium"
+                                />
+                            </div>
                         </div>
                     </div>
                 </CardContent>

@@ -74,7 +74,12 @@ serve(async (req) => {
 
     const studentsRevenue = students?.reduce((acc: number, curr: any) => acc + (curr.amount_paid || 0), 0) || 0;
     const totalDebt = students?.reduce((acc: number, curr: any) => acc + (curr.amount_owed || 0), 0) || 0;
-    const totalRevenue = studentsRevenue + (settings?.gumroad_revenue || 0);
+    
+    // Revenue sources
+    const gumroadRevenue = settings?.gumroad_revenue || 0;
+    const agencyRevenue = settings?.agency_revenue || 0;
+    const totalRevenue = studentsRevenue + gumroadRevenue + agencyRevenue;
+    
     const monthlyGoal = settings?.monthly_goal || 10000;
     const goalProgress = ((totalRevenue / monthlyGoal) * 100).toFixed(1);
 
@@ -82,7 +87,8 @@ serve(async (req) => {
     
     const context = `
     [[ DATOS EN TIEMPO REAL DEL NEGOCIO ]]
-    FINANZAS: Meta $${monthlyGoal} | Actual $${totalRevenue} (${goalProgress}%) | Por cobrar: $${totalDebt}
+    FINANZAS: Meta $${monthlyGoal} | Actual $${totalRevenue} (${goalProgress}%) 
+    DESGLOSE: Consultoría $${studentsRevenue} | Agencia $${agencyRevenue} | Productos $${gumroadRevenue} | Por cobrar: $${totalDebt}
     ALUMNOS: \n${studentsSummary}
     LEADS: \n${leadsSummary}
     MIS TAREAS: \n${mentorTasks?.map((t: any) => `[${t.priority}] ${t.title}`).join(', ')}

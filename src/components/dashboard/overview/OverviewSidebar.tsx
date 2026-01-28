@@ -12,6 +12,7 @@ interface OverviewSidebarProps {
   students: Student[];
   monthlyGoal: number;
   gumroadRevenue: number;
+  agencyRevenue: number;
   onAddStudent: () => void;
   onAddLead: () => void;
   onAddTask: () => void;
@@ -22,6 +23,7 @@ export const OverviewSidebar = ({
   students, 
   monthlyGoal, 
   gumroadRevenue,
+  agencyRevenue,
   onAddStudent, 
   onAddLead, 
   onAddTask,
@@ -34,8 +36,8 @@ export const OverviewSidebar = ({
   const currentMonthStudents = students.filter(s => isSameMonth(new Date(s.startDate), new Date()));
   const studentsRevenue = currentMonthStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
   
-  // Total
-  const totalMonthlyRevenue = studentsRevenue + gumroadRevenue;
+  // Total (Students + Gumroad + Agency)
+  const totalMonthlyRevenue = studentsRevenue + gumroadRevenue + agencyRevenue;
   const monthlyProgress = Math.min((totalMonthlyRevenue / (monthlyGoal || 1)) * 100, 100);
 
   return (
@@ -137,7 +139,7 @@ export const OverviewSidebar = ({
                     <div className="space-y-1.5">
                     <Progress value={monthlyProgress} className="h-2 bg-black/20 [&>*]:bg-white" />
                     <div className="flex justify-between text-[10px] text-white/80 font-medium">
-                        <span>Ingresos este mes</span>
+                        <span>Ingresos totales</span>
                         <span>{monthlyProgress.toFixed(0)}%</span>
                     </div>
                     </div>

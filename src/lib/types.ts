@@ -112,5 +112,6 @@ export interface UserSettings {
   userId: string;
   monthlyGoal: number;
   gumroadRevenue: number;
+  agencyRevenue: number; // New field
   currency: string;
 }

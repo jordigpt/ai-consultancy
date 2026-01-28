@@ -36,11 +36,13 @@ const Index = () => {
     notes,
     monthlyGoal,
     gumroadRevenue,
+    agencyRevenue,
     loading,
     fetchData,
     setMentorTasks,
     setMonthlyGoal,
-    setGumroadRevenue
+    setGumroadRevenue,
+    setAgencyRevenue
   } = useDashboardData();
 
   const [currentView, setCurrentView] = useState("overview"); 
@@ -61,9 +63,10 @@ const Index = () => {
     await supabase.auth.signOut();
   };
 
-  const handleUpdateSettings = (newGoal: number, newGumroad: number) => {
+  const handleUpdateSettings = (newGoal: number, newGumroad: number, newAgency: number) => {
       setMonthlyGoal(newGoal);
       setGumroadRevenue(newGumroad);
+      setAgencyRevenue(newAgency);
   };
 
   const handleAddStudent = async (data: Omit<Student, "id" | "tasks" | "calls" | "status" | "notes">) => {
@@ -231,6 +234,7 @@ const Index = () => {
                     mentorTasks={mentorTasks}
                     monthlyGoal={monthlyGoal}
                     gumroadRevenue={gumroadRevenue}
+                    agencyRevenue={agencyRevenue}
                     onAddStudent={() => setIsAddStudentOpen(true)}
                     onAddLead={() => setIsAddLeadOpen(true)}
                     onAddTask={() => setCurrentView('tasks')}
@@ -240,7 +244,7 @@ const Index = () => {
                     onNavigate={(view) => setCurrentView(view)}
                 />
             );
-        case 'ai-consultant': // New Case
+        case 'ai-consultant': 
             return <AiConsultantView />;
         case 'goals':
             return (
@@ -248,6 +252,7 @@ const Index = () => {
                     students={students} 
                     currentGoal={monthlyGoal} 
                     gumroadRevenue={gumroadRevenue}
+                    agencyRevenue={agencyRevenue}
                     onSettingsUpdate={handleUpdateSettings} 
                 />
             );

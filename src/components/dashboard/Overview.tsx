@@ -14,6 +14,7 @@ interface OverviewProps {
   mentorTasks: MentorTask[];
   monthlyGoal: number;
   gumroadRevenue: number;
+  agencyRevenue: number; // New prop
   onAddStudent: () => void;
   onAddLead: () => void;
   onAddTask: () => void;
@@ -29,6 +30,7 @@ export const Overview = ({
   mentorTasks,
   monthlyGoal,
   gumroadRevenue,
+  agencyRevenue,
   onAddStudent, 
   onAddLead,
   onAddTask,
@@ -82,6 +84,7 @@ export const Overview = ({
             students={students}
             monthlyGoal={monthlyGoal}
             gumroadRevenue={gumroadRevenue}
+            agencyRevenue={agencyRevenue}
             onAddStudent={onAddStudent}
             onAddLead={onAddLead}
             onAddTask={onAddTask}

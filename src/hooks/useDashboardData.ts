@@ -13,6 +13,7 @@ export const useDashboardData = () => {
   // Settings
   const [monthlyGoal, setMonthlyGoal] = useState(10000);
   const [gumroadRevenue, setGumroadRevenue] = useState(0);
+  const [agencyRevenue, setAgencyRevenue] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -22,10 +23,11 @@ export const useDashboardData = () => {
 
       // 0. Fetch Settings
       if (user) {
-        const { data: settings } = await supabase.from('user_settings').select('monthly_goal, gumroad_revenue').eq('user_id', user.id).single();
+        const { data: settings } = await supabase.from('user_settings').select('monthly_goal, gumroad_revenue, agency_revenue').eq('user_id', user.id).single();
         if (settings) {
             setMonthlyGoal(settings.monthly_goal || 10000);
             setGumroadRevenue(settings.gumroad_revenue || 0);
+            setAgencyRevenue(settings.agency_revenue || 0);
         }
       }
 
@@ -184,6 +186,7 @@ export const useDashboardData = () => {
     notes,
     monthlyGoal,
     gumroadRevenue,
+    agencyRevenue,
     loading,
     fetchData,
     setStudents,
@@ -191,6 +194,7 @@ export const useDashboardData = () => {
     setMentorTasks,
     setNotes,
     setMonthlyGoal,
-    setGumroadRevenue
+    setGumroadRevenue,
+    setAgencyRevenue
   };
 };
