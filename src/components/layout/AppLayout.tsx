@@ -17,7 +17,7 @@ import {
   ChevronRight,
   PieChart,
   Search,
-  Command
+  Bot
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,9 +31,10 @@ interface AppLayoutProps {
 
 const MENU_ITEMS = [
   { id: 'overview', label: 'Panel General', icon: LayoutDashboard },
+  { id: 'ai-consultant', label: 'Consultor AI', icon: Bot, isSpecial: true },
   { id: 'active', label: 'Alumnos Activos', icon: Users },
   { id: 'leads', label: 'Pipeline Leads', icon: Target },
-  { id: 'goals', label: 'Objetivos', icon: PieChart },
+  { id: 'goals', label: 'Objetivos / Config', icon: PieChart },
   { id: 'calendar', label: 'Agenda', icon: Calendar },
   { id: 'tasks', label: 'Mis Tareas', icon: ClipboardList },
   { id: 'notes', label: 'Note Bank', icon: StickyNote },
@@ -52,6 +53,9 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
   const NavItem = ({ item, isCollapsed }: { item: typeof MENU_ITEMS[0], isCollapsed?: boolean }) => {
     const isActive = activeView === item.id;
     
+    // @ts-ignore
+    const isSpecial = item.isSpecial;
+
     const ButtonContent = (
       <Button
         variant="ghost"
@@ -60,12 +64,17 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
           isActive 
             ? "bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800" 
             : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+          isSpecial && !isActive && "text-violet-600 hover:bg-violet-50 hover:text-violet-700",
+          isSpecial && isActive && "bg-violet-100 text-violet-700 hover:bg-violet-200",
           isCollapsed && "justify-center px-2"
         )}
         onClick={() => handleNavigate(item.id)}
       >
-        <item.icon size={20} className={cn("shrink-0", isActive ? "text-blue-600" : "text-gray-500")} />
-        {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
+        <item.icon size={20} className={cn(
+            "shrink-0", 
+            isActive ? (isSpecial ? "text-violet-700" : "text-blue-600") : (isSpecial ? "text-violet-600" : "text-gray-500")
+        )} />
+        {!isCollapsed && <span className={cn("text-sm font-medium", isSpecial && "font-bold")}>{item.label}</span>}
         {isActive && !isCollapsed && <ChevronRight size={14} className="ml-auto opacity-50" />}
       </Button>
     );
@@ -84,6 +93,7 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
     return ButtonContent;
   };
 
+  // Rest of the component is largely the same, just rendering MENU_ITEMS
   const MobileNavContent = () => (
     <div className="flex flex-col h-full py-4">
       <div className="px-6 mb-6">
@@ -93,7 +103,6 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
         <p className="text-xs text-muted-foreground">Tracking System</p>
       </div>
       
-      {/* Mobile Search Trigger */}
       <div className="px-3 mb-4">
         <Button 
             variant="outline" 
@@ -155,7 +164,6 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
                 </Button>
             </div>
 
-            {/* Desktop Search Trigger */}
             <div className={cn("px-3 py-4", isCollapsed ? "flex justify-center" : "")}>
                 {isCollapsed ? (
                     <Tooltip delayDuration={0}>
@@ -222,9 +230,7 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
             </div>
         </aside>
 
-        {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {/* Mobile Header */}
             <header className="lg:hidden bg-white/80 backdrop-blur-md border-b p-4 flex items-center justify-between sticky top-0 z-40">
             <div className="flex items-center gap-2">
                     <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -249,7 +255,6 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
             </div>
             </header>
 
-            {/* Scrollable Content */}
             <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
                 <div className="max-w-7xl mx-auto animate-in fade-in duration-300">
                     {children}

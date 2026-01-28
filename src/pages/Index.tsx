@@ -20,6 +20,7 @@ import { Overview } from "@/components/dashboard/Overview";
 import { NotesView } from "@/components/notes/NotesView";
 import { MonthlyGoalView } from "@/components/dashboard/MonthlyGoalView";
 import { CommandCenter } from "@/components/dashboard/CommandCenter";
+import { AiConsultantView } from "@/components/ai/AiConsultantView"; // Import AI View
 
 // Views
 import { ActiveStudentsView } from "@/components/dashboard/views/ActiveStudentsView";
@@ -44,14 +45,12 @@ const Index = () => {
 
   const [currentView, setCurrentView] = useState("overview"); 
   
-  // Selected Items for Details Modals
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   
   const [studentDetailsOpen, setStudentDetailsOpen] = useState(false);
   const [leadDetailsOpen, setLeadDetailsOpen] = useState(false);
   
-  // UI States
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
   const [isCommandCenterOpen, setIsCommandCenterOpen] = useState(false);
@@ -125,7 +124,6 @@ const Index = () => {
         const { data: newLead, error } = await supabase.from('leads').insert(dbData).select().single();
         if (error) throw error;
 
-        // If nextCallDate was set, create a record in 'calls' table too
         if (data.nextCallDate) {
             const { error: callError } = await supabase.from('calls').insert({
                 lead_id: newLead.id,
@@ -179,7 +177,6 @@ const Index = () => {
 
   const handleToggleTask = async (task: MentorTask) => {
     try {
-        // Optimistic UI Update
         const updatedTasks = mentorTasks.filter(t => t.id !== task.id);
         setMentorTasks(updatedTasks);
         
@@ -189,7 +186,6 @@ const Index = () => {
             .eq('id', task.id);
 
         if (error) {
-            // Revert on error
             fetchData();
             throw error;
         }
@@ -214,11 +210,9 @@ const Index = () => {
       setLeadDetailsOpen(true);
   };
 
-  // Filter Data
   const activeStudents = students.filter(s => s.status === 'active' || !s.status);
   const graduatedStudents = students.filter(s => s.status === 'graduated');
 
-  // --- RENDER CONTENT BASED ON VIEW ---
   const renderContent = () => {
       if (loading) {
           return (
@@ -246,6 +240,8 @@ const Index = () => {
                     onNavigate={(view) => setCurrentView(view)}
                 />
             );
+        case 'ai-consultant': // New Case
+            return <AiConsultantView />;
         case 'goals':
             return (
                 <MonthlyGoalView 
@@ -313,7 +309,6 @@ const Index = () => {
     >
         {renderContent()}
 
-        {/* Command Center */}
         <CommandCenter 
             open={isCommandCenterOpen}
             onOpenChange={setIsCommandCenterOpen}
@@ -332,7 +327,6 @@ const Index = () => {
             }}
         />
 
-        {/* Global Student Create Dialog */}
         <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
            <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
                 <DialogHeader>
@@ -342,7 +336,6 @@ const Index = () => {
             </DialogContent>
         </Dialog>
         
-        {/* Global Lead Create Dialog */}
         <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
             <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
                 <DialogHeader>
@@ -352,13 +345,11 @@ const Index = () => {
             </DialogContent>
         </Dialog>
 
-        {/* Global Note Create Dialog */}
         <AddNoteDialog 
             open={isAddNoteOpen}
             onOpenChange={setIsAddNoteOpen}
         />
         
-        {/* Modals */}
         <StudentDetails 
             student={selectedStudent} 
             isOpen={studentDetailsOpen} 
