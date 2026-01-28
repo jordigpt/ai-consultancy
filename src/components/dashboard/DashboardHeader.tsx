@@ -6,7 +6,7 @@ import { Student } from "@/lib/types";
 
 interface DashboardHeaderProps {
   onSignOut: () => void;
-  onAddStudent: (data: Omit<Student, "id" | "tasks" | "calls" | "status" | "notes">) => Promise<void>;
+  onAddStudent: (data: Omit<Student, "id" | "tasks" | "calls" | "status" | "notes" | "events">) => Promise<void>;
   isAddStudentOpen: boolean;
   setIsAddStudentOpen: (open: boolean) => void;
   isSubmitting: boolean;

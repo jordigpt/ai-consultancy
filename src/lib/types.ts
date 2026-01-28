@@ -35,6 +35,14 @@ export interface StudentNote {
   createdAt: Date;
 }
 
+export interface StudentEvent {
+  id: string;
+  eventType: string;
+  description: string;
+  createdAt: Date;
+  metadata?: any;
+}
+
 export interface Student {
   id: string;
   firstName: string;
@@ -58,7 +66,8 @@ export interface Student {
   
   tasks: Task[];
   calls: Call[];
-  notes: StudentNote[]; // Added
+  notes: StudentNote[];
+  events: StudentEvent[]; // Added history events
 }
 
 // LEADS TYPES

@@ -69,7 +69,7 @@ const Index = () => {
       setAgencyRevenue(newAgency);
   };
 
-  const handleAddStudent = async (data: Omit<Student, "id" | "tasks" | "calls" | "status" | "notes">) => {
+  const handleAddStudent = async (data: Omit<Student, "id" | "tasks" | "calls" | "status" | "notes" | "events">) => {
     try {
       setIsSubmitting(true);
       

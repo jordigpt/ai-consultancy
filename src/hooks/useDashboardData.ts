@@ -31,10 +31,10 @@ export const useDashboardData = () => {
         }
       }
 
-      // 1. Fetch Students
+      // 1. Fetch Students (Include student_events)
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select(`*, tasks (*), calls (*), student_notes (*)`)
+        .select(`*, tasks (*), calls (*), student_notes (*), student_events (*)`)
         .order('created_at', { ascending: false });
 
       if (studentsError) throw studentsError;
@@ -102,6 +102,13 @@ export const useDashboardData = () => {
             id: n.id,
             content: n.content,
             createdAt: new Date(n.created_at)
+        })).sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()),
+        events: (s.student_events || []).map((e: any) => ({
+            id: e.id,
+            eventType: e.event_type,
+            description: e.description,
+            metadata: e.metadata,
+            createdAt: new Date(e.created_at)
         })).sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime())
       }));
 

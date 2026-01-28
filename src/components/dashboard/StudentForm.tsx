@@ -12,7 +12,7 @@ import { FinancialDetails } from "./StudentFormFinancialDetails";
 import { ContextDetails } from "./StudentFormContextDetails";
 
 interface StudentFormProps {
-  onSubmit: (data: Omit<Student, "id" | "tasks" | "calls" | "status" | "notes">) => void;
+  onSubmit: (data: Omit<Student, "id" | "tasks" | "calls" | "status" | "notes" | "events">) => void;
   isLoading?: boolean;
 }
 

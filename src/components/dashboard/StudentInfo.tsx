@@ -48,13 +48,29 @@ export const StudentInfo = ({ student, onUpdate }: StudentInfoProps) => {
   };
 
   const updateAiLevel = async (newLevel: number) => {
+    if (newLevel === student.aiLevel) return;
+
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // 1. Update Student Table
       const { error } = await supabase
         .from('students')
         .update({ ai_level: newLevel })
         .eq('id', student.id);
 
       if (error) throw error;
+
+      // 2. Log History Event (if user exists)
+      if (user) {
+         await supabase.from('student_events').insert({
+            student_id: student.id,
+            user_id: user.id,
+            event_type: 'ai_level_change',
+            description: `Nivel de IA actualizado de ${student.aiLevel} a ${newLevel}`,
+            metadata: { old_value: student.aiLevel, new_value: newLevel }
+         });
+      }
 
       onUpdate({ ...student, aiLevel: newLevel as any });
       showSuccess("Nivel de IA actualizado");
