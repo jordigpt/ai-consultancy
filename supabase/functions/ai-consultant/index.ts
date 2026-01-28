@@ -16,11 +16,8 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Verificar Autenticación
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Missing Authorization header");
-    }
+    if (!authHeader) throw new Error("Missing Authorization header");
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -33,78 +30,121 @@ serve(async (req) => {
       return new Response("Unauthorized", { status: 401, headers: corsHeaders });
     }
 
-    // 2. Obtener Request Body
     const { messages } = await req.json();
 
-    // 3. Recopilar Contexto del Negocio (En Paralelo para velocidad)
-    // Usamos service role para asegurar lectura completa, pero filtrando por user_id siempre
+    // Cliente Admin para leer toda la data sin restricciones RLS (pero filtrando por user_id manualmente)
     const supabaseAdmin = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // Fetch Paralelo de Datos Enriquecidos
     const [
         { data: settings },
         { data: students },
         { data: leads },
-        { data: tasks },
-        { data: notes }
+        { data: mentorTasks },
+        { data: globalNotes }
     ] = await Promise.all([
+        // 1. Settings & Prompt
         supabaseAdmin.from('user_settings').select('*').eq('user_id', user.id).single(),
-        supabaseAdmin.from('students').select('first_name, last_name, occupation, status, health_score, paid_in_full, amount_owed, ai_level, context, business_model, amount_paid').eq('user_id', user.id),
-        supabaseAdmin.from('leads').select('name, status, interest_level, notes, next_call_date, created_at').eq('user_id', user.id).not('status', 'in', '("won","lost")'),
-        supabaseAdmin.from('mentor_tasks').select('title, priority, completed, description').eq('user_id', user.id).eq('completed', false),
-        supabaseAdmin.from('notes').select('title, content, category').eq('user_id', user.id).limit(10)
+        
+        // 2. Alumnos con Tareas, Llamadas y Notas
+        supabaseAdmin
+            .from('students')
+            .select(`
+                first_name, last_name, occupation, status, health_score, 
+                paid_in_full, amount_owed, ai_level, context, business_model, amount_paid,
+                tasks(title, completed, priority),
+                calls(date, completed, notes),
+                student_notes(content, created_at)
+            `)
+            .eq('user_id', user.id),
+
+        // 3. Leads con Llamadas
+        supabaseAdmin
+            .from('leads')
+            .select(`
+                name, status, interest_level, notes, next_call_date, created_at, email,
+                calls(date, completed, notes)
+            `)
+            .eq('user_id', user.id)
+            .not('status', 'in', '("won","lost")'), // Solo leads activos
+
+        // 4. Mis Tareas (Mentor)
+        supabaseAdmin
+            .from('mentor_tasks')
+            .select('title, priority, completed, description')
+            .eq('user_id', user.id)
+            .eq('completed', false),
+
+        // 5. Note Bank Global
+        supabaseAdmin
+            .from('notes')
+            .select('title, content, category')
+            .eq('user_id', user.id)
+            .limit(10)
     ]);
 
-    // 4. Construir el Prompt del Sistema
-    const userPrompt = settings?.system_prompt || `Eres un consultor experto en negocios digitales. Ayúdame a escalar.`;
-    
-    // Cálculo de Finanzas
+    // Procesamiento de Datos para reducir tokens y limpiar formato
+    const studentsSummary = students?.map((s: any) => {
+        const pendingTasks = s.tasks?.filter((t: any) => !t.completed).length || 0;
+        const lastNote = s.student_notes?.[0]?.content || "Sin notas recientes";
+        const recentCalls = s.calls?.slice(0, 3).map((c: any) => `${c.date.split('T')[0]} (${c.completed ? 'Asistió' : 'Pendiente'})`).join(', ');
+        
+        return `- ${s.first_name} ${s.last_name} (${s.status}): 
+          Salud: ${s.health_score} | Deuda: $${s.amount_owed} | Nivel IA: ${s.ai_level}
+          Ctx: ${s.context || 'N/A'}
+          Tareas Pendientes: ${pendingTasks}
+          Últimas Llamadas: ${recentCalls || 'Ninguna'}
+          Última Nota Bitácora: ${lastNote}`;
+    }).join('\n');
+
+    const leadsSummary = leads?.map((l: any) => 
+        `- ${l.name} (${l.status} - ${l.interest_level}):
+          Nota: ${l.notes || 'N/A'}
+          Próx. Llamada: ${l.next_call_date ? l.next_call_date.split('T')[0] : 'Sin agendar'}
+          Historial: ${l.calls?.length || 0} llamadas registradas.`
+    ).join('\n');
+
+    // Finanzas
     const studentsRevenue = students?.reduce((acc: number, curr: any) => acc + (curr.amount_paid || 0), 0) || 0;
     const totalDebt = students?.reduce((acc: number, curr: any) => acc + (curr.amount_owed || 0), 0) || 0;
     const totalRevenue = studentsRevenue + (settings?.gumroad_revenue || 0);
     const monthlyGoal = settings?.monthly_goal || 10000;
     const goalProgress = ((totalRevenue / monthlyGoal) * 100).toFixed(1);
 
-    // Contexto Estructurado
-    const businessContext = `
-    DATOS DEL NEGOCIO EN TIEMPO REAL:
+    // Construcción del Prompt
+    const systemPrompt = settings?.system_prompt || "Eres un consultor experto en negocios digitales. Ayúdame a escalar.";
     
-    === FINANZAS ===
-    - Objetivo Mensual: $${monthlyGoal}
-    - Facturación Actual: $${totalRevenue} (${goalProgress}%)
-    - Deuda por Cobrar (Alumnos): $${totalDebt}
-    - Ingresos Extra (Gumroad): $${settings?.gumroad_revenue || 0}
+    const context = `
+    [[ ESTADO DEL NEGOCIO EN TIEMPO REAL ]]
     
-    === ALUMNOS (${students?.length || 0}) ===
-    ${students?.map((s: any) => 
-        `- ${s.first_name} ${s.last_name}: ${s.status === 'graduated' ? '(Egresado)' : '(Activo)'} | Salud: ${s.health_score} | Deuda: $${s.amount_owed} | Nivel IA: ${s.ai_level}/10 | Modelo: ${s.business_model} | Ctx: ${s.context || 'N/A'}`
-    ).join('\n')}
+    💰 FINANZAS
+    - Meta: $${monthlyGoal} | Actual: $${totalRevenue} (${goalProgress}%)
+    - Deuda por cobrar: $${totalDebt}
+    
+    🎓 ALUMNOS (${students?.length || 0})
+    ${studentsSummary}
 
-    === LEADS ACTIVOS (${leads?.length || 0}) ===
-    (Solo leads abiertos)
-    ${leads?.map((l: any) => 
-        `- ${l.name}: Status ${l.status} | Interés ${l.interest_level} | Nota: ${l.notes || 'N/A'} | Creado: ${l.created_at.split('T')[0]}`
-    ).join('\n')}
+    🎯 PIPELINE LEADS (${leads?.length || 0})
+    ${leadsSummary}
 
-    === TAREAS PENDIENTES DEL MENTOR ===
-    ${tasks?.map((t: any) => `- [${t.priority.toUpperCase()}] ${t.title}`).join('\n')}
+    📝 MIS TAREAS PRIORITARIAS
+    ${mentorTasks?.map((t: any) => `[${t.priority}] ${t.title}`).join(', ')}
     
-    === NOTAS RECIENTES (Últimas 10) ===
-    ${notes?.map((n: any) => `- [${n.category}] ${n.title}: ${n.content.substring(0, 50)}...`).join('\n')}
+    🧠 NOTE BANK (Ideas recientes)
+    ${globalNotes?.map((n: any) => `[${n.category}] ${n.title}`).join(', ')}
     `;
 
-    // 5. Llamar a OpenAI
+    // Call OpenAI
     const openAIKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openAIKey) {
-        throw new Error("Server configuration error: Missing OpenAI API Key");
-    }
+    if (!openAIKey) throw new Error("OpenAI API Key not configured");
 
     const payload = {
-        model: "gpt-4o", // O gpt-4-turbo / gpt-3.5-turbo según preferencia y presupuesto
+        model: "gpt-4o", 
         messages: [
-            { role: "system", content: `${userPrompt}\n\n${businessContext}` },
+            { role: "system", content: `${systemPrompt}\n\n${context}` },
             ...messages
         ],
         temperature: 0.7,
@@ -120,20 +160,15 @@ serve(async (req) => {
     });
 
     const aiData = await response.json();
+    
+    if (aiData.error) throw new Error(aiData.error.message);
 
-    if (aiData.error) {
-        console.error("OpenAI Error:", aiData.error);
-        throw new Error(aiData.error.message);
-    }
-
-    const reply = aiData.choices[0].message.content;
-
-    return new Response(JSON.stringify({ reply }), {
+    return new Response(JSON.stringify({ reply: aiData.choices[0].message.content }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
-    console.error("Error in AI function:", error);
+    console.error("AI Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
