@@ -64,32 +64,30 @@ serve(async (req) => {
     const monthlyGoal = Number(settings?.monthly_goal || 10000);
 
     // CÁLCULO DE INGRESOS DE ALUMNOS (LÓGICA CORREGIDA)
-    // Antes filtraba por mes de inicio. Ahora suma el amount_paid de TODOS los alumnos activos.
-    // Esto representa el valor de la cartera activa mensual.
-    const activeStudentsRevenue = students
-        ? students
-            .filter((s: any) => s.status === 'active' || !s.status) // Consideramos active o null como activos
-            .reduce((sum: number, s: any) => sum + (Number(s.amount_paid) || 0), 0)
-        : 0;
+    // Sumamos amount_paid de TODOS los alumnos marcados como activos (o null)
+    const activeStudents = students 
+        ? students.filter((s: any) => s.status === 'active' || !s.status)
+        : [];
 
-    let totalDebt = 0;
+    const activeStudentsRevenue = activeStudents.reduce((sum: number, s: any) => sum + (Number(s.amount_paid) || 0), 0);
     
-    // Calculamos deuda total aparte
-    if (students) {
-        students.forEach((s: any) => {
-            totalDebt += Number(s.amount_owed) || 0;
-        });
-    }
+    // Deuda solo de alumnos activos
+    const activeStudentsDebt = activeStudents.reduce((sum: number, s: any) => sum + (Number(s.amount_owed) || 0), 0);
 
     // Total Facturación "Mensual" (Cartera Activa + Extras)
-    // Se compone de: Valor de alumnos activos + Ingresos manuales (Gumroad/Agencia)
     const totalRevenueThisMonth = activeStudentsRevenue + gumroadRevenue + agencyRevenue;
     
-    const goalProgress = ((totalRevenueThisMonth / monthlyGoal) * 100).toFixed(1);
+    const goalProgress = monthlyGoal > 0 ? ((totalRevenueThisMonth / monthlyGoal) * 100).toFixed(1) : 0;
 
-    // --- RESÚMENES DE TEXTO ---
+    // --- RESÚMENES DE TEXTO PARA LA IA ---
+    
+    // Lista detallada de alumnos con su aporte financiero explícito
     const studentsSummary = students?.map((s: any) => {
-        return `- ${s.first_name} ${s.last_name} [${s.business_model}]: Estado ${s.status || 'active'} | Salud ${s.health_score?.toUpperCase()} | Pagado: $${s.amount_paid} | Debe: $${s.amount_owed}`;
+        const isPaid = s.amount_owed <= 0;
+        const paidStatus = isPaid ? "PAGADO" : "DEUDA";
+        return `• [${s.status?.toUpperCase() || 'ACTIVO'}] ${s.first_name} ${s.last_name} (${s.business_model})
+           - Facturado: $${s.amount_paid} | Restante: $${s.amount_owed} (${paidStatus})
+           - Salud: ${s.health_score?.toUpperCase()} | Nivel IA: ${s.ai_level}/10`;
     }).join('\n');
 
     const leadsSummary = leads?.map((l: any) => {
@@ -97,50 +95,54 @@ serve(async (req) => {
         if (l.next_call_date) {
             nextCallInfo = l.next_call_date.split('T')[0];
         }
-        return `- ${l.name} (${l.interest_level.toUpperCase()}): Estado ${l.status} | Call: ${nextCallInfo}`;
+        return `• ${l.name} [${l.interest_level.toUpperCase()}] - Estado: ${l.status} (Call: ${nextCallInfo})`;
     }).join('\n');
 
     const customSystemPrompt = settings?.system_prompt || "";
 
-    // --- PROMPT EXPERTO ---
+    // --- PROMPT EXPERTO CON DATOS FINANCIEROS INCRUSTADOS ---
     const expertSystemPrompt = `
 FECHA ACTUAL: ${now.toISOString().split('T')[0]}
 
-ERES UN CONSULTOR DE NEGOCIOS SENIOR.
-Utiliza el siguiente "System Prompt" del usuario como guía de personalidad:
+ERES UN SOCIO ESTRATÉGICO DE NEGOCIOS (COO/CFO).
+Tu objetivo es maximizar la facturación y la eficiencia operativa.
+
+CONTEXTO DE PERSONALIDAD DEL USUARIO:
 """
-${customSystemPrompt || "Sé directo, prioriza cashflow y desbloqueo operativo."}
+${customSystemPrompt || "Sé directo, prioriza cashflow, retención de clientes y cierre de ventas."}
 """
 
-----------------------------------
-ESTADO FINANCIERO MENSUAL (ACTUALIZADO):
-----------------------------------
-La facturación mensual se calcula sumando la cartera de alumnos activos + ingresos extra.
+==================================================
+📊 REPORTE FINANCIERO EN TIEMPO REAL
+==================================================
 
-1. Ingresos Agencia (Manual): $${agencyRevenue}
-2. Ingresos Gumroad/Info (Manual): $${gumroadRevenue}
-3. Cartera de Alumnos Activos: $${activeStudentsRevenue}
+1. INGRESOS CONSULTORÍA (ALUMNOS ACTIVOS): $${activeStudentsRevenue}
+   (Calculado sumando lo cobrado a ${activeStudents.length} alumnos activos).
 
->>> TOTAL FACTURACIÓN MENSUAL: $${totalRevenueThisMonth} <<<
-META MENSUAL: $${monthlyGoal}
-PROGRESO: ${goalProgress}%
+2. INGRESOS AGENCIA: $${agencyRevenue}
 
-(Deuda total pendiente de cobro: $${totalDebt}).
-----------------------------------
+3. INGRESOS PRODUCTOS/GUMROAD: $${gumroadRevenue}
 
-ALUMNOS (${students?.length || 0}):
-${studentsSummary || "Sin alumnos."}
+>>> FACTURACIÓN TOTAL ACUMULADA: $${totalRevenueThisMonth} <<<
+>>> META MENSUAL: $${monthlyGoal} (Progreso: ${goalProgress}%) <<<
 
-LEADS ACTIVOS:
-${leadsSummary || "Sin leads."}
+⚠️ DEUDA PENDIENTE POR COBRAR (Cartera Activa): $${activeStudentsDebt}
+==================================================
 
-TAREAS PENDIENTES:
-${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Sin tareas."}
+DETALLE DE CARTERA DE ALUMNOS:
+${studentsSummary || "Sin alumnos registrados."}
 
-INSTRUCCIONES:
-1. Si te preguntan cuánto hemos facturado, responde con el TOTAL FACTURACIÓN MENSUAL ($${totalRevenueThisMonth}).
-2. Analiza los alumnos activos y sus deudas.
-3. Si el progreso es bajo, sugiere acciones para cerrar los leads listados arriba.
+PIPELINE DE VENTAS (LEADS):
+${leadsSummary || "Sin leads activos."}
+
+TAREAS OPERATIVAS PENDIENTES:
+${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Al día."}
+
+INSTRUCCIONES PARA TU RESPUESTA:
+1. Ten MUY en cuenta la "FACTURACIÓN TOTAL ACUMULADA" ($${totalRevenueThisMonth}) al dar consejos.
+2. Si hay "Deuda Pendiente", sugiere acciones de cobro.
+3. Si el progreso de la meta es bajo, enfócate en cerrar los Leads listados.
+4. Analiza la salud de los alumnos. Si alguno está en rojo, es prioridad salvarlo (Churn risk).
 `;
 
     // --- OPENAI CALL ---
