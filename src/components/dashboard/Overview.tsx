@@ -6,6 +6,7 @@ import { UpcomingCalls } from "./overview/UpcomingCalls";
 import { TasksList } from "./overview/TasksList";
 import { RecentPipeline } from "./overview/RecentPipeline";
 import { OverviewSidebar } from "./overview/OverviewSidebar";
+import { MonthlyGoalWidget } from "./overview/MonthlyGoalWidget";
 import { AddNoteDialog } from "@/components/notes/AddNoteDialog";
 
 interface OverviewProps {
@@ -14,7 +15,7 @@ interface OverviewProps {
   mentorTasks: MentorTask[];
   monthlyGoal: number;
   gumroadRevenue: number;
-  agencyRevenue: number; // New prop
+  agencyRevenue: number;
   onAddStudent: () => void;
   onAddLead: () => void;
   onAddTask: () => void;
@@ -43,6 +44,14 @@ export const Overview = ({
 
   return (
     <div className="space-y-6">
+      {/* Hero Section: Monthly Goal */}
+      <MonthlyGoalWidget 
+        students={students}
+        monthlyGoal={monthlyGoal}
+        gumroadRevenue={gumroadRevenue}
+        agencyRevenue={agencyRevenue}
+      />
+
       <NotificationsSection leads={leads} onOpenLead={onOpenLead} />
 
       <div className="flex flex-col lg:flex-row gap-6">
@@ -81,10 +90,6 @@ export const Overview = ({
 
         {/* --- RIGHT COLUMN (WIDGETS) --- */}
         <OverviewSidebar 
-            students={students}
-            monthlyGoal={monthlyGoal}
-            gumroadRevenue={gumroadRevenue}
-            agencyRevenue={agencyRevenue}
             onAddStudent={onAddStudent}
             onAddLead={onAddLead}
             onAddTask={onAddTask}

@@ -1,18 +1,12 @@
 import React, { useState } from "react";
-import { Student } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Calendar } from "@/components/ui/calendar";
 import { Target, UserPlus, StickyNote, Plus } from "lucide-react";
-import { format, startOfDay, isSameMonth } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface OverviewSidebarProps {
-  students: Student[];
-  monthlyGoal: number;
-  gumroadRevenue: number;
-  agencyRevenue: number;
   onAddStudent: () => void;
   onAddLead: () => void;
   onAddTask: () => void;
@@ -20,10 +14,6 @@ interface OverviewSidebarProps {
 }
 
 export const OverviewSidebar = ({ 
-  students, 
-  monthlyGoal, 
-  gumroadRevenue,
-  agencyRevenue,
   onAddStudent, 
   onAddLead, 
   onAddTask,
@@ -31,14 +21,6 @@ export const OverviewSidebar = ({
 }: OverviewSidebarProps) => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const today = startOfDay(new Date());
-
-  // Monthly Goal Logic
-  const currentMonthStudents = students.filter(s => isSameMonth(new Date(s.startDate), new Date()));
-  const studentsRevenue = currentMonthStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
-  
-  // Total (Students + Gumroad + Agency)
-  const totalMonthlyRevenue = studentsRevenue + gumroadRevenue + agencyRevenue;
-  const monthlyProgress = Math.min((totalMonthlyRevenue / (monthlyGoal || 1)) * 100, 100);
 
   return (
     <div className="lg:w-80 space-y-6 flex flex-col shrink-0">
@@ -123,28 +105,6 @@ export const OverviewSidebar = ({
                     </Button>
             </div>
         </div>
-
-        {/* Monthly Goal Widget */}
-            <Card className="bg-gradient-to-br from-violet-600 to-fuchsia-700 border-none text-white shadow-md relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <Target size={80} />
-                </div>
-                <CardContent className="p-4 space-y-3 relative z-10">
-                    <div className="flex justify-between items-end">
-                        <div>
-                            <p className="text-xs font-medium text-white/80 uppercase tracking-wider">Objetivo Mensual</p>
-                            <h3 className="text-2xl font-bold mt-0.5">${(totalMonthlyRevenue/1000).toFixed(1)}k <span className="text-sm font-normal text-white/70">/ ${(monthlyGoal/1000).toFixed(1)}k</span></h3>
-                        </div>
-                    </div>
-                    <div className="space-y-1.5">
-                    <Progress value={monthlyProgress} className="h-2 bg-black/20 [&>*]:bg-white" />
-                    <div className="flex justify-between text-[10px] text-white/80 font-medium">
-                        <span>Ingresos totales</span>
-                        <span>{monthlyProgress.toFixed(0)}%</span>
-                    </div>
-                    </div>
-                </CardContent>
-            </Card>
     </div>
   );
 };
