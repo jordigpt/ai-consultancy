@@ -20,73 +20,69 @@ export const TasksList = ({ mentorTasks, onAddTask, onToggleTask }: TasksListPro
 
   const priorityOrder: Record<TaskPriority, number> = { high: 3, medium: 2, low: 1 };
   
+  // Limitar a 3 tareas para vista compacta
   const sortedTasks = [...mentorTasks].sort((a, b) => {
-      // 1. Sort by Priority
       const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
       if (priorityDiff !== 0) return priorityDiff;
-      // 2. Sort by Date
       return b.createdAt.getTime() - a.createdAt.getTime();
-  }).slice(0, 5);
+  }).slice(0, 3);
 
   const getPriorityIcon = (p: TaskPriority) => {
     switch(p) {
-        case 'high': return <AlertTriangle size={14} className="text-red-500" />;
-        case 'medium': return <ArrowUpCircle size={14} className="text-orange-500" />;
-        case 'low': return <ArrowDownCircle size={14} className="text-blue-500" />;
+        case 'high': return <AlertTriangle size={14} className="text-red-500 shrink-0" />;
+        case 'medium': return <ArrowUpCircle size={14} className="text-orange-500 shrink-0" />;
+        case 'low': return <ArrowDownCircle size={14} className="text-blue-500 shrink-0" />;
     }
   };
 
   return (
     <>
-    <Card className="flex flex-col h-full">
-        <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <CheckSquare size={14} /> Tareas Prioritarias
+    <Card className="flex flex-col h-full border-none shadow-sm">
+        <CardHeader className="px-4 py-3 border-b flex flex-row items-center justify-between min-h-[50px]">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <CheckSquare size={16} className="text-indigo-500" /> Prioridades
                 </CardTitle>
                 <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={onAddTask}>
                 <Plus size={12} className="mr-1" /> Nueva
                 </Button>
         </CardHeader>
-        <CardContent className="p-4 pt-2 flex-1">
+        <CardContent className="p-0 flex-1">
             {sortedTasks.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg bg-slate-50">
-                    <p className="text-sm">¡Todo listo!</p>
-                    <p className="text-xs mt-1">No tienes tareas pendientes.</p>
+                <div className="h-full flex flex-col items-center justify-center text-center py-6 text-muted-foreground">
+                    <p className="text-xs">¡Todo listo!</p>
                 </div>
             ) : (
-                <div className="space-y-3">
-                    {sortedTasks.map(task => (
-                        <div key={task.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-100 group">
+                <div className="flex flex-col">
+                    {sortedTasks.map((task, idx) => (
+                        <div 
+                            key={task.id} 
+                            className={`flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors group ${
+                                idx !== sortedTasks.length - 1 ? 'border-b border-slate-100' : ''
+                            }`}
+                        >
                             <Checkbox 
                                 checked={task.completed}
                                 onCheckedChange={() => onToggleTask(task)}
-                                className="mt-1"
+                                className="mt-0.5 h-4 w-4"
                             />
                             <div 
-                                className="flex-1 min-w-0 cursor-pointer"
+                                className="flex-1 min-w-0 cursor-pointer flex items-center justify-between gap-2"
                                 onClick={() => setExpandedTask(task)}
                             >
-                                <div className="flex items-center justify-between">
-                                    <p className={`text-sm font-medium leading-tight ${task.priority === 'high' ? 'text-slate-900' : 'text-slate-700'}`}>
-                                        {task.title}
-                                    </p>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {getPriorityIcon(task.priority)}
-                                    </div>
-                                </div>
+                                <span className="text-sm text-slate-700 truncate font-medium">
+                                    {task.title}
+                                </span>
                                 
-                                {task.relatedName && (
-                                    <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                                        <User size={10} />
-                                        <span className="truncate">{task.relatedName}</span>
-                                    </div>
-                                )}
+                                {getPriorityIcon(task.priority)}
                             </div>
                         </div>
                     ))}
-                    <Button variant="link" size="sm" className="w-full text-xs h-6 mt-2 text-muted-foreground" onClick={onAddTask}>
-                        Ver todas las tareas
-                    </Button>
+                    
+                    <div className="p-2 text-center border-t border-slate-50">
+                        <Button variant="link" size="sm" className="h-auto p-0 text-[10px] text-muted-foreground" onClick={onAddTask}>
+                            Ver todas las tareas
+                        </Button>
+                    </div>
                 </div>
             )}
         </CardContent>
