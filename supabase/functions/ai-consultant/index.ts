@@ -81,22 +81,27 @@ serve(async (req) => {
     const totalConsultingRevenue = activeStudentsRevenue + graduatedRevenue;
     const totalRevenueGlobal = totalConsultingRevenue + gumroadRevenue + agencyRevenue;
     
-    const goalProgress = monthlyGoal > 0 ? ((totalRevenueGlobal / monthlyGoal) * 100).toFixed(1) : 0;
-
     // --- RESÚMENES DE TEXTO PARA LA IA ---
     
     const studentsSummary = students?.map((s: any) => {
         const isPaid = s.amount_owed <= 0;
-        const paidStatus = isPaid ? "PAGADO" : "DEUDA";
+        const paidStatus = isPaid ? "TOTALMENTE PAGADO" : "TIENE DEUDA";
         const startDate = s.start_date ? s.start_date.split('T')[0] : 'N/A';
-        const createdDate = s.created_at ? s.created_at.split('T')[0] : 'N/A';
+        
+        // Crear un string claro del mes de facturación para la IA
+        let billingMonth = "DESCONOCIDO";
+        if (s.start_date) {
+            const dateObj = new Date(s.start_date);
+            const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            billingMonth = `${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+        }
         
         return `• [${s.status?.toUpperCase() || 'ACTIVO'}] ${s.first_name} ${s.last_name}
-           - Modelo: ${s.business_model} | Ocupación: ${s.occupation}
-           - Fechas: Inicio ${startDate} | Cargado ${createdDate}
-           - $ Pagado: $${s.amount_paid} | $ Deuda: $${s.amount_owed} (${paidStatus})
-           - Contexto: ${s.context || 'Sin contexto'}
-           - Salud: ${s.health_score?.toUpperCase()} | Nivel IA: ${s.ai_level}/10`;
+           >>> FACTURACIÓN: $${s.amount_paid} (Corresponde a: ${billingMonth})
+           - Fecha Inicio: ${startDate}
+           - Deuda Pendiente: $${s.amount_owed} (${paidStatus})
+           - Modelo: ${s.business_model} | Nivel IA: ${s.ai_level}/10
+           - Contexto: ${s.context || 'Sin contexto'}`;
     }).join('\n');
 
     const leadsSummary = leads?.map((l: any) => {
@@ -114,47 +119,39 @@ serve(async (req) => {
 FECHA ACTUAL: ${now.toISOString().split('T')[0]}
 
 ERES UN SOCIO ESTRATÉGICO DE NEGOCIOS (COO/CFO).
-Tu objetivo es maximizar la facturación y la eficiencia operativa.
+Tu objetivo es analizar la salud financiera y operativa del negocio.
 
-CONTEXTO DE PERSONALIDAD DEL USUARIO:
+CONTEXTO DE PERSONALIDAD DEFINIDO POR EL USUARIO:
 """
-${customSystemPrompt || "Sé directo, prioriza cashflow, retención de clientes y cierre de ventas."}
+${customSystemPrompt || "Sé directo, prioriza cashflow y análisis de datos."}
 """
 
 ==================================================
-📊 REPORTE FINANCIERO GLOBAL (HISTÓRICO + ACTUAL)
+📊 DATOS FINANCIEROS MACRO
+==================================================
+- Ingresos Totales Consultoría (Activos + Egresados): $${totalConsultingRevenue}
+- Ingresos Agencia: $${agencyRevenue}
+- Ingresos Productos: $${gumroadRevenue}
+- META MENSUAL: $${monthlyGoal}
 ==================================================
 
-1. INGRESOS CONSULTORÍA (ALUMNOS ACTIVOS): $${activeStudentsRevenue}
-   (Cartera actual de ${activeStudents.length} alumnos).
-
-2. INGRESOS CONSULTORÍA (EGRESADOS): $${graduatedRevenue}
-   (Histórico de ${graduatedStudents.length} alumnos finalizados).
-
-3. INGRESOS AGENCIA: $${agencyRevenue}
-4. INGRESOS PRODUCTOS/GUMROAD: $${gumroadRevenue}
-
->>> FACTURACIÓN TOTAL DEL NEGOCIO: $${totalRevenueGlobal} <<<
->>> OBJETIVO MENSUAL CONFIGURADO: $${monthlyGoal} <<<
-
-⚠️ DEUDA PENDIENTE (ACTIVOS): $${activeStudentsDebt}
-==================================================
-
-DETALLE COMPLETO DE ALUMNOS (ACTIVOS Y EGRESADOS):
+LISTADO DETALLADO DE ALUMNOS (FUENTE DE VERDAD PARA ANÁLISIS MENSUAL):
 ${studentsSummary || "Sin alumnos registrados."}
 
 PIPELINE DE VENTAS (LEADS):
 ${leadsSummary || "Sin leads activos."}
 
-TAREAS OPERATIVAS PENDIENTES:
+TAREAS OPERATIVAS:
 ${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Al día."}
 
-INSTRUCCIONES:
-1. Analiza el rendimiento histórico (Egresados) vs actual (Activos).
-2. Usa las fechas de carga/inicio para identificar antigüedad y posibles estancamientos.
-3. Ten MUY en cuenta la "FACTURACIÓN TOTAL DEL NEGOCIO" para dar contexto de crecimiento.
-4. Si hay deuda en alumnos activos, prioriza estrategias de cobro.
-5. REGLA DE INGRESOS MENSUALES: Asume SIEMPRE que los pagos de los alumnos (amount_paid) corresponden al mes de su fecha de inicio (start_date). Si un alumno tiene fecha de inicio en Enero y pagó $1000, considera esos $1000 como ingreso de Enero. Suma los montos por mes de inicio para entender la facturación mensual y tendencias.
+!!! REGLA DE ORO PARA CÁLCULO DE INGRESOS MENSUALES !!!
+Para calcular cuánto se facturó en un mes específico (ej. "Enero", "Febrero"), NO uses la fecha actual.
+DEBES SUMAR el valor que aparece en la línea ">>> FACTURACIÓN: $X (Corresponde a: MES AÑO)" de cada alumno.
+
+Ejemplo: Si el usuario pregunta "¿Cuánto facturamos en Enero?", tú debes:
+1. Buscar en la lista de alumnos todos los que digan "(Corresponde a: Enero 202X)".
+2. Sumar sus montos de facturación.
+3. Responder con ese total.
 `;
 
     // --- OPENAI CALL ---
