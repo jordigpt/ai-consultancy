@@ -9,7 +9,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Manejo de CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -31,7 +30,7 @@ serve(async (req) => {
 
     const { messages } = await req.json();
 
-    // --- RECOPILACIÓN DE DATOS ---
+    // --- RECOPILACIÓN DE DATOS (ADMIN) ---
     const supabaseAdmin = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -53,62 +52,93 @@ serve(async (req) => {
             student_notes(content, created_at)
         `).eq('user_id', user.id),
         supabaseAdmin.from('leads').select(`
-            name, status, interest_level, notes, next_call_date, created_at, email,
+            name, status, interest_level, notes, next_call_date, created_at, email, phone,
             calls(date, completed, notes)
         `).eq('user_id', user.id).not('status', 'in', '("won","lost")'),
         supabaseAdmin.from('mentor_tasks').select('title, priority, completed, description').eq('user_id', user.id).eq('completed', false),
         supabaseAdmin.from('notes').select('title, content, category').eq('user_id', user.id).limit(10)
     ]);
 
-    // Procesamiento de texto para el contexto
-    const studentsSummary = students?.map((s: any) => {
-        const pendingTasks = s.tasks?.filter((t: any) => !t.completed).length || 0;
-        const lastNote = s.student_notes?.[0]?.content || "Sin notas recientes";
-        const recentCalls = s.calls?.slice(0, 3).map((c: any) => `${c.date.split('T')[0]} (${c.completed ? 'Asistió' : 'Pendiente'})`).join(', ');
-        return `- ${s.first_name} ${s.last_name} (${s.status}): Salud ${s.health_score} | Deuda $${s.amount_owed} | Nivel IA ${s.ai_level}/10 | Tareas Pendientes: ${pendingTasks} | Últimas Llamadas: ${recentCalls}`;
-    }).join('\n');
-
-    const leadsSummary = leads?.map((l: any) => 
-        `- ${l.name} (${l.status}/${l.interest_level}): Nota: "${l.notes || ''}" | Próx Llamada: ${l.next_call_date ? l.next_call_date.split('T')[0] : 'No'}`
-    ).join('\n');
-
-    const studentsRevenue = students?.reduce((acc: number, curr: any) => acc + (curr.amount_paid || 0), 0) || 0;
-    const totalDebt = students?.reduce((acc: number, curr: any) => acc + (curr.amount_owed || 0), 0) || 0;
+    // --- PROCESAMIENTO DE DATOS ---
     
-    // Revenue sources
-    const gumroadRevenue = settings?.gumroad_revenue || 0;
-    const agencyRevenue = settings?.agency_revenue || 0;
+    // 1. Finanzas (FIX: Asegurar que son números)
+    // Filtramos solo alumnos activos o egresados para la suma, o todos según prefieras. 
+    // Generalmente es el total recaudado.
+    const studentsRevenue = students?.reduce((acc: number, curr: any) => {
+        const val = Number(curr.amount_paid);
+        return acc + (isNaN(val) ? 0 : val);
+    }, 0) || 0;
+
+    const totalDebt = students?.reduce((acc: number, curr: any) => {
+        const val = Number(curr.amount_owed);
+        return acc + (isNaN(val) ? 0 : val);
+    }, 0) || 0;
+
+    const gumroadRevenue = Number(settings?.gumroad_revenue || 0);
+    const agencyRevenue = Number(settings?.agency_revenue || 0);
     const totalRevenue = studentsRevenue + gumroadRevenue + agencyRevenue;
-    
-    const monthlyGoal = settings?.monthly_goal || 10000;
+    const monthlyGoal = Number(settings?.monthly_goal || 10000);
     const goalProgress = ((totalRevenue / monthlyGoal) * 100).toFixed(1);
 
-    const userPrompt = settings?.system_prompt || "Eres un consultor experto en negocios digitales. Ayúdame a escalar.";
-    
-    const context = `
-    [[ DATOS EN TIEMPO REAL DEL NEGOCIO ]]
-    FINANZAS: Meta $${monthlyGoal} | Actual $${totalRevenue} (${goalProgress}%) 
-    DESGLOSE: Consultoría $${studentsRevenue} | Agencia $${agencyRevenue} | Productos $${gumroadRevenue} | Por cobrar: $${totalDebt}
-    ALUMNOS: \n${studentsSummary}
-    LEADS: \n${leadsSummary}
-    MIS TAREAS: \n${mentorTasks?.map((t: any) => `[${t.priority}] ${t.title}`).join(', ')}
-    NOTAS: \n${globalNotes?.map((n: any) => `[${n.category}] ${n.title}`).join(', ')}
-    `;
+    // 2. Resúmenes de texto
+    const studentsSummary = students?.map((s: any) => {
+        const pendingTasks = s.tasks?.filter((t: any) => !t.completed).length || 0;
+        return `- ${s.first_name} ${s.last_name} [${s.business_model}]: Salud ${s.health_score.toUpperCase()} | Pagado: $${s.amount_paid} | Debe: $${s.amount_owed} | Nivel IA: ${s.ai_level}/10.`;
+    }).join('\n');
 
-    // --- INTEGRACIÓN CON OPENAI ---
+    const leadsSummary = leads?.map((l: any) => {
+        const nextCall = l.next_call_date ? l.next_call_date.split('T')[0] : 'SIN FECHA';
+        return `- ${l.name} (${l.interest_level.toUpperCase()} interest): Estado ${l.status} | Próx. llamada: ${nextCall} | Nota: "${l.notes || 'N/A'}"`;
+    }).join('\n');
+
+    // --- PROMPT EXPERTO ---
+    const expertSystemPrompt = `
+Eres un Consultor de Negocios Senior especializado en escalar agencias, consultorías y productos digitales de alto ticket.
+Tu tono es: Directo, Estratégico, Analítico y Orientado a la Acción. "No BS" (Sin rodeos).
+
+OBJETIVOS:
+1. Maximizar el Cashflow inmediato.
+2. Desbloquear cuellos de botella operativos.
+3. Aumentar la retención y el LTV (Lifetime Value) de los alumnos.
+
+INSTRUCCIONES DE RESPUESTA:
+- Usa Markdown para estructurar tu respuesta (Negritas para métricas clave, Listas para acciones).
+- NO saludes genéricamente. Ve al grano.
+- Si ves deudas cobrables ($${totalDebt}), priorízalas como alerta roja.
+- Si ves leads con interés ALTO (high) sin fecha de llamada próxima o fechas lejanas, márcado como "Pérdida de Dinero".
+- Analiza la brecha financiera: Estamos al ${goalProgress}% de la meta ($${monthlyGoal}). Si es bajo, sugiere tácticas agresivas.
+
+DATOS DEL NEGOCIO (TIEMPO REAL):
+----------------------------------
+💰 FINANZAS:
+- Total Recaudado: $${totalRevenue} (Consultoría: $${studentsRevenue} | Agencia: $${agencyRevenue} | Productos: $${gumroadRevenue})
+- Deuda por Cobrar (Cashflow Latente): $${totalDebt}
+- Meta Mensual: $${monthlyGoal}
+
+👥 ALUMNOS (${students?.length || 0}):
+${studentsSummary || "No hay alumnos registrados."}
+
+🎯 PIPELINE / LEADS (${leads?.length || 0}):
+${leadsSummary || "No hay leads activos."}
+
+📝 TAREAS PENDIENTES:
+${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Sin tareas pendientes."}
+----------------------------------
+
+Basado en estos datos, responde a la última entrada del usuario priorizando la rentabilidad.
+`;
+
+    // --- OPENAI CALL ---
     const openAIKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openAIKey) throw new Error("Falta configurar OPENAI_API_KEY en Supabase Secrets");
+    if (!openAIKey) throw new Error("Falta configurar OPENAI_API_KEY");
 
     const payload = {
         model: "gpt-4o",
         messages: [
-            {
-                role: "system",
-                content: `${userPrompt}\n\n${context}`
-            },
+            { role: "system", content: expertSystemPrompt },
             ...messages
         ],
-        temperature: 0.7
+        temperature: 0.6, // Un poco más bajo para ser más analítico y preciso
     };
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -124,10 +154,10 @@ serve(async (req) => {
 
     if (data.error) {
         console.error("OpenAI Error:", data.error);
-        throw new Error(data.error.message || "Error desconocido de OpenAI");
+        throw new Error(data.error.message);
     }
 
-    const reply = data.choices?.[0]?.message?.content || "No pude generar una respuesta.";
+    const reply = data.choices?.[0]?.message?.content || "Sin respuesta.";
 
     return new Response(JSON.stringify({ reply }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

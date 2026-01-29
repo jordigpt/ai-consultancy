@@ -8,6 +8,8 @@ import { Bot, Send, User, Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   role: "user" | "assistant";
@@ -18,7 +20,7 @@ export const AiConsultantView = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hola. Tengo acceso completo a tus métricas, alumnos, leads y tareas. Analicemos tu negocio con GPT-4o. ¿Qué te preocupa hoy o qué área quieres optimizar?"
+      content: "Hola. Soy tu consultor de operaciones y estrategia. Tengo acceso en tiempo real a tus finanzas, pipeline de ventas y estado de alumnos.\n\n**¿En qué nos enfocamos hoy para escalar el negocio?**"
     }
   ]);
   const [input, setInput] = useState("");
@@ -73,7 +75,7 @@ export const AiConsultantView = () => {
       
       setMessages(prev => [...prev, { 
         role: "assistant", 
-        content: `⚠️ **Error de conexión:** \n\n${errorMsg}\n\n*Verifica que el secreto OPENAI_API_KEY esté correctamente configurado en Supabase Edge Functions.*` 
+        content: `⚠️ **Error de conexión:** \n\n${errorMsg}\n\n*Verifica que la API Key de OpenAI esté configurada correctamente.*` 
       }]);
     } finally {
       setIsLoading(false);
@@ -95,10 +97,10 @@ export const AiConsultantView = () => {
         </div>
         <div>
             <h2 className="text-xl font-bold flex items-center gap-2">
-                Consultor AI (GPT-4o)
+                Consultor Estratégico AI
             </h2>
             <p className="text-sm text-muted-foreground">
-                Experto en operaciones y escalado con acceso a tus datos en tiempo real.
+                Powered by GPT-4o • Análisis de negocio en tiempo real
             </p>
         </div>
       </div>
@@ -110,7 +112,7 @@ export const AiConsultantView = () => {
               <div
                 key={idx}
                 className={cn(
-                  "flex gap-3 max-w-[85%]",
+                  "flex gap-3 max-w-[90%]",
                   msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
                 )}
               >
@@ -124,14 +126,35 @@ export const AiConsultantView = () => {
                 
                 <div
                   className={cn(
-                    "p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap shadow-sm",
+                    "p-4 rounded-2xl text-sm leading-relaxed shadow-sm overflow-hidden",
                     msg.role === "user"
                       ? "bg-slate-900 text-white rounded-tr-none"
                       : "bg-white text-slate-800 border border-slate-100 rounded-tl-none",
                      msg.content.includes("Error de conexión") && msg.role === "assistant" ? "bg-red-50 text-red-800 border-red-200" : ""
                   )}
                 >
-                  {msg.content}
+                  {msg.role === "user" ? (
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                  ) : (
+                    <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        className="markdown-content space-y-3"
+                        components={{
+                            p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                            ul: ({node, ...props}) => <ul className="list-disc pl-4 space-y-1 mb-2" {...props} />,
+                            ol: ({node, ...props}) => <ol className="list-decimal pl-4 space-y-1 mb-2" {...props} />,
+                            li: ({node, ...props}) => <li className="pl-1" {...props} />,
+                            strong: ({node, ...props}) => <span className="font-bold text-slate-900" {...props} />,
+                            h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-4 first:mt-0" {...props} />,
+                            h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                            h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2" {...props} />,
+                            blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-violet-200 pl-3 italic text-muted-foreground my-2" {...props} />,
+                            code: ({node, ...props}) => <code className="bg-slate-100 px-1 py-0.5 rounded text-xs font-mono text-slate-600" {...props} />,
+                        }}
+                    >
+                        {msg.content}
+                    </ReactMarkdown>
+                  )}
                 </div>
               </div>
             ))}
@@ -143,7 +166,7 @@ export const AiConsultantView = () => {
                 </Avatar>
                 <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-none flex items-center gap-2 text-sm text-muted-foreground">
                     <Sparkles size={14} className="animate-spin text-violet-500" /> 
-                    Analizando datos con GPT-4o...
+                    Analizando estrategia...
                 </div>
               </div>
             )}
@@ -157,7 +180,7 @@ export const AiConsultantView = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Pregunta sobre alumnos en riesgo, leads estancados o estrategias de venta..."
+              placeholder="Ej: ¿Cómo aumentamos la facturación este mes? / Analiza mis leads pendientes..."
               className="min-h-[60px] max-h-[180px] bg-slate-50 border-slate-200 focus-visible:ring-violet-500 pr-12 resize-none py-3"
             />
             <Button 
@@ -172,7 +195,7 @@ export const AiConsultantView = () => {
             </Button>
           </div>
           <div className="text-[10px] text-center text-muted-foreground mt-2">
-            Potenciado por OpenAI GPT-4o. Acceso a datos en tiempo real.
+            AI Consultancy v2.0 • Datos encriptados y procesados en tiempo real.
           </div>
         </div>
       </Card>
