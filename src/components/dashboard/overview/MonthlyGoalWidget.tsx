@@ -2,7 +2,7 @@ import React from "react";
 import { Student } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Target, TrendingUp } from "lucide-react";
+import { TrendingUp, Target } from "lucide-react";
 import { isSameMonth } from "date-fns";
 
 interface MonthlyGoalWidgetProps {
@@ -10,13 +10,17 @@ interface MonthlyGoalWidgetProps {
   monthlyGoal: number;
   gumroadRevenue: number;
   agencyRevenue: number;
+  className?: string;
+  onClick?: () => void;
 }
 
 export const MonthlyGoalWidget = ({ 
   students, 
   monthlyGoal, 
   gumroadRevenue, 
-  agencyRevenue 
+  agencyRevenue,
+  className,
+  onClick
 }: MonthlyGoalWidgetProps) => {
   // Monthly Goal Logic
   const currentMonthStudents = students.filter(s => isSameMonth(new Date(s.startDate), new Date()));
@@ -27,40 +31,37 @@ export const MonthlyGoalWidget = ({
   const monthlyProgress = Math.min((totalMonthlyRevenue / (monthlyGoal || 1)) * 100, 100);
 
   return (
-    <Card className="border-none shadow-md relative overflow-hidden" style={{ backgroundColor: '#d4e83a' }}>
-        <div className="absolute top-0 right-0 p-4 opacity-10 text-slate-900">
-            <Target size={120} />
+    <Card 
+        className={`border-none shadow-sm relative overflow-hidden cursor-pointer transition-all hover:shadow-md group ${className}`} 
+        style={{ backgroundColor: '#d4e83a' }}
+        onClick={onClick}
+    >
+        <div className="absolute -right-2 -top-2 p-2 opacity-10 text-slate-900 group-hover:scale-110 transition-transform">
+            <Target size={60} />
         </div>
-        <CardContent className="p-6 relative z-10">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-4">
-                <div>
-                    <p className="text-xs font-bold text-slate-800 uppercase tracking-widest mb-1 flex items-center gap-2">
-                        <TrendingUp size={14} /> Objetivo Mensual
-                    </p>
-                    <div className="flex items-baseline gap-2 text-slate-900">
-                        <h3 className="text-4xl font-extrabold tracking-tight">
-                            ${(totalMonthlyRevenue/1000).toFixed(1)}k
-                        </h3>
-                        <span className="text-lg font-medium opacity-60">
-                            / ${(monthlyGoal/1000).toFixed(1)}k
-                        </span>
-                    </div>
+        
+        <CardContent className="p-4 flex flex-col justify-between h-full">
+            <div className="flex justify-between items-start mb-2">
+                <div className="p-1.5 rounded-md bg-white/30 text-slate-900 backdrop-blur-sm">
+                    <TrendingUp size={14} />
                 </div>
-                <div className="text-right hidden sm:block">
-                    <p className="text-3xl font-bold text-slate-900">{monthlyProgress.toFixed(0)}%</p>
-                    <p className="text-xs font-medium text-slate-800">Completado</p>
-                </div>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-900 text-[#d4e83a]">
+                    {monthlyProgress.toFixed(0)}%
+                </span>
             </div>
 
-            <div className="space-y-2">
+            <div>
+                <h2 className="text-2xl font-bold text-slate-900">
+                    ${(totalMonthlyRevenue/1000).toFixed(1)}k
+                </h2>
+                <p className="text-xs text-slate-800 font-semibold opacity-80 mb-3">
+                    Meta: ${(monthlyGoal/1000).toFixed(1)}k
+                </p>
+                
                 <Progress 
                     value={monthlyProgress} 
-                    className="h-3 bg-white/40 [&>div]:bg-slate-900" 
+                    className="h-1.5 bg-white/40 [&>div]:bg-slate-900" 
                 />
-                <div className="flex justify-between text-xs font-bold text-slate-800 sm:hidden">
-                    <span>Progreso Total</span>
-                    <span>{monthlyProgress.toFixed(0)}%</span>
-                </div>
             </div>
         </CardContent>
     </Card>

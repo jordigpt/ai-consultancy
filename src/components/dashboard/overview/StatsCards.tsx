@@ -1,15 +1,26 @@
 import { Student, Lead } from "@/lib/types";
 import { Progress } from "@/components/ui/progress";
-import { Users, DollarSign, Target, Briefcase } from "lucide-react";
+import { Users, DollarSign, Target } from "lucide-react";
 import { StatCard } from "./StatCard";
+import { MonthlyGoalWidget } from "./MonthlyGoalWidget";
 
 interface StatsCardsProps {
   students: Student[];
   leads: Lead[];
+  monthlyGoal: number;
+  gumroadRevenue: number;
+  agencyRevenue: number;
   onNavigate: (view: string) => void;
 }
 
-export const StatsCards = ({ students, leads, onNavigate }: StatsCardsProps) => {
+export const StatsCards = ({ 
+    students, 
+    leads, 
+    monthlyGoal,
+    gumroadRevenue,
+    agencyRevenue,
+    onNavigate 
+}: StatsCardsProps) => {
   const activeStudents = students.filter(s => s.status === 'active');
   
   // Revenue Stats
@@ -19,13 +30,23 @@ export const StatsCards = ({ students, leads, onNavigate }: StatsCardsProps) => 
   // Progress Bar: (Paid / Total Potential) * 100
   const collectionProgress = totalPotentialRevenue > 0 ? (totalAmountPaid / totalPotentialRevenue) * 100 : 0;
 
-  // Pipeline Stats
+  // Pipeline Stats (Merged Logic)
   const hotLeads = leads.filter(l => l.interestLevel === 'high' && l.status !== 'won' && l.status !== 'lost');
-  const newLeadsCount = leads.filter(l => l.status === 'new').length;
+  const newLeads = leads.filter(l => l.status === 'new');
+  const activePipeline = leads.filter(l => l.status !== 'won' && l.status !== 'lost');
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-         {/* Card 1: Active Students */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+         {/* Card 1: Monthly Goal (Compact) */}
+         <MonthlyGoalWidget 
+            students={students}
+            monthlyGoal={monthlyGoal}
+            gumroadRevenue={gumroadRevenue}
+            agencyRevenue={agencyRevenue}
+            onClick={() => onNavigate('goals')}
+         />
+
+         {/* Card 2: Active Students */}
          <StatCard
             theme="blue"
             icon={Users}
@@ -35,41 +56,41 @@ export const StatsCards = ({ students, leads, onNavigate }: StatsCardsProps) => 
             onClick={() => onNavigate('active')}
          />
 
-         {/* Card 2: Revenue */}
+         {/* Card 3: Revenue / Debt */}
          <StatCard
             theme="emerald"
             icon={DollarSign}
             label="Pendiente de cobro"
             value={`$${(totalAmountOwed / 1000).toFixed(1)}k`}
-            badgeText="Cobrado"
+            badgeText="Deuda Total"
          >
-            <div className="mt-2 space-y-1">
+            <div className="mt-auto pt-2 space-y-1">
+                <div className="flex justify-between text-[10px] text-emerald-600 font-medium">
+                    <span>Recaudado</span>
+                    <span>{collectionProgress.toFixed(0)}%</span>
+                </div>
                 <Progress value={collectionProgress} className="h-1 bg-emerald-100" />
-                <p className="text-[10px] text-right text-emerald-600 font-medium">
-                    {collectionProgress.toFixed(0)}% Cobrado
-                </p>
             </div>
          </StatCard>
 
-         {/* Card 3: Leads */}
+         {/* Card 4: Consolidated Pipeline (Total + New + Hot) */}
          <StatCard
             theme="orange"
             icon={Target}
-            label="Total Pipeline"
-            value={leads.length}
-            badgeText={hotLeads.length > 0 ? `${hotLeads.length} Hot` : undefined}
+            label="Pipeline Activo"
+            value={activePipeline.length}
+            badgeText={hotLeads.length > 0 ? `${hotLeads.length} Hot 🔥` : undefined}
             onClick={() => onNavigate('leads')}
-         />
-
-        {/* Card 4: New Leads */}
-        <StatCard
-            theme="indigo"
-            icon={Briefcase}
-            label="Por Contactar"
-            value={newLeadsCount}
-            badgeText="Status New"
-            onClick={() => onNavigate('leads')}
-        />
+         >
+             <div className="mt-auto pt-2 flex items-center gap-2">
+                <span className="bg-orange-50 text-orange-700 text-[10px] px-2 py-0.5 rounded-full border border-orange-100 font-medium">
+                    {newLeads.length} Nuevos
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                    por contactar
+                </span>
+             </div>
+         </StatCard>
     </div>
   );
 };

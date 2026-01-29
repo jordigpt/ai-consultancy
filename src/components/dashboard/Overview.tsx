@@ -6,7 +6,6 @@ import { UpcomingCalls } from "./overview/UpcomingCalls";
 import { TasksList } from "./overview/TasksList";
 import { RecentPipeline } from "./overview/RecentPipeline";
 import { OverviewSidebar } from "./overview/OverviewSidebar";
-import { MonthlyGoalWidget } from "./overview/MonthlyGoalWidget";
 import { AddNoteDialog } from "@/components/notes/AddNoteDialog";
 
 interface OverviewProps {
@@ -44,26 +43,24 @@ export const Overview = ({
 
   return (
     <div className="space-y-6">
-      {/* Hero Section: Monthly Goal */}
-      <MonthlyGoalWidget 
-        students={students}
+      
+      {/* Notifications Bar */}
+      <NotificationsSection leads={leads} onOpenLead={onOpenLead} />
+
+      {/* Stats Grid (Includes Compact Goal Widget) */}
+      <StatsCards 
+        students={students} 
+        leads={leads} 
         monthlyGoal={monthlyGoal}
         gumroadRevenue={gumroadRevenue}
         agencyRevenue={agencyRevenue}
+        onNavigate={onNavigate}
       />
-
-      <NotificationsSection leads={leads} onOpenLead={onOpenLead} />
 
       <div className="flex flex-col lg:flex-row gap-6">
         
         {/* --- LEFT COLUMN (MAIN) --- */}
         <div className="flex-1 space-y-6 min-w-0">
-            
-            <StatsCards 
-                students={students} 
-                leads={leads} 
-                onNavigate={onNavigate}
-            />
 
             <UpcomingCalls 
                 students={students} 
@@ -88,7 +85,7 @@ export const Overview = ({
 
         </div>
 
-        {/* --- RIGHT COLUMN (WIDGETS) --- */}
+        {/* --- RIGHT COLUMN (SIDEBAR) --- */}
         <OverviewSidebar 
             onAddStudent={onAddStudent}
             onAddLead={onAddLead}
