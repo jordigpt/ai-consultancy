@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Target, TrendingUp, Save, Loader2, ShoppingBag, Bot, Briefcase } from "lucide-react";
+import { Target, TrendingUp, Save, Loader2, ShoppingBag, Bot, Briefcase, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -112,7 +112,7 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, agencyR
     }
   };
 
-  // Calculations CORREGIDAS: Usar alumnos activos en lugar de fecha de inicio
+  // Calculations: Usar alumnos activos
   const activeStudents = students.filter(s => s.status === 'active' || !s.status);
   const studentRevenueThisMonth = activeStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
   const pendingRevenueThisMonth = activeStudents.reduce((acc, curr) => acc + (curr.amountOwed || 0), 0);
@@ -191,34 +191,52 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, agencyR
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-4 pt-2">
+                        {/* New Read-only Consultancy Revenue Field */}
                         <div className="space-y-2">
-                            <label className="text-sm font-medium flex items-center gap-2">
-                                Ingresos Agencia
+                             <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                                Ingresos Consultoría (Automático)
                             </label>
                             <div className="relative">
-                                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
                                 <Input 
-                                    type="number" 
-                                    value={agencyInput} 
-                                    onChange={(e) => setAgencyInput(e.target.value)}
-                                    className="pl-9 font-medium"
+                                    value={studentRevenueThisMonth} 
+                                    readOnly
+                                    className="pl-9 font-medium bg-slate-50 border-dashed cursor-not-allowed"
                                 />
                             </div>
+                            <p className="text-[10px] text-muted-foreground">Suma de pagos de alumnos activos en este ciclo.</p>
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium flex items-center gap-2">
-                                Ingresos Gumroad
-                            </label>
-                            <div className="relative">
-                                <ShoppingBag className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                                <Input 
-                                    type="number" 
-                                    value={gumroadInput} 
-                                    onChange={(e) => setGumroadInput(e.target.value)}
-                                    className="pl-9 font-medium"
-                                />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium flex items-center gap-2">
+                                    Ingresos Agencia
+                                </label>
+                                <div className="relative">
+                                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                    <Input 
+                                        type="number" 
+                                        value={agencyInput} 
+                                        onChange={(e) => setAgencyInput(e.target.value)}
+                                        className="pl-9 font-medium"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium flex items-center gap-2">
+                                    Ingresos Gumroad
+                                </label>
+                                <div className="relative">
+                                    <ShoppingBag className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                    <Input 
+                                        type="number" 
+                                        value={gumroadInput} 
+                                        onChange={(e) => setGumroadInput(e.target.value)}
+                                        className="pl-9 font-medium"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
