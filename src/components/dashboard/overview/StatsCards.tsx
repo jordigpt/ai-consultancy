@@ -36,7 +36,7 @@ export const StatsCards = ({
   const activePipeline = leads.filter(l => l.status !== 'won' && l.status !== 'lost');
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
          {/* Card 1: Monthly Goal (Compact) */}
          <MonthlyGoalWidget 
             students={students}
@@ -50,9 +50,9 @@ export const StatsCards = ({
          <StatCard
             theme="blue"
             icon={Users}
-            label="Alumnos Activos"
+            label="Alumnos"
             value={activeStudents.length}
-            badgeText="Total"
+            badgeText="Activos"
             onClick={() => onNavigate('active')}
          />
 
@@ -60,9 +60,9 @@ export const StatsCards = ({
          <StatCard
             theme="emerald"
             icon={DollarSign}
-            label="Pendiente de cobro"
+            label="Por cobrar"
             value={`$${(totalAmountOwed / 1000).toFixed(1)}k`}
-            badgeText="Deuda Total"
+            badgeText="Deuda"
          >
             <div className="mt-auto pt-2 space-y-1">
                 <div className="flex justify-between text-[10px] text-emerald-600 font-medium">
@@ -77,17 +77,14 @@ export const StatsCards = ({
          <StatCard
             theme="orange"
             icon={Target}
-            label="Pipeline Activo"
+            label="Pipeline"
             value={activePipeline.length}
             badgeText={hotLeads.length > 0 ? `${hotLeads.length} Hot 🔥` : undefined}
             onClick={() => onNavigate('leads')}
          >
-             <div className="mt-auto pt-2 flex items-center gap-2">
-                <span className="bg-orange-50 text-orange-700 text-[10px] px-2 py-0.5 rounded-full border border-orange-100 font-medium">
+             <div className="mt-auto pt-2 flex items-center gap-2 flex-wrap">
+                <span className="bg-orange-50 text-orange-700 text-[10px] px-2 py-0.5 rounded-full border border-orange-100 font-medium whitespace-nowrap">
                     {newLeads.length} Nuevos
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                    por contactar
                 </span>
              </div>
          </StatCard>
