@@ -36,7 +36,6 @@ serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Corregido: Desestructuración correcta de las 5 promesas
     const [
         { data: settings },
         { data: students },
@@ -70,14 +69,14 @@ serve(async (req) => {
     const agencyRevenue = Number(settings?.agency_revenue || 0);
     const monthlyGoal = Number(settings?.monthly_goal || 10000);
 
-    // CÁLCULO DE INGRESOS (Solo referencial global, la IA hará el mensual)
+    // CÁLCULO DE INGRESOS
     const activeStudents = students 
         ? students.filter((s: any) => s.status === 'active' || !s.status)
         : [];
     const activeStudentsRevenue = activeStudents.reduce((sum: number, s: any) => sum + (Number(s.amount_paid) || 0), 0);
     
     // Total Facturación ACUMULADA 
-    const totalConsultingRevenue = activeStudentsRevenue; // Simplificado
+    const totalConsultingRevenue = activeStudentsRevenue; 
     const totalRevenueGlobal = totalConsultingRevenue + gumroadRevenue + agencyRevenue;
     
     // --- RESÚMENES DE TEXTO PARA LA IA ---
@@ -100,7 +99,7 @@ serve(async (req) => {
         return `• ${l.name} [${l.interest_level.toUpperCase()}] - Valor Est: $${l.value || 0} - Estado: ${l.status} (Call: ${nextCallInfo})`;
     }).join('\n');
 
-    // HISTORIAL DE VENTAS (Fuente de Verdad Financiera)
+    // HISTORIAL DE VENTAS (Fuente de Verdad Financiera Consultoría)
     const salesHistorySummary = wonLeads?.map((l: any) => {
         const dateObj = new Date(l.created_at);
         const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -126,14 +125,19 @@ ${customSystemPrompt || "Sé directo, prioriza cashflow y análisis de datos."}
 """
 
 ==================================================
-📊 DATOS FINANCIEROS GLOBALES
+📊 ESTRUCTURA FINANCIERA DEL NEGOCIO (GLOBAL)
 ==================================================
-- Ingresos Totales Globales Estimados: $${totalRevenueGlobal}
-- META MENSUAL: $${monthlyGoal}
+META MENSUAL OBJETIVO: $${monthlyGoal}
+INGRESOS TOTALES ESTIMADOS (MES ACTUAL): $${totalRevenueGlobal}
+
+DESGLOSE POR FUENTE DE INGRESO:
+1. CONSULTORÍA / FORMACIÓN (Alumnos): $${activeStudentsRevenue}
+2. AGENCIA (Servicios Done-For-You): $${agencyRevenue}
+3. GUMROAD / PRODUCTOS DIGITALES: $${gumroadRevenue}
 ==================================================
 
-💰 HISTORIAL DE VENTAS Y CIERRES (FUENTE DE VERDAD PARA INGRESOS):
-Usa esta lista para calcular cuánto se facturó en cada mes.
+💰 HISTORIAL DE VENTAS CONSULTORÍA (DETALLE):
+Usa esta lista para ver el detalle de quién pagó qué en consultoría.
 ${salesHistorySummary || "No hay ventas registradas aún."}
 
 📋 PIPELINE DE VENTAS (LEADS ACTIVOS):
@@ -145,8 +149,10 @@ ${studentsSummary || "Sin alumnos registrados."}
 TAREAS OPERATIVAS:
 ${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Al día."}
 
-!!! REGLA DE ORO PARA CÁLCULO DE INGRESOS !!!
-Para responder preguntas como "¿Cuánto facturamos en Enero?", DEBES SUMAR EXCLUSIVAMENTE los montos de la sección "HISTORIAL DE VENTAS Y CIERRES" que correspondan a ese mes. No uses la fecha actual.
+!!! NOTAS PARA EL CÁLCULO !!!
+- Si te preguntan por ingresos totales, suma las 3 fuentes (Consultoría + Agencia + Gumroad).
+- Si te preguntan por detalles de un mes específico de consultoría, usa el HISTORIAL DE VENTAS.
+- Los ingresos de Agencia y Gumroad son valores globales del mes actual ingresados manualmente por el usuario.
 `;
 
     // --- OPENAI CALL ---
