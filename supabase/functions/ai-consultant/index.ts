@@ -36,10 +36,12 @@ serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // Corregido: Desestructuración correcta de las 5 promesas
     const [
         { data: settings },
         { data: students },
-        { data: leads },
+        { data: leads },         // Leads activos
+        { data: wonLeadsData },  // Leads ganados (Historial)
         { data: mentorTasks }
     ] = await Promise.all([
         supabaseAdmin.from('user_settings').select('*').eq('user_id', user.id).single(),
@@ -51,14 +53,14 @@ serve(async (req) => {
         `).eq('user_id', user.id),
         supabaseAdmin.from('leads').select(`
             name, status, interest_level, notes, next_call_date, created_at, email, phone, value
-        `).eq('user_id', user.id).not('status', 'in', '("won","lost")'), // Active Pipeline
+        `).eq('user_id', user.id).not('status', 'in', '("won","lost")'), 
         supabaseAdmin.from('leads').select(`
              name, status, value, created_at
-        `).eq('user_id', user.id).eq('status', 'won'), // Won Leads for history
+        `).eq('user_id', user.id).eq('status', 'won'), 
         supabaseAdmin.from('mentor_tasks').select('title, priority, completed, description').eq('user_id', user.id).eq('completed', false)
     ]);
 
-    const wonLeads = arguments[0][3].data || []; // Acceder al 4to elemento del Promise.all que es wonLeads
+    const wonLeads = wonLeadsData || [];
 
     // --- PROCESAMIENTO DE DATOS FINANCIEROS ---
     const now = new Date();
