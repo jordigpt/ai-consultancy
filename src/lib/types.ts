@@ -81,6 +81,7 @@ export interface Lead {
   phone?: string;
   status: LeadStatus;
   interestLevel: InterestLevel;
+  value?: number; // Added value field
   notes: string;
   nextCallDate?: Date; // Keep for sorting/legacy, but calls[] is the source of truth for list
   createdAt: Date;

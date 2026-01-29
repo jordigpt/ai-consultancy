@@ -50,10 +50,15 @@ serve(async (req) => {
             tasks(title, completed, priority)
         `).eq('user_id', user.id),
         supabaseAdmin.from('leads').select(`
-            name, status, interest_level, notes, next_call_date, created_at, email, phone
-        `).eq('user_id', user.id).not('status', 'in', '("won","lost")'),
+            name, status, interest_level, notes, next_call_date, created_at, email, phone, value
+        `).eq('user_id', user.id).not('status', 'in', '("won","lost")'), // Active Pipeline
+        supabaseAdmin.from('leads').select(`
+             name, status, value, created_at
+        `).eq('user_id', user.id).eq('status', 'won'), // Won Leads for history
         supabaseAdmin.from('mentor_tasks').select('title, priority, completed, description').eq('user_id', user.id).eq('completed', false)
     ]);
+
+    const wonLeads = arguments[0][3].data || []; // Acceder al 4to elemento del Promise.all que es wonLeads
 
     // --- PROCESAMIENTO DE DATOS FINANCIEROS ---
     const now = new Date();
@@ -63,53 +68,45 @@ serve(async (req) => {
     const agencyRevenue = Number(settings?.agency_revenue || 0);
     const monthlyGoal = Number(settings?.monthly_goal || 10000);
 
-    // CÁLCULO DE INGRESOS
-    // 1. Activos
+    // CÁLCULO DE INGRESOS (Solo referencial global, la IA hará el mensual)
     const activeStudents = students 
         ? students.filter((s: any) => s.status === 'active' || !s.status)
         : [];
     const activeStudentsRevenue = activeStudents.reduce((sum: number, s: any) => sum + (Number(s.amount_paid) || 0), 0);
-    const activeStudentsDebt = activeStudents.reduce((sum: number, s: any) => sum + (Number(s.amount_owed) || 0), 0);
-
-    // 2. Egresados
-    const graduatedStudents = students
-        ? students.filter((s: any) => s.status === 'graduated')
-        : [];
-    const graduatedRevenue = graduatedStudents.reduce((sum: number, s: any) => sum + (Number(s.amount_paid) || 0), 0);
-
-    // Total Facturación ACUMULADA (Activos + Egresados + Extras)
-    const totalConsultingRevenue = activeStudentsRevenue + graduatedRevenue;
+    
+    // Total Facturación ACUMULADA 
+    const totalConsultingRevenue = activeStudentsRevenue; // Simplificado
     const totalRevenueGlobal = totalConsultingRevenue + gumroadRevenue + agencyRevenue;
     
     // --- RESÚMENES DE TEXTO PARA LA IA ---
     
+    // Resumen de Alumnos (Enfoque operativo)
     const studentsSummary = students?.map((s: any) => {
         const isPaid = s.amount_owed <= 0;
         const paidStatus = isPaid ? "TOTALMENTE PAGADO" : "TIENE DEUDA";
-        const startDate = s.start_date ? s.start_date.split('T')[0] : 'N/A';
-        
-        // Crear un string claro del mes de facturación para la IA
-        let billingMonth = "DESCONOCIDO";
-        if (s.start_date) {
-            const dateObj = new Date(s.start_date);
-            const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-            billingMonth = `${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
-        }
-        
         return `• [${s.status?.toUpperCase() || 'ACTIVO'}] ${s.first_name} ${s.last_name}
-           >>> FACTURACIÓN: $${s.amount_paid} (Corresponde a: ${billingMonth})
-           - Fecha Inicio: ${startDate}
-           - Deuda Pendiente: $${s.amount_owed} (${paidStatus})
            - Modelo: ${s.business_model} | Nivel IA: ${s.ai_level}/10
-           - Contexto: ${s.context || 'Sin contexto'}`;
+           - Deuda: $${s.amount_owed} (${paidStatus})`;
     }).join('\n');
 
-    const leadsSummary = leads?.map((l: any) => {
+    // Pipeline Activo (Leads no cerrados)
+    const activeLeadsSummary = leads?.map((l: any) => {
         let nextCallInfo = 'SIN FECHA';
         if (l.next_call_date) {
             nextCallInfo = l.next_call_date.split('T')[0];
         }
-        return `• ${l.name} [${l.interest_level.toUpperCase()}] - Estado: ${l.status} (Call: ${nextCallInfo})`;
+        return `• ${l.name} [${l.interest_level.toUpperCase()}] - Valor Est: $${l.value || 0} - Estado: ${l.status} (Call: ${nextCallInfo})`;
+    }).join('\n');
+
+    // HISTORIAL DE VENTAS (Fuente de Verdad Financiera)
+    const salesHistorySummary = wonLeads?.map((l: any) => {
+        const dateObj = new Date(l.created_at);
+        const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const saleMonth = `${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+        
+        return `• VENTA CERRADA: ${l.name}
+           >>> MONTO: $${l.value || 0}
+           >>> FECHA DE CIERRE: ${l.created_at.split('T')[0]} (Mes: ${saleMonth})`;
     }).join('\n');
 
     const customSystemPrompt = settings?.system_prompt || "";
@@ -127,31 +124,27 @@ ${customSystemPrompt || "Sé directo, prioriza cashflow y análisis de datos."}
 """
 
 ==================================================
-📊 DATOS FINANCIEROS MACRO
+📊 DATOS FINANCIEROS GLOBALES
 ==================================================
-- Ingresos Totales Consultoría (Activos + Egresados): $${totalConsultingRevenue}
-- Ingresos Agencia: $${agencyRevenue}
-- Ingresos Productos: $${gumroadRevenue}
+- Ingresos Totales Globales Estimados: $${totalRevenueGlobal}
 - META MENSUAL: $${monthlyGoal}
 ==================================================
 
-LISTADO DETALLADO DE ALUMNOS (FUENTE DE VERDAD PARA ANÁLISIS MENSUAL):
-${studentsSummary || "Sin alumnos registrados."}
+💰 HISTORIAL DE VENTAS Y CIERRES (FUENTE DE VERDAD PARA INGRESOS):
+Usa esta lista para calcular cuánto se facturó en cada mes.
+${salesHistorySummary || "No hay ventas registradas aún."}
 
-PIPELINE DE VENTAS (LEADS):
-${leadsSummary || "Sin leads activos."}
+📋 PIPELINE DE VENTAS (LEADS ACTIVOS):
+${activeLeadsSummary || "Sin leads activos."}
+
+👥 ALUMNOS ACTIVOS (ESTADO OPERATIVO):
+${studentsSummary || "Sin alumnos registrados."}
 
 TAREAS OPERATIVAS:
 ${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Al día."}
 
-!!! REGLA DE ORO PARA CÁLCULO DE INGRESOS MENSUALES !!!
-Para calcular cuánto se facturó en un mes específico (ej. "Enero", "Febrero"), NO uses la fecha actual.
-DEBES SUMAR el valor que aparece en la línea ">>> FACTURACIÓN: $X (Corresponde a: MES AÑO)" de cada alumno.
-
-Ejemplo: Si el usuario pregunta "¿Cuánto facturamos en Enero?", tú debes:
-1. Buscar en la lista de alumnos todos los que digan "(Corresponde a: Enero 202X)".
-2. Sumar sus montos de facturación.
-3. Responder con ese total.
+!!! REGLA DE ORO PARA CÁLCULO DE INGRESOS !!!
+Para responder preguntas como "¿Cuánto facturamos en Enero?", DEBES SUMAR EXCLUSIVAMENTE los montos de la sección "HISTORIAL DE VENTAS Y CIERRES" que correspondan a ese mes. No uses la fecha actual.
 `;
 
     // --- OPENAI CALL ---

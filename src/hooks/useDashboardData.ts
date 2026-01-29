@@ -39,7 +39,7 @@ export const useDashboardData = () => {
 
       if (studentsError) throw studentsError;
 
-      // 2. Fetch Leads (Now including calls)
+      // 2. Fetch Leads (Now including calls and value)
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select(`*, calls (*)`)
@@ -120,6 +120,7 @@ export const useDashboardData = () => {
         phone: l.phone || "",
         status: l.status,
         interestLevel: l.interest_level,
+        value: l.value || 0, // Added value mapping
         notes: l.notes || "",
         nextCallDate: l.next_call_date ? new Date(l.next_call_date) : undefined,
         createdAt: new Date(l.created_at),

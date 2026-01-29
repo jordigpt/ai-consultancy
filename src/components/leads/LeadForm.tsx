@@ -13,7 +13,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, Mail, Phone, User } from "lucide-react";
+import { CalendarIcon, Loader2, Mail, Phone, User, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Lead, InterestLevel } from "@/lib/types";
 
@@ -28,6 +28,7 @@ export const LeadForm = ({ onSubmit, isLoading, initialData }: LeadFormProps) =>
   const [email, setEmail] = React.useState(initialData?.email || "");
   const [phone, setPhone] = React.useState(initialData?.phone || "");
   const [interestLevel, setInterestLevel] = React.useState<InterestLevel>(initialData?.interestLevel || "medium");
+  const [value, setValue] = React.useState(initialData?.value?.toString() || "");
   const [notes, setNotes] = React.useState(initialData?.notes || "");
   
   const [nextCallDate, setNextCallDate] = React.useState<Date | undefined>(
@@ -53,6 +54,7 @@ export const LeadForm = ({ onSubmit, isLoading, initialData }: LeadFormProps) =>
       email,
       phone,
       interestLevel,
+      value: parseFloat(value) || 0,
       notes,
       nextCallDate: finalDate,
     });
@@ -85,18 +87,34 @@ export const LeadForm = ({ onSubmit, isLoading, initialData }: LeadFormProps) =>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Nivel de Interés</Label>
-        <Select value={interestLevel} onValueChange={(val) => setInterestLevel(val as InterestLevel)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="low">❄️ Frío (Low)</SelectItem>
-            <SelectItem value="medium">🌤️ Tibio (Medium)</SelectItem>
-            <SelectItem value="high">🔥 Caliente (High)</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+            <Label>Nivel de Interés</Label>
+            <Select value={interestLevel} onValueChange={(val) => setInterestLevel(val as InterestLevel)}>
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="low">❄️ Frío (Low)</SelectItem>
+                <SelectItem value="medium">🌤️ Tibio (Medium)</SelectItem>
+                <SelectItem value="high">🔥 Caliente (High)</SelectItem>
+            </SelectContent>
+            </Select>
+        </div>
+        
+        <div className="space-y-2">
+            <Label>Valor Estimado ($)</Label>
+            <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input 
+                    type="number" 
+                    value={value} 
+                    onChange={(e) => setValue(e.target.value)} 
+                    className="pl-9" 
+                    placeholder="0.00" 
+                />
+            </div>
+        </div>
       </div>
 
       <div className="space-y-2">

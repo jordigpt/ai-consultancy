@@ -3,7 +3,7 @@ import { Lead } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, CalendarPlus, Mail, MessageSquare, Phone, Clock } from "lucide-react";
+import { CalendarClock, CalendarPlus, Mail, MessageSquare, Phone, Clock, DollarSign } from "lucide-react";
 import { format, isPast, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -64,6 +64,11 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
                     {lead.interestLevel === 'medium' && "🌤️ Media"}
                     {lead.interestLevel === 'low' && "❄️ Baja"}
                 </Badge>
+                {lead.value !== undefined && lead.value > 0 && (
+                     <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 flex items-center gap-1">
+                        <DollarSign size={10} /> {lead.value}
+                     </Badge>
+                )}
             </div>
         </div>
       </CardHeader>

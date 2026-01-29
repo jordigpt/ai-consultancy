@@ -56,9 +56,6 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
 
   const handleEdit = async (data: any) => {
       try {
-        // We update the basic info. Note: nextCallDate in the form updates the lead field, 
-        // but for full consistency we might want to ensure calls are synced.
-        // For now, simple update of lead table.
         const { error } = await supabase
             .from('leads')
             .update({
@@ -66,6 +63,7 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                 email: data.email,
                 phone: data.phone,
                 interest_level: data.interestLevel,
+                value: data.value,
                 notes: data.notes,
                 next_call_date: data.nextCallDate?.toISOString()
             })
@@ -151,6 +149,12 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                 
                 {/* Contact Info */}
                 <div className="space-y-4 text-sm bg-slate-50 p-4 rounded-lg border">
+                    {lead.value > 0 && (
+                        <div className="grid grid-cols-3 gap-2 border-b pb-2 mb-2">
+                            <span className="font-medium text-green-700">Valor Est.:</span>
+                            <span className="col-span-2 font-bold text-green-700">${lead.value}</span>
+                        </div>
+                    )}
                     {lead.email && (
                         <div className="grid grid-cols-3 gap-2">
                             <span className="font-medium text-muted-foreground">Email:</span>
