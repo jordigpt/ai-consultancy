@@ -4,9 +4,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
-import { Bot, Send, User, Sparkles, Loader2 } from "lucide-react";
+import { Bot, Send, User, Sparkles, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { showError } from "@/utils/toast";
+import { showError, showSuccess } from "@/utils/toast";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,38 +17,78 @@ interface Message {
 }
 
 export const AiConsultantView = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "Hola. Soy tu consultor de operaciones y estrategia. Tengo acceso en tiempo real a tus finanzas, pipeline de ventas y estado de alumnos.\n\n**¿En qué nos enfocamos hoy para escalar el negocio?**"
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Cargar historial al montar
+  useEffect(() => {
+    const loadHistory = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('chat_messages')
+                .select('role, content')
+                .order('created_at', { ascending: true });
+            
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                // @ts-ignore
+                setMessages(data);
+            } else {
+                // Mensaje por defecto si no hay historial
+                setMessages([{
+                    role: "assistant",
+                    content: "Hola. Soy tu consultor de operaciones y estrategia. Tengo acceso en tiempo real a tus finanzas, pipeline de ventas y estado de alumnos.\n\n**¿En qué nos enfocamos hoy para escalar el negocio?**"
+                }]);
+            }
+        } catch (error) {
+            console.error("Error loading chat:", error);
+        } finally {
+            setIsInitialLoad(false);
+        }
+    };
+    loadHistory();
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messages, isInitialLoad]);
+
+  const saveMessageToDb = async (role: "user" | "assistant", content: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      await supabase.from('chat_messages').insert({
+          user_id: user.id,
+          role,
+          content
+      });
+  };
 
   const handleSendMessage = async () => {
     if (!input.trim()) return;
 
-    const newMessages: Message[] = [
-      ...messages,
-      { role: "user", content: input }
-    ];
-
-    setMessages(newMessages);
+    const userMsg = input;
     setInput("");
+    
+    // Optimistic UI update
+    const newMessages: Message[] = [...messages, { role: "user", content: userMsg }];
+    setMessages(newMessages);
     setIsLoading(true);
 
     try {
+      // 1. Guardar mensaje del usuario
+      await saveMessageToDb("user", userMsg);
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No hay sesión activa.");
 
+      // 2. Llamar a la IA
       const { data, error } = await supabase.functions.invoke('ai-consultant', {
         body: { messages: newMessages }
       });
@@ -59,27 +99,48 @@ export const AiConsultantView = () => {
              // @ts-ignore
              const context = await error.context.json();
              if (context.error) errorDetails = context.error;
-        } catch (e) {
-            // Fallback
-        }
+        } catch (e) { /* fallback */ }
         throw new Error(errorDetails);
       }
 
-      setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+      const aiReply = data.reply;
+
+      // 3. Actualizar UI con respuesta
+      setMessages(prev => [...prev, { role: "assistant", content: aiReply }]);
+      
+      // 4. Guardar respuesta de la IA
+      await saveMessageToDb("assistant", aiReply);
 
     } catch (error: any) {
       console.error("AI Error:", error);
       const errorMsg = error.message || "Error desconocido";
-      
-      showError("Error al conectar con OpenAI");
+      showError("Error al conectar con el consultor");
       
       setMessages(prev => [...prev, { 
         role: "assistant", 
-        content: `⚠️ **Error de conexión:** \n\n${errorMsg}\n\n*Verifica que la API Key de OpenAI esté configurada correctamente.*` 
+        content: `⚠️ **Error de conexión:** \n\n${errorMsg}` 
       }]);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleClearHistory = async () => {
+      const confirmed = window.confirm("¿Estás seguro de borrar todo el historial de chat?");
+      if (!confirmed) return;
+
+      try {
+          const { error } = await supabase.from('chat_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+          if (error) throw error;
+          
+          setMessages([{
+            role: "assistant",
+            content: "Historial borrado. Empecemos de nuevo. ¿En qué puedo ayudarte?"
+          }]);
+          showSuccess("Historial eliminado");
+      } catch (error) {
+          showError("Error al borrar historial");
+      }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -89,20 +150,33 @@ export const AiConsultantView = () => {
     }
   };
 
+  if (isInitialLoad) {
+      return (
+          <div className="flex h-[calc(100vh-140px)] items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+      );
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] max-w-4xl mx-auto w-full gap-4">
-      <div className="flex items-center gap-3 pb-2 border-b">
-        <div className="bg-violet-100 p-2 rounded-lg text-violet-600">
-            <Bot size={24} />
+      <div className="flex items-center justify-between pb-2 border-b">
+        <div className="flex items-center gap-3">
+            <div className="bg-violet-100 p-2 rounded-lg text-violet-600">
+                <Bot size={24} />
+            </div>
+            <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                    Consultor Estratégico AI
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                    Powered by GPT-4o • Análisis de negocio en tiempo real
+                </p>
+            </div>
         </div>
-        <div>
-            <h2 className="text-xl font-bold flex items-center gap-2">
-                Consultor Estratégico AI
-            </h2>
-            <p className="text-sm text-muted-foreground">
-                Powered by GPT-4o • Análisis de negocio en tiempo real
-            </p>
-        </div>
+        <Button variant="ghost" size="icon" onClick={handleClearHistory} title="Borrar historial">
+            <Trash2 size={18} className="text-muted-foreground hover:text-red-500" />
+        </Button>
       </div>
 
       <Card className="flex-1 overflow-hidden bg-slate-50 border-slate-200 flex flex-col shadow-sm">
@@ -136,24 +210,25 @@ export const AiConsultantView = () => {
                   {msg.role === "user" ? (
                     <div className="whitespace-pre-wrap">{msg.content}</div>
                   ) : (
-                    <ReactMarkdown 
-                        remarkPlugins={[remarkGfm]}
-                        className="markdown-content space-y-3"
-                        components={{
-                            p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
-                            ul: ({node, ...props}) => <ul className="list-disc pl-4 space-y-1 mb-2" {...props} />,
-                            ol: ({node, ...props}) => <ol className="list-decimal pl-4 space-y-1 mb-2" {...props} />,
-                            li: ({node, ...props}) => <li className="pl-1" {...props} />,
-                            strong: ({node, ...props}) => <span className="font-bold text-slate-900" {...props} />,
-                            h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-4 first:mt-0" {...props} />,
-                            h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0" {...props} />,
-                            h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2" {...props} />,
-                            blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-violet-200 pl-3 italic text-muted-foreground my-2" {...props} />,
-                            code: ({node, ...props}) => <code className="bg-slate-100 px-1 py-0.5 rounded text-xs font-mono text-slate-600" {...props} />,
-                        }}
-                    >
-                        {msg.content}
-                    </ReactMarkdown>
+                    <div className="markdown-content space-y-3">
+                        <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                                p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                                ul: ({node, ...props}) => <ul className="list-disc pl-4 space-y-1 mb-2" {...props} />,
+                                ol: ({node, ...props}) => <ol className="list-decimal pl-4 space-y-1 mb-2" {...props} />,
+                                li: ({node, ...props}) => <li className="pl-1" {...props} />,
+                                strong: ({node, ...props}) => <span className="font-bold text-slate-900" {...props} />,
+                                h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-4 first:mt-0" {...props} />,
+                                h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                                h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2" {...props} />,
+                                blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-violet-200 pl-3 italic text-muted-foreground my-2" {...props} />,
+                                code: ({node, ...props}) => <code className="bg-slate-100 px-1 py-0.5 rounded text-xs font-mono text-slate-600" {...props} />,
+                            }}
+                        >
+                            {msg.content}
+                        </ReactMarkdown>
+                    </div>
                   )}
                 </div>
               </div>
@@ -195,7 +270,7 @@ export const AiConsultantView = () => {
             </Button>
           </div>
           <div className="text-[10px] text-center text-muted-foreground mt-2">
-            AI Consultancy v2.0 • Datos encriptados y procesados en tiempo real.
+            AI Consultancy v2.1 • Datos encriptados y procesados en tiempo real.
           </div>
         </div>
       </Card>

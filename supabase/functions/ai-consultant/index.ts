@@ -40,80 +40,107 @@ serve(async (req) => {
         { data: settings },
         { data: students },
         { data: leads },
-        { data: mentorTasks },
-        { data: globalNotes }
+        { data: mentorTasks }
     ] = await Promise.all([
         supabaseAdmin.from('user_settings').select('*').eq('user_id', user.id).single(),
         supabaseAdmin.from('students').select(`
             first_name, last_name, occupation, status, health_score, 
             paid_in_full, amount_owed, ai_level, context, business_model, amount_paid,
-            tasks(title, completed, priority),
-            calls(date, completed, notes),
-            student_notes(content, created_at)
+            start_date,
+            tasks(title, completed, priority)
         `).eq('user_id', user.id),
         supabaseAdmin.from('leads').select(`
-            name, status, interest_level, notes, next_call_date, created_at, email, phone,
-            calls(date, completed, notes)
+            name, status, interest_level, notes, next_call_date, created_at, email, phone
         `).eq('user_id', user.id).not('status', 'in', '("won","lost")'),
-        supabaseAdmin.from('mentor_tasks').select('title, priority, completed, description').eq('user_id', user.id).eq('completed', false),
-        supabaseAdmin.from('notes').select('title, content, category').eq('user_id', user.id).limit(10)
+        supabaseAdmin.from('mentor_tasks').select('title, priority, completed, description').eq('user_id', user.id).eq('completed', false)
     ]);
 
     // --- PROCESAMIENTO DE DATOS ---
-    
-    // 1. Finanzas (FIX: Asegurar que son números)
-    // Filtramos solo alumnos activos o egresados para la suma, o todos según prefieras. 
-    // Generalmente es el total recaudado.
-    const studentsRevenue = students?.reduce((acc: number, curr: any) => {
-        const val = Number(curr.amount_paid);
-        return acc + (isNaN(val) ? 0 : val);
-    }, 0) || 0;
+    const now = new Date();
+    const currentDateString = now.toLocaleDateString("es-ES", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
 
-    const totalDebt = students?.reduce((acc: number, curr: any) => {
-        const val = Number(curr.amount_owed);
-        return acc + (isNaN(val) ? 0 : val);
-    }, 0) || 0;
+    // 1. Finanzas - Lógica corregida
+    let studentsRevenueMonth = 0;
+    let studentsRevenueTotal = 0;
+    let totalDebt = 0;
+
+    if (students) {
+        students.forEach((s: any) => {
+            const paid = Number(s.amount_paid) || 0;
+            const owed = Number(s.amount_owed) || 0;
+            
+            // Ingreso Total Histórico
+            studentsRevenueTotal += paid;
+
+            // Deuda Total
+            totalDebt += owed;
+
+            // Ingreso Mensual (Aproximación basada en start_date para este mes)
+            // NOTA: Idealmente tendríamos una tabla de 'pagos', pero usaremos start_date como proxy de 'nuevo ingreso' este mes
+            const startDate = new Date(s.start_date);
+            if (startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear) {
+                studentsRevenueMonth += paid;
+            }
+        });
+    }
 
     const gumroadRevenue = Number(settings?.gumroad_revenue || 0);
     const agencyRevenue = Number(settings?.agency_revenue || 0);
-    const totalRevenue = studentsRevenue + gumroadRevenue + agencyRevenue;
+    
+    // Ingreso Total Mes (Students This Month + Manual Revenues)
+    // Asumimos que los ingresos manuales son mensuales.
+    const totalRevenueMonth = studentsRevenueMonth + gumroadRevenue + agencyRevenue;
+    
     const monthlyGoal = Number(settings?.monthly_goal || 10000);
-    const goalProgress = ((totalRevenue / monthlyGoal) * 100).toFixed(1);
+    const goalProgress = ((totalRevenueMonth / monthlyGoal) * 100).toFixed(1);
 
     // 2. Resúmenes de texto
     const studentsSummary = students?.map((s: any) => {
-        const pendingTasks = s.tasks?.filter((t: any) => !t.completed).length || 0;
-        return `- ${s.first_name} ${s.last_name} [${s.business_model}]: Salud ${s.health_score.toUpperCase()} | Pagado: $${s.amount_paid} | Debe: $${s.amount_owed} | Nivel IA: ${s.ai_level}/10.`;
+        return `- ${s.first_name} ${s.last_name} [${s.business_model}]: Salud ${s.health_score?.toUpperCase()} | Pagado Total: $${s.amount_paid} | Debe: $${s.amount_owed} | Nivel IA: ${s.ai_level}/10.`;
     }).join('\n');
 
     const leadsSummary = leads?.map((l: any) => {
-        const nextCall = l.next_call_date ? l.next_call_date.split('T')[0] : 'SIN FECHA';
-        return `- ${l.name} (${l.interest_level.toUpperCase()} interest): Estado ${l.status} | Próx. llamada: ${nextCall} | Nota: "${l.notes || 'N/A'}"`;
+        let nextCallInfo = 'SIN FECHA';
+        let isOverdue = false;
+        
+        if (l.next_call_date) {
+            const callDate = new Date(l.next_call_date);
+            nextCallInfo = callDate.toLocaleDateString("es-ES");
+            // Check if overdue (call date was before today)
+            if (callDate < now) {
+                isOverdue = true;
+                nextCallInfo += " (VENCIDA)";
+            }
+        }
+        
+        return `- ${l.name} (${l.interest_level.toUpperCase()} interest): Estado ${l.status} | Próx. llamada: ${nextCallInfo} ${isOverdue ? '⚠️' : ''} | Nota: "${l.notes || 'N/A'}"`;
     }).join('\n');
+
+    const customSystemPrompt = settings?.system_prompt || "";
 
     // --- PROMPT EXPERTO ---
     const expertSystemPrompt = `
-Eres un Consultor de Negocios Senior especializado en escalar agencias, consultorías y productos digitales de alto ticket.
-Tu tono es: Directo, Estratégico, Analítico y Orientado a la Acción. "No BS" (Sin rodeos).
+HOY ES: ${currentDateString}
 
-OBJETIVOS:
-1. Maximizar el Cashflow inmediato.
-2. Desbloquear cuellos de botella operativos.
-3. Aumentar la retención y el LTV (Lifetime Value) de los alumnos.
-
-INSTRUCCIONES DE RESPUESTA:
-- Usa Markdown para estructurar tu respuesta (Negritas para métricas clave, Listas para acciones).
-- NO saludes genéricamente. Ve al grano.
-- Si ves deudas cobrables ($${totalDebt}), priorízalas como alerta roja.
-- Si ves leads con interés ALTO (high) sin fecha de llamada próxima o fechas lejanas, márcado como "Pérdida de Dinero".
-- Analiza la brecha financiera: Estamos al ${goalProgress}% de la meta ($${monthlyGoal}). Si es bajo, sugiere tácticas agresivas.
+ERES UN CONSULTOR DE NEGOCIOS SENIOR.
+Utiliza el siguiente "System Prompt" definido por el usuario como tu guía principal de personalidad y enfoque:
+"""
+${customSystemPrompt || "Actúa como un estratega de negocios experto. Sé directo, prioriza cashflow y desbloqueo operativo."}
+"""
 
 DATOS DEL NEGOCIO (TIEMPO REAL):
 ----------------------------------
-💰 FINANZAS:
-- Total Recaudado: $${totalRevenue} (Consultoría: $${studentsRevenue} | Agencia: $${agencyRevenue} | Productos: $${gumroadRevenue})
-- Deuda por Cobrar (Cashflow Latente): $${totalDebt}
-- Meta Mensual: $${monthlyGoal}
+💰 FINANZAS MENSUALES (Mes Actual):
+- Meta: $${monthlyGoal}
+- Recaudado ESTE MES (Alumnos Nuevos + Otros): $${totalRevenueMonth}
+  (Desglose: Alumnos Nuevos Mes: $${studentsRevenueMonth} | Agencia: $${agencyRevenue} | Productos: $${gumroadRevenue})
+- Progreso: ${goalProgress}%
+
+💰 FINANZAS GLOBALES:
+- Total Histórico Alumnos (Cash Collected): $${studentsRevenueTotal}
+- Deuda Total por Cobrar (Cashflow Latente): $${totalDebt}
 
 👥 ALUMNOS (${students?.length || 0}):
 ${studentsSummary || "No hay alumnos registrados."}
@@ -125,20 +152,27 @@ ${leadsSummary || "No hay leads activos."}
 ${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Sin tareas pendientes."}
 ----------------------------------
 
-Basado en estos datos, responde a la última entrada del usuario priorizando la rentabilidad.
+REGLAS CRÍTICAS:
+1. Usa la fecha "HOY ES" para juzgar si una llamada está vencida o es futura. Si una llamada es en 2026, indícalo como un error grave de agenda.
+2. Distingue entre Ingreso del Mes vs Ingreso Total Histórico.
+3. Si la deuda es alta, sugiera cobranzas.
+4. Responde con formato Markdown limpio.
 `;
 
     // --- OPENAI CALL ---
     const openAIKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAIKey) throw new Error("Falta configurar OPENAI_API_KEY");
 
+    // Recortar historial para no exceder tokens, manteniendo el system prompt
+    const recentMessages = messages.slice(-10); 
+
     const payload = {
         model: "gpt-4o",
         messages: [
             { role: "system", content: expertSystemPrompt },
-            ...messages
+            ...recentMessages
         ],
-        temperature: 0.6, // Un poco más bajo para ser más analítico y preciso
+        temperature: 0.7,
     };
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
