@@ -37,7 +37,7 @@ export const TasksList = ({ mentorTasks, onAddTask, onToggleTask }: TasksListPro
 
   return (
     <>
-    <Card className="flex flex-col h-full border-none shadow-sm">
+    <Card className="flex flex-col border-none shadow-sm">
         <CardHeader className="px-4 py-3 border-b flex flex-row items-center justify-between min-h-[50px]">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <CheckSquare size={16} className="text-indigo-500" /> Prioridades
@@ -46,9 +46,9 @@ export const TasksList = ({ mentorTasks, onAddTask, onToggleTask }: TasksListPro
                 <Plus size={12} className="mr-1" /> Nueva
                 </Button>
         </CardHeader>
-        <CardContent className="p-0 flex-1">
+        <CardContent className="p-0">
             {sortedTasks.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center py-6 text-muted-foreground">
+                <div className="py-6 flex flex-col items-center justify-center text-center text-muted-foreground">
                     <p className="text-xs">¡Todo listo!</p>
                 </div>
             ) : (

@@ -41,7 +41,7 @@ export const UpcomingCalls = ({ students, leads, onOpenStudent, onOpenLead }: Up
   }, {} as Record<string, typeof upcomingCalls>);
 
   return (
-    <Card className="border-none shadow-sm bg-white h-full">
+    <Card className="border-none shadow-sm bg-white">
         <CardHeader className="px-4 py-3 border-b flex flex-row items-center justify-between min-h-[50px]">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <CalendarClock size={16} className="text-primary" /> Agenda Próxima
