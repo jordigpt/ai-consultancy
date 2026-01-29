@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
-import { Bot, Send, User, Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { Bot, Send, User, Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ export const AiConsultantView = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hola. Tengo acceso completo a tus métricas, alumnos, leads y tareas (vía Gemini 1.5 Flash). Analicemos tu negocio. ¿Qué te preocupa hoy o qué área quieres optimizar?"
+      content: "Hola. Tengo acceso completo a tus métricas, alumnos, leads y tareas. Analicemos tu negocio con GPT-4o. ¿Qué te preocupa hoy o qué área quieres optimizar?"
     }
   ]);
   const [input, setInput] = useState("");
@@ -69,11 +69,11 @@ export const AiConsultantView = () => {
       console.error("AI Error:", error);
       const errorMsg = error.message || "Error desconocido";
       
-      showError("Error al conectar con Gemini");
+      showError("Error al conectar con OpenAI");
       
       setMessages(prev => [...prev, { 
         role: "assistant", 
-        content: `⚠️ **Error de conexión:** \n\n${errorMsg}\n\n*Verifica que el secreto GEMINI_API_KEY esté correctamente configurado en Supabase Edge Functions.*` 
+        content: `⚠️ **Error de conexión:** \n\n${errorMsg}\n\n*Verifica que el secreto OPENAI_API_KEY esté correctamente configurado en Supabase Edge Functions.*` 
       }]);
     } finally {
       setIsLoading(false);
@@ -95,7 +95,7 @@ export const AiConsultantView = () => {
         </div>
         <div>
             <h2 className="text-xl font-bold flex items-center gap-2">
-                Consultor AI (Gemini 1.5 Flash)
+                Consultor AI (GPT-4o)
             </h2>
             <p className="text-sm text-muted-foreground">
                 Experto en operaciones y escalado con acceso a tus datos en tiempo real.
@@ -143,7 +143,7 @@ export const AiConsultantView = () => {
                 </Avatar>
                 <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-none flex items-center gap-2 text-sm text-muted-foreground">
                     <Sparkles size={14} className="animate-spin text-violet-500" /> 
-                    Analizando datos con Gemini 1.5...
+                    Analizando datos con GPT-4o...
                 </div>
               </div>
             )}
@@ -172,7 +172,7 @@ export const AiConsultantView = () => {
             </Button>
           </div>
           <div className="text-[10px] text-center text-muted-foreground mt-2">
-            Potenciado por Google Gemini 1.5 Flash. Acceso a datos en tiempo real.
+            Potenciado por OpenAI GPT-4o. Acceso a datos en tiempo real.
           </div>
         </div>
       </Card>

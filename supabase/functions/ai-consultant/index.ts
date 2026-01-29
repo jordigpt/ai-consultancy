@@ -95,40 +95,39 @@ serve(async (req) => {
     NOTAS: \n${globalNotes?.map((n: any) => `[${n.category}] ${n.title}`).join(', ')}
     `;
 
-    // --- INTEGRACIÓN CON GEMINI ---
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiKey) throw new Error("Falta configurar GEMINI_API_KEY en Supabase Secrets");
-
-    // CAMBIO IMPORTANTE: Usamos v1beta para soportar systemInstruction
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
-
-    // Transformar mensajes al formato de Gemini
-    const geminiContents = messages.map((msg: any) => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
-    }));
+    // --- INTEGRACIÓN CON OPENAI ---
+    const openAIKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openAIKey) throw new Error("Falta configurar OPENAI_API_KEY en Supabase Secrets");
 
     const payload = {
-        systemInstruction: {
-            parts: [{ text: `${userPrompt}\n\n${context}` }]
-        },
-        contents: geminiContents
+        model: "gpt-4o",
+        messages: [
+            {
+                role: "system",
+                content: `${userPrompt}\n\n${context}`
+            },
+            ...messages
+        ],
+        temperature: 0.7
     };
 
-    const response = await fetch(url, {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openAIKey}`
+        },
         body: JSON.stringify(payload)
     });
 
     const data = await response.json();
 
     if (data.error) {
-        console.error("Gemini Error:", data.error);
-        throw new Error(data.error.message || "Error desconocido de Gemini");
+        console.error("OpenAI Error:", data.error);
+        throw new Error(data.error.message || "Error desconocido de OpenAI");
     }
 
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No pude generar una respuesta.";
+    const reply = data.choices?.[0]?.message?.content || "No pude generar una respuesta.";
 
     return new Response(JSON.stringify({ reply }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
