@@ -22,13 +22,16 @@ export const MonthlyGoalWidget = ({
   className,
   onClick
 }: MonthlyGoalWidgetProps) => {
-  // Monthly Goal Logic
+  // Monthly Goal Logic (Facturación de alumnos iniciados este mes)
   const currentMonthStudents = students.filter(s => isSameMonth(new Date(s.startDate), new Date()));
   const studentsRevenue = currentMonthStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
   
-  // Total (Students + Gumroad + Agency)
+  // Total (Alumnos este mes + Gumroad + Agencia)
   const totalMonthlyRevenue = studentsRevenue + gumroadRevenue + agencyRevenue;
-  const monthlyProgress = Math.min((totalMonthlyRevenue / (monthlyGoal || 1)) * 100, 100);
+  
+  // Evitar división por cero
+  const goal = monthlyGoal > 0 ? monthlyGoal : 1;
+  const monthlyProgress = Math.min((totalMonthlyRevenue / goal) * 100, 100);
 
   return (
     <Card 

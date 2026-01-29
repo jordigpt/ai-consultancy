@@ -55,14 +55,16 @@ serve(async (req) => {
         supabaseAdmin.from('mentor_tasks').select('title, priority, completed, description').eq('user_id', user.id).eq('completed', false)
     ]);
 
-    // --- PROCESAMIENTO DE DATOS ---
+    // --- PROCESAMIENTO DE DATOS FINANCIEROS ---
     const now = new Date();
-    // Forzamos formato ISO simple para evitar confusiones de zona horaria en la IA
-    const currentDateString = now.toISOString().split('T')[0]; 
-    const currentMonth = now.getMonth();
+    const currentMonth = now.getMonth(); 
     const currentYear = now.getFullYear();
 
-    // 1. Finanzas
+    // Variables Financieras
+    const gumroadRevenue = Number(settings?.gumroad_revenue || 0);
+    const agencyRevenue = Number(settings?.agency_revenue || 0);
+    const monthlyGoal = Number(settings?.monthly_goal || 10000);
+
     let studentsRevenueMonth = 0;
     let studentsRevenueTotal = 0;
     let totalDebt = 0;
@@ -73,111 +75,97 @@ serve(async (req) => {
             const paid = Number(s.amount_paid) || 0;
             const owed = Number(s.amount_owed) || 0;
             
-            // Ingreso Total Histórico (Cash Collected Real de Alumnos)
+            // 1. Total Histórico
             studentsRevenueTotal += paid;
 
-            // Deuda Total
+            // 2. Deuda Total
             totalDebt += owed;
 
             if (s.paid_in_full || owed <= 0) {
                 paidStudentsCount++;
             }
 
-            // Ingreso "Nuevos Alumnos" este mes (Start Date match)
-            const startDate = new Date(s.start_date);
-            if (startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear) {
-                studentsRevenueMonth += paid;
+            // 3. Ingreso "Mes Actual" (Match Start Date)
+            // Normalizamos la fecha para evitar errores de zona horaria
+            if (s.start_date) {
+                const startDate = new Date(s.start_date);
+                // Comparamos mes y año
+                if (startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear) {
+                    studentsRevenueMonth += paid;
+                }
             }
         });
     }
 
-    const gumroadRevenue = Number(settings?.gumroad_revenue || 0);
-    const agencyRevenue = Number(settings?.agency_revenue || 0);
-    const monthlyGoal = Number(settings?.monthly_goal || 10000);
-    
-    // Total Global Recaudado (La suma de TODO el dinero entrante registrado)
-    // Esto es lo que el usuario probablemente busca como "Total Recaudado" si no usa cortes mensuales estrictos
-    const totalRevenueGlobal = studentsRevenueTotal + gumroadRevenue + agencyRevenue;
+    // Cálculos Finales para la IA
+    // Total Global Recaudado (Cash Collected Real de TODA la historia)
+    const totalCashCollectedGlobal = studentsRevenueTotal + gumroadRevenue + agencyRevenue;
 
-    // Ingreso "Mes Actual" (Estimado: Nuevos alumnos + ingresos recurrentes manuales)
-    const totalRevenueNewBusiness = studentsRevenueMonth + gumroadRevenue + agencyRevenue;
+    // Total Facturación "Este Mes" (Lo que se muestra en el Widget de Objetivo)
+    // Se compone de: Pagos de alumnos iniciados este mes + Ingresos manuales (Gumroad/Agencia)
+    const totalRevenueThisMonth = studentsRevenueMonth + gumroadRevenue + agencyRevenue;
     
-    const goalProgress = ((totalRevenueNewBusiness / monthlyGoal) * 100).toFixed(1);
+    const goalProgress = ((totalRevenueThisMonth / monthlyGoal) * 100).toFixed(1);
 
-    // 2. Resúmenes de texto
+    // --- RESÚMENES DE TEXTO ---
     const studentsSummary = students?.map((s: any) => {
-        return `- ${s.first_name} ${s.last_name} [${s.business_model}]: Salud ${s.health_score?.toUpperCase()} | Pagado: $${s.amount_paid} | Debe: $${s.amount_owed} | Inicio: ${s.start_date}`;
+        return `- ${s.first_name} ${s.last_name} [${s.business_model}]: Salud ${s.health_score?.toUpperCase()} | Pagado: $${s.amount_paid} | Debe: $${s.amount_owed}`;
     }).join('\n');
 
     const leadsSummary = leads?.map((l: any) => {
         let nextCallInfo = 'SIN FECHA';
-        let isOverdue = false;
-        
         if (l.next_call_date) {
-            const callDate = new Date(l.next_call_date);
-            // Formato YYYY-MM-DD para claridad total
-            nextCallInfo = callDate.toISOString().split('T')[0];
-            
-            // Check estricto de fecha vencida
-            if (callDate < now) {
-                isOverdue = true;
-                nextCallInfo += " (VENCIDA/PASADA)";
-            } else {
-                nextCallInfo += " (FUTURA)";
-            }
+            nextCallInfo = l.next_call_date.split('T')[0];
         }
-        
-        return `- ${l.name} (${l.interest_level.toUpperCase()} interest): Estado ${l.status} | Call: ${nextCallInfo} | Nota: "${l.notes || ''}"`;
+        return `- ${l.name} (${l.interest_level.toUpperCase()}): Estado ${l.status} | Call: ${nextCallInfo}`;
     }).join('\n');
 
     const customSystemPrompt = settings?.system_prompt || "";
 
     // --- PROMPT EXPERTO ---
     const expertSystemPrompt = `
-FECHA ACTUAL: ${currentDateString} (YYYY-MM-DD).
-Usa esta fecha EXACTA para determinar si una llamada o evento es pasado o futuro. Si una fecha es anterior a ${currentDateString}, YA PASÓ. Si es posterior, AÚN NO OCURRE.
+FECHA ACTUAL: ${now.toISOString().split('T')[0]}
 
 ERES UN CONSULTOR DE NEGOCIOS SENIOR.
-Utiliza el siguiente "System Prompt" definido por el usuario como tu guía principal de personalidad y enfoque:
+Utiliza el siguiente "System Prompt" del usuario como guía de personalidad:
 """
-${customSystemPrompt || "Actúa como un estratega de negocios experto. Sé directo, prioriza cashflow y desbloqueo operativo."}
+${customSystemPrompt || "Sé directo, prioriza cashflow y desbloqueo operativo."}
 """
 
-DATOS FINANCIEROS (IMPORTANTÍSIMO):
 ----------------------------------
-1. TOTAL RECAUDADO (GLOBAL/ACUMULADO): $${totalRevenueGlobal}
-   (Suma de TODOS los pagos de alumnos históricos + Ingresos Agencia + Gumroad).
-   *Si el usuario pregunta "cuánto recaudé", usa ESTE número o aclara la diferencia.*
+ESTADO FINANCIERO ACTUAL (CRÍTICO):
+----------------------------------
+La facturación de este mes se compone de tres fuentes:
+1. Ingresos Agencia (Manual): $${agencyRevenue}
+2. Ingresos Gumroad/Info (Manual): $${gumroadRevenue}
+3. Alumnos Nuevos (Este mes): $${studentsRevenueMonth}
 
-2. NUEVOS NEGOCIOS (MES ACTUAL): $${totalRevenueNewBusiness}
-   (Solo alumnos iniciados este mes + Ingresos mensuales recurrentes).
-   - Meta Mensual: $${monthlyGoal}
-   - Progreso Meta: ${goalProgress}%
+>>> TOTAL FACTURACIÓN ESTE MES: $${totalRevenueThisMonth} <<<
+META MENSUAL: $${monthlyGoal}
+PROGRESO: ${goalProgress}%
 
-3. DEUDA PENDIENTE (Cashflow Latente): $${totalDebt}
-   (Dinero que los alumnos deben pagar).
+(Nota: El total histórico recaudado desde el inicio de los tiempos es $${totalCashCollectedGlobal}. La deuda pendiente por cobrar es $${totalDebt}).
 ----------------------------------
 
 ALUMNOS (${students?.length || 0}):
 ${studentsSummary || "Sin alumnos."}
 
-PIPELINE / LEADS (${leads?.length || 0}):
+LEADS ACTIVOS:
 ${leadsSummary || "Sin leads."}
 
 TAREAS PENDIENTES:
 ${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Sin tareas."}
 
-REGLAS CRÍTICAS:
-1. FECHAS: Compara SIEMPRE las fechas de los leads con ${currentDateString}. Si dice 2026, advierte que está mal agendado. Si dice una fecha pasada, alerta de seguimiento perdido.
-2. DINERO: Si el "Total Recaudado Global" ($${totalRevenueGlobal}) es distinto a "Nuevos Negocios" ($${totalRevenueNewBusiness}), explica que uno es el acumulado total y el otro es la producción de este mes.
-3. ALUMNOS PAGOS: Tienes ${paidStudentsCount} alumnos que han pagado o no tienen deuda. Valora eso.
+INSTRUCCIONES:
+1. Si te preguntan cuánto hemos facturado, responde con el TOTAL FACTURACIÓN ESTE MES ($${totalRevenueThisMonth}).
+2. Desglosa la facturación si es necesario (Agencia vs Alumnos).
+3. Si el progreso es bajo, sugiere acciones para cerrar los leads listados arriba.
 `;
 
     // --- OPENAI CALL ---
     const openAIKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAIKey) throw new Error("Falta configurar OPENAI_API_KEY");
 
-    // Recortar historial
     const recentMessages = messages.slice(-10); 
 
     const payload = {
