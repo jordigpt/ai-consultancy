@@ -3,7 +3,6 @@ import { Student } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, Target } from "lucide-react";
-import { isSameMonth } from "date-fns";
 
 interface MonthlyGoalWidgetProps {
   students: Student[];
@@ -22,11 +21,11 @@ export const MonthlyGoalWidget = ({
   className,
   onClick
 }: MonthlyGoalWidgetProps) => {
-  // Monthly Goal Logic (Facturación de alumnos iniciados este mes)
-  const currentMonthStudents = students.filter(s => isSameMonth(new Date(s.startDate), new Date()));
-  const studentsRevenue = currentMonthStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
+  // CORRECCIÓN: Sumar facturación de TODOS los alumnos activos, no solo los que iniciaron este mes.
+  const activeStudents = students.filter(s => s.status === 'active' || !s.status);
+  const studentsRevenue = activeStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
   
-  // Total (Alumnos este mes + Gumroad + Agencia)
+  // Total (Alumnos Activos + Gumroad + Agencia)
   const totalMonthlyRevenue = studentsRevenue + gumroadRevenue + agencyRevenue;
   
   // Evitar división por cero

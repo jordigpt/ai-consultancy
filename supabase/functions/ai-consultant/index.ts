@@ -57,59 +57,39 @@ serve(async (req) => {
 
     // --- PROCESAMIENTO DE DATOS FINANCIEROS ---
     const now = new Date();
-    const currentMonth = now.getMonth(); 
-    const currentYear = now.getFullYear();
 
     // Variables Financieras
     const gumroadRevenue = Number(settings?.gumroad_revenue || 0);
     const agencyRevenue = Number(settings?.agency_revenue || 0);
     const monthlyGoal = Number(settings?.monthly_goal || 10000);
 
-    let studentsRevenueMonth = 0;
-    let studentsRevenueTotal = 0;
-    let totalDebt = 0;
-    let paidStudentsCount = 0;
+    // CÁLCULO DE INGRESOS DE ALUMNOS (LÓGICA CORREGIDA)
+    // Antes filtraba por mes de inicio. Ahora suma el amount_paid de TODOS los alumnos activos.
+    // Esto representa el valor de la cartera activa mensual.
+    const activeStudentsRevenue = students
+        ? students
+            .filter((s: any) => s.status === 'active' || !s.status) // Consideramos active o null como activos
+            .reduce((sum: number, s: any) => sum + (Number(s.amount_paid) || 0), 0)
+        : 0;
 
+    let totalDebt = 0;
+    
+    // Calculamos deuda total aparte
     if (students) {
         students.forEach((s: any) => {
-            const paid = Number(s.amount_paid) || 0;
-            const owed = Number(s.amount_owed) || 0;
-            
-            // 1. Total Histórico
-            studentsRevenueTotal += paid;
-
-            // 2. Deuda Total
-            totalDebt += owed;
-
-            if (s.paid_in_full || owed <= 0) {
-                paidStudentsCount++;
-            }
-
-            // 3. Ingreso "Mes Actual" (Match Start Date)
-            // Normalizamos la fecha para evitar errores de zona horaria
-            if (s.start_date) {
-                const startDate = new Date(s.start_date);
-                // Comparamos mes y año
-                if (startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear) {
-                    studentsRevenueMonth += paid;
-                }
-            }
+            totalDebt += Number(s.amount_owed) || 0;
         });
     }
 
-    // Cálculos Finales para la IA
-    // Total Global Recaudado (Cash Collected Real de TODA la historia)
-    const totalCashCollectedGlobal = studentsRevenueTotal + gumroadRevenue + agencyRevenue;
-
-    // Total Facturación "Este Mes" (Lo que se muestra en el Widget de Objetivo)
-    // Se compone de: Pagos de alumnos iniciados este mes + Ingresos manuales (Gumroad/Agencia)
-    const totalRevenueThisMonth = studentsRevenueMonth + gumroadRevenue + agencyRevenue;
+    // Total Facturación "Mensual" (Cartera Activa + Extras)
+    // Se compone de: Valor de alumnos activos + Ingresos manuales (Gumroad/Agencia)
+    const totalRevenueThisMonth = activeStudentsRevenue + gumroadRevenue + agencyRevenue;
     
     const goalProgress = ((totalRevenueThisMonth / monthlyGoal) * 100).toFixed(1);
 
     // --- RESÚMENES DE TEXTO ---
     const studentsSummary = students?.map((s: any) => {
-        return `- ${s.first_name} ${s.last_name} [${s.business_model}]: Salud ${s.health_score?.toUpperCase()} | Pagado: $${s.amount_paid} | Debe: $${s.amount_owed}`;
+        return `- ${s.first_name} ${s.last_name} [${s.business_model}]: Estado ${s.status || 'active'} | Salud ${s.health_score?.toUpperCase()} | Pagado: $${s.amount_paid} | Debe: $${s.amount_owed}`;
     }).join('\n');
 
     const leadsSummary = leads?.map((l: any) => {
@@ -133,18 +113,19 @@ ${customSystemPrompt || "Sé directo, prioriza cashflow y desbloqueo operativo."
 """
 
 ----------------------------------
-ESTADO FINANCIERO ACTUAL (CRÍTICO):
+ESTADO FINANCIERO MENSUAL (ACTUALIZADO):
 ----------------------------------
-La facturación de este mes se compone de tres fuentes:
+La facturación mensual se calcula sumando la cartera de alumnos activos + ingresos extra.
+
 1. Ingresos Agencia (Manual): $${agencyRevenue}
 2. Ingresos Gumroad/Info (Manual): $${gumroadRevenue}
-3. Alumnos Nuevos (Este mes): $${studentsRevenueMonth}
+3. Cartera de Alumnos Activos: $${activeStudentsRevenue}
 
->>> TOTAL FACTURACIÓN ESTE MES: $${totalRevenueThisMonth} <<<
+>>> TOTAL FACTURACIÓN MENSUAL: $${totalRevenueThisMonth} <<<
 META MENSUAL: $${monthlyGoal}
 PROGRESO: ${goalProgress}%
 
-(Nota: El total histórico recaudado desde el inicio de los tiempos es $${totalCashCollectedGlobal}. La deuda pendiente por cobrar es $${totalDebt}).
+(Deuda total pendiente de cobro: $${totalDebt}).
 ----------------------------------
 
 ALUMNOS (${students?.length || 0}):
@@ -157,8 +138,8 @@ TAREAS PENDIENTES:
 ${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Sin tareas."}
 
 INSTRUCCIONES:
-1. Si te preguntan cuánto hemos facturado, responde con el TOTAL FACTURACIÓN ESTE MES ($${totalRevenueThisMonth}).
-2. Desglosa la facturación si es necesario (Agencia vs Alumnos).
+1. Si te preguntan cuánto hemos facturado, responde con el TOTAL FACTURACIÓN MENSUAL ($${totalRevenueThisMonth}).
+2. Analiza los alumnos activos y sus deudas.
 3. Si el progreso es bajo, sugiere acciones para cerrar los leads listados arriba.
 `;
 

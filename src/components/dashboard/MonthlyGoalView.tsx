@@ -8,7 +8,6 @@ import { Progress } from "@/components/ui/progress";
 import { Target, TrendingUp, Save, Loader2, ShoppingBag, Bot, Briefcase } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { isSameMonth, format } from "date-fns";
 
 interface MonthlyGoalViewProps {
   students: Student[];
@@ -113,10 +112,10 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, agencyR
     }
   };
 
-  // Calculations
-  const currentMonthStudents = students.filter(s => isSameMonth(new Date(s.startDate), new Date()));
-  const studentRevenueThisMonth = currentMonthStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
-  const pendingRevenueThisMonth = currentMonthStudents.reduce((acc, curr) => acc + (curr.amountOwed || 0), 0);
+  // Calculations CORREGIDAS: Usar alumnos activos en lugar de fecha de inicio
+  const activeStudents = students.filter(s => s.status === 'active' || !s.status);
+  const studentRevenueThisMonth = activeStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
+  const pendingRevenueThisMonth = activeStudents.reduce((acc, curr) => acc + (curr.amountOwed || 0), 0);
   
   const manualGumroad = parseFloat(gumroadInput) || 0;
   const manualAgency = parseFloat(agencyInput) || 0;
