@@ -78,16 +78,13 @@ serve(async (req) => {
     const graduatedRevenue = graduatedStudents.reduce((sum: number, s: any) => sum + (Number(s.amount_paid) || 0), 0);
 
     // Total Facturación ACUMULADA (Activos + Egresados + Extras)
-    // Nota: Esto asume que amount_paid es el total histórico.
     const totalConsultingRevenue = activeStudentsRevenue + graduatedRevenue;
     const totalRevenueGlobal = totalConsultingRevenue + gumroadRevenue + agencyRevenue;
     
-    // Progreso de meta mensual (Usamos el total acumulado como proxy de rendimiento si no hay desglose mensual)
     const goalProgress = monthlyGoal > 0 ? ((totalRevenueGlobal / monthlyGoal) * 100).toFixed(1) : 0;
 
     // --- RESÚMENES DE TEXTO PARA LA IA ---
     
-    // Lista detallada de TODOS los alumnos (Activos y Egresados)
     const studentsSummary = students?.map((s: any) => {
         const isPaid = s.amount_owed <= 0;
         const paidStatus = isPaid ? "PAGADO" : "DEUDA";
@@ -157,6 +154,7 @@ INSTRUCCIONES:
 2. Usa las fechas de carga/inicio para identificar antigüedad y posibles estancamientos.
 3. Ten MUY en cuenta la "FACTURACIÓN TOTAL DEL NEGOCIO" para dar contexto de crecimiento.
 4. Si hay deuda en alumnos activos, prioriza estrategias de cobro.
+5. REGLA DE INGRESOS MENSUALES: Asume SIEMPRE que los pagos de los alumnos (amount_paid) corresponden al mes de su fecha de inicio (start_date). Si un alumno tiene fecha de inicio en Enero y pagó $1000, considera esos $1000 como ingreso de Enero. Suma los montos por mes de inicio para entender la facturación mensual y tendencias.
 `;
 
     // --- OPENAI CALL ---
