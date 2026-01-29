@@ -57,28 +57,33 @@ serve(async (req) => {
 
     // --- PROCESAMIENTO DE DATOS ---
     const now = new Date();
-    const currentDateString = now.toLocaleDateString("es-ES", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    // Forzamos formato ISO simple para evitar confusiones de zona horaria en la IA
+    const currentDateString = now.toISOString().split('T')[0]; 
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // 1. Finanzas - Lógica corregida
+    // 1. Finanzas
     let studentsRevenueMonth = 0;
     let studentsRevenueTotal = 0;
     let totalDebt = 0;
+    let paidStudentsCount = 0;
 
     if (students) {
         students.forEach((s: any) => {
             const paid = Number(s.amount_paid) || 0;
             const owed = Number(s.amount_owed) || 0;
             
-            // Ingreso Total Histórico
+            // Ingreso Total Histórico (Cash Collected Real de Alumnos)
             studentsRevenueTotal += paid;
 
             // Deuda Total
             totalDebt += owed;
 
-            // Ingreso Mensual (Aproximación basada en start_date para este mes)
-            // NOTA: Idealmente tendríamos una tabla de 'pagos', pero usaremos start_date como proxy de 'nuevo ingreso' este mes
+            if (s.paid_in_full || owed <= 0) {
+                paidStudentsCount++;
+            }
+
+            // Ingreso "Nuevos Alumnos" este mes (Start Date match)
             const startDate = new Date(s.start_date);
             if (startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear) {
                 studentsRevenueMonth += paid;
@@ -88,17 +93,20 @@ serve(async (req) => {
 
     const gumroadRevenue = Number(settings?.gumroad_revenue || 0);
     const agencyRevenue = Number(settings?.agency_revenue || 0);
-    
-    // Ingreso Total Mes (Students This Month + Manual Revenues)
-    // Asumimos que los ingresos manuales son mensuales.
-    const totalRevenueMonth = studentsRevenueMonth + gumroadRevenue + agencyRevenue;
-    
     const monthlyGoal = Number(settings?.monthly_goal || 10000);
-    const goalProgress = ((totalRevenueMonth / monthlyGoal) * 100).toFixed(1);
+    
+    // Total Global Recaudado (La suma de TODO el dinero entrante registrado)
+    // Esto es lo que el usuario probablemente busca como "Total Recaudado" si no usa cortes mensuales estrictos
+    const totalRevenueGlobal = studentsRevenueTotal + gumroadRevenue + agencyRevenue;
+
+    // Ingreso "Mes Actual" (Estimado: Nuevos alumnos + ingresos recurrentes manuales)
+    const totalRevenueNewBusiness = studentsRevenueMonth + gumroadRevenue + agencyRevenue;
+    
+    const goalProgress = ((totalRevenueNewBusiness / monthlyGoal) * 100).toFixed(1);
 
     // 2. Resúmenes de texto
     const studentsSummary = students?.map((s: any) => {
-        return `- ${s.first_name} ${s.last_name} [${s.business_model}]: Salud ${s.health_score?.toUpperCase()} | Pagado Total: $${s.amount_paid} | Debe: $${s.amount_owed} | Nivel IA: ${s.ai_level}/10.`;
+        return `- ${s.first_name} ${s.last_name} [${s.business_model}]: Salud ${s.health_score?.toUpperCase()} | Pagado: $${s.amount_paid} | Debe: $${s.amount_owed} | Inicio: ${s.start_date}`;
     }).join('\n');
 
     const leadsSummary = leads?.map((l: any) => {
@@ -107,22 +115,27 @@ serve(async (req) => {
         
         if (l.next_call_date) {
             const callDate = new Date(l.next_call_date);
-            nextCallInfo = callDate.toLocaleDateString("es-ES");
-            // Check if overdue (call date was before today)
+            // Formato YYYY-MM-DD para claridad total
+            nextCallInfo = callDate.toISOString().split('T')[0];
+            
+            // Check estricto de fecha vencida
             if (callDate < now) {
                 isOverdue = true;
-                nextCallInfo += " (VENCIDA)";
+                nextCallInfo += " (VENCIDA/PASADA)";
+            } else {
+                nextCallInfo += " (FUTURA)";
             }
         }
         
-        return `- ${l.name} (${l.interest_level.toUpperCase()} interest): Estado ${l.status} | Próx. llamada: ${nextCallInfo} ${isOverdue ? '⚠️' : ''} | Nota: "${l.notes || 'N/A'}"`;
+        return `- ${l.name} (${l.interest_level.toUpperCase()} interest): Estado ${l.status} | Call: ${nextCallInfo} | Nota: "${l.notes || ''}"`;
     }).join('\n');
 
     const customSystemPrompt = settings?.system_prompt || "";
 
     // --- PROMPT EXPERTO ---
     const expertSystemPrompt = `
-HOY ES: ${currentDateString}
+FECHA ACTUAL: ${currentDateString} (YYYY-MM-DD).
+Usa esta fecha EXACTA para determinar si una llamada o evento es pasado o futuro. Si una fecha es anterior a ${currentDateString}, YA PASÓ. Si es posterior, AÚN NO OCURRE.
 
 ERES UN CONSULTOR DE NEGOCIOS SENIOR.
 Utiliza el siguiente "System Prompt" definido por el usuario como tu guía principal de personalidad y enfoque:
@@ -130,40 +143,41 @@ Utiliza el siguiente "System Prompt" definido por el usuario como tu guía princ
 ${customSystemPrompt || "Actúa como un estratega de negocios experto. Sé directo, prioriza cashflow y desbloqueo operativo."}
 """
 
-DATOS DEL NEGOCIO (TIEMPO REAL):
+DATOS FINANCIEROS (IMPORTANTÍSIMO):
 ----------------------------------
-💰 FINANZAS MENSUALES (Mes Actual):
-- Meta: $${monthlyGoal}
-- Recaudado ESTE MES (Alumnos Nuevos + Otros): $${totalRevenueMonth}
-  (Desglose: Alumnos Nuevos Mes: $${studentsRevenueMonth} | Agencia: $${agencyRevenue} | Productos: $${gumroadRevenue})
-- Progreso: ${goalProgress}%
+1. TOTAL RECAUDADO (GLOBAL/ACUMULADO): $${totalRevenueGlobal}
+   (Suma de TODOS los pagos de alumnos históricos + Ingresos Agencia + Gumroad).
+   *Si el usuario pregunta "cuánto recaudé", usa ESTE número o aclara la diferencia.*
 
-💰 FINANZAS GLOBALES:
-- Total Histórico Alumnos (Cash Collected): $${studentsRevenueTotal}
-- Deuda Total por Cobrar (Cashflow Latente): $${totalDebt}
+2. NUEVOS NEGOCIOS (MES ACTUAL): $${totalRevenueNewBusiness}
+   (Solo alumnos iniciados este mes + Ingresos mensuales recurrentes).
+   - Meta Mensual: $${monthlyGoal}
+   - Progreso Meta: ${goalProgress}%
 
-👥 ALUMNOS (${students?.length || 0}):
-${studentsSummary || "No hay alumnos registrados."}
-
-🎯 PIPELINE / LEADS (${leads?.length || 0}):
-${leadsSummary || "No hay leads activos."}
-
-📝 TAREAS PENDIENTES:
-${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Sin tareas pendientes."}
+3. DEUDA PENDIENTE (Cashflow Latente): $${totalDebt}
+   (Dinero que los alumnos deben pagar).
 ----------------------------------
+
+ALUMNOS (${students?.length || 0}):
+${studentsSummary || "Sin alumnos."}
+
+PIPELINE / LEADS (${leads?.length || 0}):
+${leadsSummary || "Sin leads."}
+
+TAREAS PENDIENTES:
+${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Sin tareas."}
 
 REGLAS CRÍTICAS:
-1. Usa la fecha "HOY ES" para juzgar si una llamada está vencida o es futura. Si una llamada es en 2026, indícalo como un error grave de agenda.
-2. Distingue entre Ingreso del Mes vs Ingreso Total Histórico.
-3. Si la deuda es alta, sugiera cobranzas.
-4. Responde con formato Markdown limpio.
+1. FECHAS: Compara SIEMPRE las fechas de los leads con ${currentDateString}. Si dice 2026, advierte que está mal agendado. Si dice una fecha pasada, alerta de seguimiento perdido.
+2. DINERO: Si el "Total Recaudado Global" ($${totalRevenueGlobal}) es distinto a "Nuevos Negocios" ($${totalRevenueNewBusiness}), explica que uno es el acumulado total y el otro es la producción de este mes.
+3. ALUMNOS PAGOS: Tienes ${paidStudentsCount} alumnos que han pagado o no tienen deuda. Valora eso.
 `;
 
     // --- OPENAI CALL ---
     const openAIKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAIKey) throw new Error("Falta configurar OPENAI_API_KEY");
 
-    // Recortar historial para no exceder tokens, manteniendo el system prompt
+    // Recortar historial
     const recentMessages = messages.slice(-10); 
 
     const payload = {
