@@ -46,7 +46,7 @@ serve(async (req) => {
         supabaseAdmin.from('students').select(`
             first_name, last_name, occupation, status, health_score, 
             paid_in_full, amount_owed, ai_level, context, business_model, amount_paid,
-            start_date,
+            start_date, created_at,
             tasks(title, completed, priority)
         `).eq('user_id', user.id),
         supabaseAdmin.from('leads').select(`
@@ -63,30 +63,42 @@ serve(async (req) => {
     const agencyRevenue = Number(settings?.agency_revenue || 0);
     const monthlyGoal = Number(settings?.monthly_goal || 10000);
 
-    // CÁLCULO DE INGRESOS DE ALUMNOS (LÓGICA CORREGIDA)
-    // Sumamos amount_paid de TODOS los alumnos marcados como activos (o null)
+    // CÁLCULO DE INGRESOS
+    // 1. Activos
     const activeStudents = students 
         ? students.filter((s: any) => s.status === 'active' || !s.status)
         : [];
-
     const activeStudentsRevenue = activeStudents.reduce((sum: number, s: any) => sum + (Number(s.amount_paid) || 0), 0);
-    
-    // Deuda solo de alumnos activos
     const activeStudentsDebt = activeStudents.reduce((sum: number, s: any) => sum + (Number(s.amount_owed) || 0), 0);
 
-    // Total Facturación "Mensual" (Cartera Activa + Extras)
-    const totalRevenueThisMonth = activeStudentsRevenue + gumroadRevenue + agencyRevenue;
+    // 2. Egresados
+    const graduatedStudents = students
+        ? students.filter((s: any) => s.status === 'graduated')
+        : [];
+    const graduatedRevenue = graduatedStudents.reduce((sum: number, s: any) => sum + (Number(s.amount_paid) || 0), 0);
+
+    // Total Facturación ACUMULADA (Activos + Egresados + Extras)
+    // Nota: Esto asume que amount_paid es el total histórico.
+    const totalConsultingRevenue = activeStudentsRevenue + graduatedRevenue;
+    const totalRevenueGlobal = totalConsultingRevenue + gumroadRevenue + agencyRevenue;
     
-    const goalProgress = monthlyGoal > 0 ? ((totalRevenueThisMonth / monthlyGoal) * 100).toFixed(1) : 0;
+    // Progreso de meta mensual (Usamos el total acumulado como proxy de rendimiento si no hay desglose mensual)
+    const goalProgress = monthlyGoal > 0 ? ((totalRevenueGlobal / monthlyGoal) * 100).toFixed(1) : 0;
 
     // --- RESÚMENES DE TEXTO PARA LA IA ---
     
-    // Lista detallada de alumnos con su aporte financiero explícito
+    // Lista detallada de TODOS los alumnos (Activos y Egresados)
     const studentsSummary = students?.map((s: any) => {
         const isPaid = s.amount_owed <= 0;
         const paidStatus = isPaid ? "PAGADO" : "DEUDA";
-        return `• [${s.status?.toUpperCase() || 'ACTIVO'}] ${s.first_name} ${s.last_name} (${s.business_model})
-           - Facturado: $${s.amount_paid} | Restante: $${s.amount_owed} (${paidStatus})
+        const startDate = s.start_date ? s.start_date.split('T')[0] : 'N/A';
+        const createdDate = s.created_at ? s.created_at.split('T')[0] : 'N/A';
+        
+        return `• [${s.status?.toUpperCase() || 'ACTIVO'}] ${s.first_name} ${s.last_name}
+           - Modelo: ${s.business_model} | Ocupación: ${s.occupation}
+           - Fechas: Inicio ${startDate} | Cargado ${createdDate}
+           - $ Pagado: $${s.amount_paid} | $ Deuda: $${s.amount_owed} (${paidStatus})
+           - Contexto: ${s.context || 'Sin contexto'}
            - Salud: ${s.health_score?.toUpperCase()} | Nivel IA: ${s.ai_level}/10`;
     }).join('\n');
 
@@ -113,23 +125,25 @@ ${customSystemPrompt || "Sé directo, prioriza cashflow, retención de clientes 
 """
 
 ==================================================
-📊 REPORTE FINANCIERO EN TIEMPO REAL
+📊 REPORTE FINANCIERO GLOBAL (HISTÓRICO + ACTUAL)
 ==================================================
 
 1. INGRESOS CONSULTORÍA (ALUMNOS ACTIVOS): $${activeStudentsRevenue}
-   (Calculado sumando lo cobrado a ${activeStudents.length} alumnos activos).
+   (Cartera actual de ${activeStudents.length} alumnos).
 
-2. INGRESOS AGENCIA: $${agencyRevenue}
+2. INGRESOS CONSULTORÍA (EGRESADOS): $${graduatedRevenue}
+   (Histórico de ${graduatedStudents.length} alumnos finalizados).
 
-3. INGRESOS PRODUCTOS/GUMROAD: $${gumroadRevenue}
+3. INGRESOS AGENCIA: $${agencyRevenue}
+4. INGRESOS PRODUCTOS/GUMROAD: $${gumroadRevenue}
 
->>> FACTURACIÓN TOTAL ACUMULADA: $${totalRevenueThisMonth} <<<
->>> META MENSUAL: $${monthlyGoal} (Progreso: ${goalProgress}%) <<<
+>>> FACTURACIÓN TOTAL DEL NEGOCIO: $${totalRevenueGlobal} <<<
+>>> OBJETIVO MENSUAL CONFIGURADO: $${monthlyGoal} <<<
 
-⚠️ DEUDA PENDIENTE POR COBRAR (Cartera Activa): $${activeStudentsDebt}
+⚠️ DEUDA PENDIENTE (ACTIVOS): $${activeStudentsDebt}
 ==================================================
 
-DETALLE DE CARTERA DE ALUMNOS:
+DETALLE COMPLETO DE ALUMNOS (ACTIVOS Y EGRESADOS):
 ${studentsSummary || "Sin alumnos registrados."}
 
 PIPELINE DE VENTAS (LEADS):
@@ -138,11 +152,11 @@ ${leadsSummary || "Sin leads activos."}
 TAREAS OPERATIVAS PENDIENTES:
 ${mentorTasks?.map((t: any) => `[${t.priority.toUpperCase()}] ${t.title}`).join(', ') || "Al día."}
 
-INSTRUCCIONES PARA TU RESPUESTA:
-1. Ten MUY en cuenta la "FACTURACIÓN TOTAL ACUMULADA" ($${totalRevenueThisMonth}) al dar consejos.
-2. Si hay "Deuda Pendiente", sugiere acciones de cobro.
-3. Si el progreso de la meta es bajo, enfócate en cerrar los Leads listados.
-4. Analiza la salud de los alumnos. Si alguno está en rojo, es prioridad salvarlo (Churn risk).
+INSTRUCCIONES:
+1. Analiza el rendimiento histórico (Egresados) vs actual (Activos).
+2. Usa las fechas de carga/inicio para identificar antigüedad y posibles estancamientos.
+3. Ten MUY en cuenta la "FACTURACIÓN TOTAL DEL NEGOCIO" para dar contexto de crecimiento.
+4. Si hay deuda en alumnos activos, prioriza estrategias de cobro.
 `;
 
     // --- OPENAI CALL ---
