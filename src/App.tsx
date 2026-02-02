@@ -9,6 +9,7 @@ import { Session } from "@supabase/supabase-js";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import StudentProfile from "./pages/StudentProfile";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,10 @@ const App = () => {
             <Route 
               path="/" 
               element={session ? <Index /> : <Navigate to="/login" replace />} 
+            />
+             <Route 
+              path="/student/:id" 
+              element={session ? <StudentProfile /> : <Navigate to="/login" replace />} 
             />
             <Route 
               path="/login" 

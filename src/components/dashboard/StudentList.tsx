@@ -23,14 +23,14 @@ export const StudentList = ({
 
   if (filteredList.length === 0) {
     return (
-      <div className="text-center py-10 text-muted-foreground">
+      <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-xl bg-gray-50/50">
         {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-500">
       {filteredList.map((student) => (
         <StudentCard 
           key={student.id} 

@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Student, Lead, MentorTask } from "@/lib/types";
-import { StudentDetails } from "@/components/dashboard/StudentDetails";
 import { LeadDetails } from "@/components/leads/LeadDetails";
 import { LeadForm } from "@/components/leads/LeadForm";
 import { StudentForm } from "@/components/dashboard/StudentForm"; 
@@ -8,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useNavigate } from "react-router-dom";
 
 // Hooks
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -29,6 +29,7 @@ import { LeadsView } from "@/components/dashboard/views/LeadsView";
 import { AddNoteDialog } from "@/components/notes/AddNoteDialog";
 
 const Index = () => {
+  const navigate = useNavigate();
   const {
     students,
     leads,
@@ -47,10 +48,8 @@ const Index = () => {
 
   const [currentView, setCurrentView] = useState("overview"); 
   
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   
-  const [studentDetailsOpen, setStudentDetailsOpen] = useState(false);
   const [leadDetailsOpen, setLeadDetailsOpen] = useState(false);
   
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
@@ -203,9 +202,9 @@ const Index = () => {
       showSuccess("Completa los datos para registrar al nuevo alumno.");
   };
 
-  const openStudentDetails = (student: Student) => {
-    setSelectedStudent(student);
-    setStudentDetailsOpen(true);
+  // NAVIGATION HANDLER FOR NEW PROFILE PAGE
+  const navigateToStudentProfile = (student: Student) => {
+    navigate(`/student/${student.id}`);
   };
 
   const openLeadDetails = (lead: Lead) => {
@@ -238,7 +237,7 @@ const Index = () => {
                     onAddStudent={() => setIsAddStudentOpen(true)}
                     onAddLead={() => setIsAddLeadOpen(true)}
                     onAddTask={() => setCurrentView('tasks')}
-                    onOpenStudent={openStudentDetails}
+                    onOpenStudent={navigateToStudentProfile} // Updated
                     onOpenLead={openLeadDetails}
                     onToggleTask={handleToggleTask}
                     onNavigate={(view) => setCurrentView(view)}
@@ -260,14 +259,14 @@ const Index = () => {
             return (
                 <ActiveStudentsView 
                     students={activeStudents} 
-                    onStudentClick={openStudentDetails} 
+                    onStudentClick={navigateToStudentProfile} // Updated
                 />
             );
         case 'graduated':
             return (
                 <GraduatedStudentsView 
                     students={graduatedStudents} 
-                    onStudentClick={openStudentDetails} 
+                    onStudentClick={navigateToStudentProfile} // Updated
                 />
             );
         case 'calendar':
@@ -278,7 +277,7 @@ const Index = () => {
                         leads={leads}
                         onScheduleCall={handleScheduleGlobalCall}
                         isSubmitting={isSubmitting}
-                        onOpenStudentDetails={openStudentDetails}
+                        onOpenStudentDetails={navigateToStudentProfile} // Updated
                         onOpenLeadDetails={openLeadDetails}
                     />
                 </div>
@@ -327,7 +326,7 @@ const Index = () => {
                 onAddLead: () => setIsAddLeadOpen(true),
                 onAddTask: () => setCurrentView('tasks'),
                 onAddNote: () => setIsAddNoteOpen(true),
-                onOpenStudent: openStudentDetails,
+                onOpenStudent: navigateToStudentProfile, // Updated
                 onOpenLead: openLeadDetails
             }}
         />
@@ -355,16 +354,6 @@ const Index = () => {
             onOpenChange={setIsAddNoteOpen}
         />
         
-        <StudentDetails 
-            student={selectedStudent} 
-            isOpen={studentDetailsOpen} 
-            onClose={() => {
-                setStudentDetailsOpen(false);
-                fetchData();
-            }}
-            onUpdateStudent={fetchData}
-        />
-
         <LeadDetails 
             lead={selectedLead}
             isOpen={leadDetailsOpen}
