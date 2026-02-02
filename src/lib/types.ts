@@ -17,7 +17,7 @@ export interface Task {
   id: string;
   title: string;
   completed: boolean;
-  createdAt?: Date; // Added for timeline
+  createdAt?: Date;
 }
 
 export interface Call {
@@ -25,8 +25,8 @@ export interface Call {
   date: Date;
   notes?: string;
   completed: boolean;
-  studentId?: string; // Optional linkage
-  leadId?: string;    // Optional linkage
+  studentId?: string;
+  leadId?: string;
 }
 
 export interface StudentNote {
@@ -43,6 +43,14 @@ export interface StudentEvent {
   metadata?: any;
 }
 
+export interface StudentPayment {
+  id: string;
+  studentId: string;
+  amount: number;
+  paymentDate: Date;
+  notes?: string;
+}
+
 export interface Student {
   id: string;
   firstName: string;
@@ -54,20 +62,22 @@ export interface Student {
   businessModel: BusinessModel;
   startDate: Date;
   status: StudentStatus;
-  healthScore: HealthScore; // Added field
+  healthScore: HealthScore;
   
   // Finanzas
   paidInFull: boolean;
-  amountPaid?: number;
-  amountOwed?: number;
-  
+  amountPaid?: number; // Legacy / Total Lifetime
+  amountOwed?: number; // Legacy / Debt
+  nextBillingDate?: Date; // NEW: Controls the billing cycle
+
   // Archivos
   roadmapUrl?: string; 
   
   tasks: Task[];
   calls: Call[];
   notes: StudentNote[];
-  events: StudentEvent[]; // Added history events
+  events: StudentEvent[];
+  payments?: StudentPayment[]; // NEW: Payment history
 }
 
 // LEADS TYPES
@@ -81,11 +91,11 @@ export interface Lead {
   phone?: string;
   status: LeadStatus;
   interestLevel: InterestLevel;
-  value?: number; // Added value field
+  value?: number;
   notes: string;
-  nextCallDate?: Date; // Keep for sorting/legacy, but calls[] is the source of truth for list
+  nextCallDate?: Date;
   createdAt: Date;
-  calls: Call[]; // Added list of calls
+  calls: Call[];
 }
 
 // MENTOR TASKS TYPES
@@ -100,7 +110,6 @@ export interface MentorTask {
   createdAt: Date;
   studentId?: string;
   leadId?: string;
-  // Optional for UI
   relatedName?: string;
   relatedType?: 'student' | 'lead';
 }
@@ -112,16 +121,14 @@ export interface Note {
   id: string;
   title: string;
   content: string;
-  category: string; // Flexible string to allow custom categories later
+  category: string; 
   isPinned: boolean;
   createdAt: Date;
 }
 
-// SETTINGS TYPES
-export interface UserSettings {
-  userId: string;
-  monthlyGoal: number;
+// SETTINGS & REVENUE TYPES
+export interface MonthlyRevenue {
+  monthKey: string; // "2024-02"
+  agencyRevenue: number;
   gumroadRevenue: number;
-  agencyRevenue: number; // New field
-  currency: string;
 }

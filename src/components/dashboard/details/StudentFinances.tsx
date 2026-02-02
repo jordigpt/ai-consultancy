@@ -1,12 +1,20 @@
 import React, { useState } from "react";
 import { Student } from "@/lib/types";
-import { DollarSign, Pencil, Check, X, Loader2 } from "lucide-react";
+import { DollarSign, Plus, Calendar, AlertTriangle, CheckCircle, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
+import { format, addDays, isPast, isFuture } from "date-fns";
+import { es } from "date-fns/locale";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface StudentFinancesProps {
   student: Student;
@@ -14,166 +22,175 @@ interface StudentFinancesProps {
 }
 
 export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [amountPaid, setAmountPaid] = useState(student.amountPaid?.toString() || "0");
-  const [amountOwed, setAmountOwed] = useState(student.amountOwed?.toString() || "0");
-  const [paidInFull, setPaidInFull] = useState(student.paidInFull);
+  const [isAddingPayment, setIsAddingPayment] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [shouldUpdateCycle, setShouldUpdateCycle] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset local state when student changes
-  React.useEffect(() => {
-    setAmountPaid(student.amountPaid?.toString() || "0");
-    setAmountOwed(student.amountOwed?.toString() || "0");
-    setPaidInFull(student.paidInFull);
-  }, [student]);
+  // Determinar estado de facturación
+  // Si no hay fecha de próximo cobro, asumimos hoy
+  const billingDate = student.nextBillingDate ? new Date(student.nextBillingDate) : new Date();
+  const isOverdue = isPast(billingDate) && !isFuture(billingDate); // Si ya pasó la fecha, está vencido/debe renovar
 
-  const handleSave = async () => {
+  const handleRegisterPayment = async () => {
+    if (!amount || parseFloat(amount) <= 0) {
+        showError("Ingresa un monto válido");
+        return;
+    }
+
     try {
       setIsSubmitting(true);
-      const paid = parseFloat(amountPaid) || 0;
-      const owed = parseFloat(amountOwed) || 0;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      // LÓGICA CORREGIDA: Si marca el switch O si la deuda es 0, se considera pagado total.
-      const finalPaidInFull = paidInFull || owed <= 0;
-      // Si está pagado total, forzamos deuda a 0.
-      const finalOwed = finalPaidInFull ? 0 : owed;
+      const numAmount = parseFloat(amount);
+      const dateObj = new Date(paymentDate);
 
-      const { error } = await supabase
-        .from('students')
-        .update({
-          amount_paid: paid,
-          amount_owed: finalOwed,
-          paid_in_full: finalPaidInFull
+      // 1. Insertar Pago
+      const { data: paymentData, error: payError } = await supabase
+        .from('student_payments')
+        .insert({
+            student_id: student.id,
+            user_id: user.id,
+            amount: numAmount,
+            payment_date: dateObj.toISOString(),
+            notes: shouldUpdateCycle ? "Renovación de ciclo" : "Pago parcial/extra"
         })
-        .eq('id', student.id);
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (payError) throw payError;
 
-      if (onUpdate) {
-        onUpdate({
-          ...student,
-          amountPaid: paid,
-          amountOwed: finalOwed,
-          paidInFull: finalPaidInFull
-        });
+      // 2. Actualizar Ciclo del Alumno (si corresponde)
+      let newNextBillingDate = student.nextBillingDate;
+      if (shouldUpdateCycle) {
+          // Si estaba vencido, reseteamos desde HOY + 30 días.
+          // Si estaba al día, sumamos 30 días a su fecha actual.
+          const baseDate = isOverdue ? new Date() : (student.nextBillingDate || new Date());
+          newNextBillingDate = addDays(baseDate, 30);
+
+          await supabase
+            .from('students')
+            .update({ next_billing_date: newNextBillingDate.toISOString() })
+            .eq('id', student.id);
       }
 
-      showSuccess("Finanzas actualizadas");
-      setIsEditing(false);
+      // 3. Notificar actualización UI
+      if (onUpdate) {
+          const newPayment = {
+              id: paymentData.id,
+              studentId: student.id,
+              amount: numAmount,
+              paymentDate: dateObj,
+              notes: paymentData.notes
+          };
+          
+          onUpdate({
+              ...student,
+              nextBillingDate: newNextBillingDate,
+              payments: [newPayment, ...(student.payments || [])]
+          });
+      }
+
+      showSuccess("Pago registrado correctamente");
+      setIsAddingPayment(false);
+      setAmount("");
+      
     } catch (error) {
       console.error(error);
-      showError("Error al actualizar finanzas");
+      showError("Error al registrar pago");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const cancelEdit = () => {
-    setAmountPaid(student.amountPaid?.toString() || "0");
-    setAmountOwed(student.amountOwed?.toString() || "0");
-    setPaidInFull(student.paidInFull);
-    setIsEditing(false);
-  };
-
-  // Helper para determinar si visualmente está pagado
-  const isPaid = student.paidInFull || (student.amountOwed !== undefined && student.amountOwed <= 0);
-
-  if (isEditing) {
-    return (
-      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-4 animate-in fade-in duration-200">
-        <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-semibold flex items-center gap-2">
-                <DollarSign size={14} /> Editar Finanzas
-            </h4>
-        </div>
-        
-        <div className="space-y-3">
-             <div className="flex items-center justify-between border-b pb-2">
-                <Label htmlFor="paid-full-switch" className="text-xs">¿Pagado Totalmente?</Label>
-                <Switch 
-                    id="paid-full-switch" 
-                    checked={paidInFull} 
-                    onCheckedChange={(checked) => {
-                        setPaidInFull(checked);
-                        if(checked) setAmountOwed("0");
-                    }} 
-                />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Pagado</Label>
-                    <Input 
-                        type="number" 
-                        value={amountPaid} 
-                        onChange={(e) => setAmountPaid(e.target.value)} 
-                        className="h-8 bg-white"
-                    />
-                </div>
-                <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Deuda</Label>
-                    <Input 
-                        type="number" 
-                        value={amountOwed} 
-                        onChange={(e) => setAmountOwed(e.target.value)} 
-                        disabled={paidInFull}
-                        className="h-8 bg-white disabled:opacity-50"
-                    />
-                </div>
-            </div>
-
-            <div className="flex gap-2 pt-1">
-                <Button size="sm" className="w-full" onClick={handleSave} disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar"}
-                </Button>
-                <Button size="sm" variant="outline" className="w-full" onClick={cancelEdit} disabled={isSubmitting}>
-                    Cancelar
-                </Button>
-            </div>
-        </div>
-      </div>
-    );
-  }
-
-  // View Mode
   return (
-    <div className={`p-4 rounded-lg border space-y-2 relative group transition-colors ${
-        isPaid 
-            ? "bg-green-50 border-green-100" 
-            : "bg-red-50 border-red-100"
+    <div className={`p-4 rounded-lg border space-y-4 relative transition-colors ${
+        isOverdue ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"
     }`}>
-        <Button 
-            size="icon" 
-            variant="ghost" 
-            className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 hover:bg-white"
-            onClick={() => setIsEditing(true)}
-        >
-            <Pencil size={12} />
-        </Button>
-
-      <h4 className={`text-sm font-semibold flex items-center gap-2 ${
-          isPaid ? "text-green-800" : "text-red-800"
-      }`}>
-        <DollarSign size={14} /> Estado de Cuenta
-      </h4>
       
-      <div className="flex justify-between text-sm items-center">
-        <span className={isPaid ? "text-green-700" : "text-red-700"}>Pagado:</span>
-        <span className="font-mono font-medium text-base">${student.amountPaid}</span>
-      </div>
-      
-      {!isPaid && (
-        <div className="flex justify-between text-sm items-center border-t border-red-200/50 pt-1 mt-1">
-            <span className="text-red-600 font-medium">Restante:</span>
-            <span className="font-mono font-bold text-red-700 text-base">${student.amountOwed}</span>
-        </div>
-      )}
-
-      {isPaid && (
-          <div className="text-xs text-green-600 font-medium flex items-center gap-1 mt-1">
-              <Check size={12} /> Cuenta al día
+      {/* Header Status */}
+      <div className="flex items-start justify-between">
+          <div>
+            <h4 className={`text-sm font-semibold flex items-center gap-2 ${isOverdue ? "text-red-800" : "text-green-800"}`}>
+                <DollarSign size={16} /> 
+                {isOverdue ? "Renovación Pendiente" : "Cuota al Día"}
+            </h4>
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                <Calendar size={12} />
+                Vence: <span className="font-medium">{student.nextBillingDate ? format(student.nextBillingDate, "d MMMM", { locale: es }) : "Hoy"}</span>
+            </p>
           </div>
-      )}
+
+          <Dialog open={isAddingPayment} onOpenChange={setIsAddingPayment}>
+            <DialogTrigger asChild>
+                <Button size="sm" className={isOverdue ? "bg-red-600 hover:bg-red-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"}>
+                    <Plus size={14} className="mr-1" /> Registrar Pago
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Registrar Nuevo Pago</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Monto ($)</Label>
+                        <Input 
+                            type="number" 
+                            placeholder="0.00" 
+                            value={amount} 
+                            onChange={(e) => setAmount(e.target.value)} 
+                            className="text-lg"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Fecha de Pago</Label>
+                        <Input 
+                            type="date" 
+                            value={paymentDate} 
+                            onChange={(e) => setPaymentDate(e.target.value)} 
+                        />
+                    </div>
+                    <div className="flex items-center gap-2 pt-2">
+                        <input 
+                            type="checkbox" 
+                            id="update-cycle" 
+                            checked={shouldUpdateCycle} 
+                            onChange={(e) => setShouldUpdateCycle(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <Label htmlFor="update-cycle" className="text-sm font-normal cursor-pointer">
+                            Renovar ciclo por 30 días
+                        </Label>
+                    </div>
+                    
+                    <Button className="w-full mt-4" onClick={handleRegisterPayment} disabled={isSubmitting}>
+                        {isSubmitting ? "Guardando..." : "Confirmar Pago"}
+                    </Button>
+                </div>
+            </DialogContent>
+          </Dialog>
+      </div>
+
+      {/* Payment History Preview */}
+      <div className="bg-white/60 rounded-md p-3 border border-gray-200/50">
+          <h5 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+              <History size={12} /> Historial Reciente
+          </h5>
+          {!student.payments || student.payments.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No hay pagos registrados aún.</p>
+          ) : (
+              <div className="space-y-2 max-h-[100px] overflow-y-auto pr-1">
+                  {student.payments.slice(0, 5).map(pay => (
+                      <div key={pay.id} className="flex justify-between items-center text-xs">
+                          <span className="text-slate-700">{format(pay.paymentDate, "d MMM yyyy", { locale: es })}</span>
+                          <span className="font-bold text-slate-900">${pay.amount}</span>
+                      </div>
+                  ))}
+              </div>
+          )}
+      </div>
     </div>
   );
 };

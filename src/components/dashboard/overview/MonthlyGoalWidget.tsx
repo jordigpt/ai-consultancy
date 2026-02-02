@@ -9,6 +9,7 @@ interface MonthlyGoalWidgetProps {
   monthlyGoal: number;
   gumroadRevenue: number;
   agencyRevenue: number;
+  consultingRevenue?: number; // Added optional prop
   className?: string;
   onClick?: () => void;
 }
@@ -18,17 +19,19 @@ export const MonthlyGoalWidget = ({
   monthlyGoal, 
   gumroadRevenue, 
   agencyRevenue,
+  consultingRevenue,
   className,
   onClick
 }: MonthlyGoalWidgetProps) => {
-  // CORRECCIÓN: Sumar facturación de TODOS los alumnos activos, no solo los que iniciaron este mes.
-  const activeStudents = students.filter(s => s.status === 'active' || !s.status);
-  const studentsRevenue = activeStudents.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
   
-  // Total (Alumnos Activos + Gumroad + Agencia)
-  const totalMonthlyRevenue = studentsRevenue + gumroadRevenue + agencyRevenue;
+  // Use passed consultingRevenue if available, otherwise fallback to legacy logic (not recommended but safe)
+  const safeConsultingRevenue = consultingRevenue !== undefined 
+    ? consultingRevenue 
+    : students.filter(s => s.status === 'active').reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
   
-  // Evitar división por cero
+  // Total (Alumnos este mes + Gumroad + Agencia)
+  const totalMonthlyRevenue = safeConsultingRevenue + gumroadRevenue + agencyRevenue;
+  
   const goal = monthlyGoal > 0 ? monthlyGoal : 1;
   const monthlyProgress = Math.min((totalMonthlyRevenue / goal) * 100, 100);
 

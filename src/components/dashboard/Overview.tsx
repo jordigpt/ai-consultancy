@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Student, Lead, MentorTask } from "@/lib/types";
+import { Student, Lead, MentorTask, MonthlyRevenue } from "@/lib/types";
 import { NotificationsSection } from "./overview/NotificationsSection";
 import { StatsCards } from "./overview/StatsCards";
 import { UpcomingCalls } from "./overview/UpcomingCalls";
@@ -13,8 +13,8 @@ interface OverviewProps {
   leads: Lead[];
   mentorTasks: MentorTask[];
   monthlyGoal: number;
-  gumroadRevenue: number;
-  agencyRevenue: number;
+  currentMonthRevenue: MonthlyRevenue;
+  consultingRevenue: number;
   onAddStudent: () => void;
   onAddLead: () => void;
   onAddTask: () => void;
@@ -29,8 +29,8 @@ export const Overview = ({
   leads, 
   mentorTasks,
   monthlyGoal,
-  gumroadRevenue,
-  agencyRevenue,
+  currentMonthRevenue,
+  consultingRevenue,
   onAddStudent, 
   onAddLead,
   onAddTask,
@@ -47,13 +47,14 @@ export const Overview = ({
       {/* Notifications Bar */}
       <NotificationsSection leads={leads} onOpenLead={onOpenLead} />
 
-      {/* Stats Grid (Includes Compact Goal Widget) */}
+      {/* Stats Grid */}
       <StatsCards 
         students={students} 
         leads={leads} 
         monthlyGoal={monthlyGoal}
-        gumroadRevenue={gumroadRevenue}
-        agencyRevenue={agencyRevenue}
+        gumroadRevenue={currentMonthRevenue.gumroadRevenue}
+        agencyRevenue={currentMonthRevenue.agencyRevenue}
+        consultingRevenue={consultingRevenue}
         onNavigate={onNavigate}
       />
 

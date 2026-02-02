@@ -20,7 +20,7 @@ import { Overview } from "@/components/dashboard/Overview";
 import { NotesView } from "@/components/notes/NotesView";
 import { MonthlyGoalView } from "@/components/dashboard/MonthlyGoalView";
 import { CommandCenter } from "@/components/dashboard/CommandCenter";
-import { AiConsultantView } from "@/components/ai/AiConsultantView"; // Import AI View
+import { AiConsultantView } from "@/components/ai/AiConsultantView"; 
 
 // Views
 import { ActiveStudentsView } from "@/components/dashboard/views/ActiveStudentsView";
@@ -36,22 +36,19 @@ const Index = () => {
     mentorTasks,
     notes,
     monthlyGoal,
-    gumroadRevenue,
-    agencyRevenue,
+    currentMonthRevenue,
+    consultingRevenue,
     loading,
     fetchData,
     setMentorTasks,
     setMonthlyGoal,
-    setGumroadRevenue,
-    setAgencyRevenue
+    setCurrentMonthRevenue
   } = useDashboardData();
 
   const [currentView, setCurrentView] = useState("overview"); 
   
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  
   const [leadDetailsOpen, setLeadDetailsOpen] = useState(false);
-  
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
   const [isCommandCenterOpen, setIsCommandCenterOpen] = useState(false);
@@ -64,16 +61,23 @@ const Index = () => {
 
   const handleUpdateSettings = (newGoal: number, newGumroad: number, newAgency: number) => {
       setMonthlyGoal(newGoal);
-      setGumroadRevenue(newGumroad);
-      setAgencyRevenue(newAgency);
+      setCurrentMonthRevenue(prev => ({ 
+          ...prev, 
+          gumroadRevenue: newGumroad, 
+          agencyRevenue: newAgency 
+      }));
   };
 
-  const handleAddStudent = async (data: Omit<Student, "id" | "tasks" | "calls" | "status" | "notes" | "events">) => {
+  const handleAddStudent = async (data: Omit<Student, "id" | "tasks" | "calls" | "status" | "notes" | "events" | "payments">) => {
     try {
       setIsSubmitting(true);
-      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
+
+      // Set initial billing date to startDate + 30 days
+      const startDate = new Date(data.startDate);
+      const nextBilling = new Date(startDate);
+      nextBilling.setDate(startDate.getDate() + 30);
 
       const dbData = {
         user_id: user.id,
@@ -85,15 +89,23 @@ const Index = () => {
         ai_level: data.aiLevel,
         business_model: data.businessModel,
         start_date: data.startDate.toISOString(),
-        paid_in_full: data.paidInFull,
-        amount_paid: data.amountPaid,
-        amount_owed: data.amountOwed,
+        next_billing_date: nextBilling.toISOString(), // Set initial billing cycle
         status: 'active'
       };
 
-      const { error } = await supabase.from('students').insert(dbData);
-
+      const { data: newStudent, error } = await supabase.from('students').insert(dbData).select().single();
       if (error) throw error;
+
+      // If initial payment is made, record it
+      if (data.amountPaid && data.amountPaid > 0) {
+          await supabase.from('student_payments').insert({
+              student_id: newStudent.id,
+              user_id: user.id,
+              amount: data.amountPaid,
+              payment_date: new Date().toISOString(),
+              notes: "Pago inicial"
+          });
+      }
 
       showSuccess("Alumno registrado correctamente");
       setIsAddStudentOpen(false);
@@ -106,6 +118,8 @@ const Index = () => {
     }
   };
 
+  // ... (Rest of handlers remain similar, mostly simplified or same)
+  
   const handleAddLead = async (data: Omit<Lead, "id" | "createdAt" | "status" | "calls">) => {
       try {
         setIsSubmitting(true);
@@ -120,20 +134,20 @@ const Index = () => {
             interest_level: data.interestLevel,
             notes: data.notes,
             next_call_date: data.nextCallDate?.toISOString(),
-            status: 'new'
+            status: 'new',
+            value: data.value
         };
 
         const { data: newLead, error } = await supabase.from('leads').insert(dbData).select().single();
         if (error) throw error;
 
         if (data.nextCallDate) {
-            const { error: callError } = await supabase.from('calls').insert({
+            await supabase.from('calls').insert({
                 lead_id: newLead.id,
                 user_id: user.id,
                 date: data.nextCallDate.toISOString(),
                 completed: false
             });
-            if (callError) console.error("Error creating initial call record", callError);
         }
 
         showSuccess("Lead creado");
@@ -157,20 +171,17 @@ const Index = () => {
         dateTime.setHours(hours);
         dateTime.setMinutes(minutes);
 
-        const newCallData = {
+        const { error } = await supabase.from('calls').insert({
             student_id: studentId,
             user_id: user.id,
             date: dateTime.toISOString(),
             completed: false
-        };
-
-        const { error } = await supabase.from('calls').insert(newCallData);
+        });
         if (error) throw error;
 
         showSuccess("Llamada agendada correctamente");
         fetchData(); 
     } catch (error) {
-        console.error(error);
         showError("Error al agendar llamada");
     } finally {
         setIsSubmitting(false);
@@ -202,7 +213,6 @@ const Index = () => {
       showSuccess("Completa los datos para registrar al nuevo alumno.");
   };
 
-  // NAVIGATION HANDLER FOR NEW PROFILE PAGE
   const navigateToStudentProfile = (student: Student) => {
     navigate(`/student/${student.id}`);
   };
@@ -232,12 +242,12 @@ const Index = () => {
                     leads={leads}
                     mentorTasks={mentorTasks}
                     monthlyGoal={monthlyGoal}
-                    gumroadRevenue={gumroadRevenue}
-                    agencyRevenue={agencyRevenue}
+                    currentMonthRevenue={currentMonthRevenue}
+                    consultingRevenue={consultingRevenue}
                     onAddStudent={() => setIsAddStudentOpen(true)}
                     onAddLead={() => setIsAddLeadOpen(true)}
                     onAddTask={() => setCurrentView('tasks')}
-                    onOpenStudent={navigateToStudentProfile} // Updated
+                    onOpenStudent={navigateToStudentProfile}
                     onOpenLead={openLeadDetails}
                     onToggleTask={handleToggleTask}
                     onNavigate={(view) => setCurrentView(view)}
@@ -250,8 +260,8 @@ const Index = () => {
                 <MonthlyGoalView 
                     students={students} 
                     currentGoal={monthlyGoal} 
-                    gumroadRevenue={gumroadRevenue}
-                    agencyRevenue={agencyRevenue}
+                    gumroadRevenue={currentMonthRevenue.gumroadRevenue}
+                    agencyRevenue={currentMonthRevenue.agencyRevenue}
                     onSettingsUpdate={handleUpdateSettings} 
                 />
             );
@@ -259,14 +269,14 @@ const Index = () => {
             return (
                 <ActiveStudentsView 
                     students={activeStudents} 
-                    onStudentClick={navigateToStudentProfile} // Updated
+                    onStudentClick={navigateToStudentProfile}
                 />
             );
         case 'graduated':
             return (
                 <GraduatedStudentsView 
                     students={graduatedStudents} 
-                    onStudentClick={navigateToStudentProfile} // Updated
+                    onStudentClick={navigateToStudentProfile}
                 />
             );
         case 'calendar':
@@ -277,7 +287,7 @@ const Index = () => {
                         leads={leads}
                         onScheduleCall={handleScheduleGlobalCall}
                         isSubmitting={isSubmitting}
-                        onOpenStudentDetails={navigateToStudentProfile} // Updated
+                        onOpenStudentDetails={navigateToStudentProfile}
                         onOpenLeadDetails={openLeadDetails}
                     />
                 </div>
@@ -326,7 +336,7 @@ const Index = () => {
                 onAddLead: () => setIsAddLeadOpen(true),
                 onAddTask: () => setCurrentView('tasks'),
                 onAddNote: () => setIsAddNoteOpen(true),
-                onOpenStudent: navigateToStudentProfile, // Updated
+                onOpenStudent: navigateToStudentProfile,
                 onOpenLead: openLeadDetails
             }}
         />
@@ -349,10 +359,7 @@ const Index = () => {
             </DialogContent>
         </Dialog>
 
-        <AddNoteDialog 
-            open={isAddNoteOpen}
-            onOpenChange={setIsAddNoteOpen}
-        />
+        <AddNoteDialog open={isAddNoteOpen} onOpenChange={setIsAddNoteOpen} />
         
         <LeadDetails 
             lead={selectedLead}
