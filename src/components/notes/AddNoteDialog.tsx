@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +18,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
+import { Note } from "@/lib/types";
 
 const DEFAULT_CATEGORIES = ["Reel", "Story", "Guía", "SOP", "Idea", "Otro"];
 
@@ -25,15 +26,32 @@ interface AddNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNoteAdded?: () => void;
+  noteToEdit?: Note | null;
 }
 
-export const AddNoteDialog = ({ open, onOpenChange, onNoteAdded }: AddNoteDialogProps) => {
+export const AddNoteDialog = ({ open, onOpenChange, onNoteAdded, noteToEdit }: AddNoteDialogProps) => {
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newCategory, setNewCategory] = useState("Idea");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddNote = async () => {
+  useEffect(() => {
+    if (noteToEdit && open) {
+      setNewTitle(noteToEdit.title);
+      setNewContent(noteToEdit.content);
+      setNewCategory(noteToEdit.category);
+    } else if (!open) {
+      // Reset only when closing to avoid flickering if switching modes quickly
+      // or optionally reset when opening in 'add' mode, but parent handles that usually.
+      if (!noteToEdit) {
+          setNewTitle("");
+          setNewContent("");
+          setNewCategory("Idea");
+      }
+    }
+  }, [noteToEdit, open]);
+
+  const handleSaveNote = async () => {
     if (!newTitle.trim()) return;
 
     try {
@@ -41,22 +59,37 @@ export const AddNoteDialog = ({ open, onOpenChange, onNoteAdded }: AddNoteDialog
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase.from('notes').insert({
-        user_id: user.id,
-        title: newTitle,
-        content: newContent,
-        category: newCategory,
-      });
+      if (noteToEdit) {
+         const { error } = await supabase
+          .from('notes')
+          .update({
+            title: newTitle,
+            content: newContent,
+            category: newCategory,
+          })
+          .eq('id', noteToEdit.id);
+          
+         if (error) throw error;
+         showSuccess("Nota actualizada");
+      } else {
+        const { error } = await supabase.from('notes').insert({
+          user_id: user.id,
+          title: newTitle,
+          content: newContent,
+          category: newCategory,
+        });
 
-      if (error) throw error;
+        if (error) throw error;
+        showSuccess("Nota guardada en Note Bank");
+      }
 
-      showSuccess("Nota guardada en Note Bank");
       setNewTitle("");
       setNewContent("");
       onOpenChange(false);
       if (onNoteAdded) onNoteAdded();
     } catch (error) {
-      showError("Error al crear nota");
+      console.error(error);
+      showError("Error al guardar nota");
     } finally {
       setIsSubmitting(false);
     }
@@ -66,7 +99,7 @@ export const AddNoteDialog = ({ open, onOpenChange, onNoteAdded }: AddNoteDialog
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Crear Nota Rápida</DialogTitle>
+          <DialogTitle>{noteToEdit ? "Editar Nota" : "Crear Nota Rápida"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -101,9 +134,9 @@ export const AddNoteDialog = ({ open, onOpenChange, onNoteAdded }: AddNoteDialog
               onChange={(e) => setNewContent(e.target.value)}
             />
           </div>
-          <Button className="w-full" onClick={handleAddNote} disabled={isSubmitting}>
+          <Button className="w-full" onClick={handleSaveNote} disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Guardar Nota
+            {noteToEdit ? "Guardar Cambios" : "Guardar Nota"}
           </Button>
         </div>
       </DialogContent>

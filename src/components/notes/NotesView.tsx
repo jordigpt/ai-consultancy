@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, StickyNote, Trash2, Pin, Search, Loader2 } from "lucide-react";
+import { Plus, StickyNote, Trash2, Pin, Search, Loader2, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { formatDistanceToNow } from "date-fns";
@@ -19,6 +19,7 @@ export const NotesView = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | "all">("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
 
   const fetchNotes = async () => {
     try {
@@ -54,6 +55,9 @@ export const NotesView = () => {
   }, []);
 
   const handleDelete = async (id: string) => {
+    const confirm = window.confirm("¿Estás seguro de eliminar esta nota?");
+    if (!confirm) return;
+
     try {
       const { error } = await supabase.from('notes').delete().eq('id', id);
       if (error) throw error;
@@ -64,12 +68,20 @@ export const NotesView = () => {
     }
   };
 
+  const handleEdit = (note: Note) => {
+    setEditingNote(note);
+    setIsAddOpen(true);
+  };
+
   const togglePin = async (note: Note) => {
     try {
       // Optimistic update
       const updatedNotes = notes.map(n => 
         n.id === note.id ? { ...n, isPinned: !n.isPinned } : n
-      ).sort((a, b) => (b.isPinned === a.isPinned ? 0 : b.isPinned ? 1 : -1)); 
+      ).sort((a, b) => {
+          if (a.isPinned === b.isPinned) return b.createdAt.getTime() - a.createdAt.getTime();
+          return a.isPinned ? -1 : 1;
+      }); 
       
       setNotes(updatedNotes);
 
@@ -112,14 +124,18 @@ export const NotesView = () => {
             <p className="text-muted-foreground text-sm">Captura tus ideas, guiones y procesos.</p>
         </div>
 
-        <Button className="shadow-md" onClick={() => setIsAddOpen(true)}>
+        <Button className="shadow-md" onClick={() => { setEditingNote(null); setIsAddOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" /> Nueva Nota
         </Button>
 
         <AddNoteDialog 
             open={isAddOpen} 
-            onOpenChange={setIsAddOpen} 
+            onOpenChange={(open) => {
+                setIsAddOpen(open);
+                if (!open) setEditingNote(null);
+            }} 
             onNoteAdded={fetchNotes} 
+            noteToEdit={editingNote}
         />
       </div>
 
@@ -183,6 +199,14 @@ export const NotesView = () => {
                                     onClick={() => togglePin(note)}
                                 >
                                     <Pin size={14} className={note.isPinned ? "fill-yellow-500" : ""} />
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 text-muted-foreground hover:text-blue-500"
+                                    onClick={() => handleEdit(note)}
+                                >
+                                    <Pencil size={14} />
                                 </Button>
                                 <Button 
                                     variant="ghost" 

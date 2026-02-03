@@ -3,7 +3,7 @@ import { Student } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { StickyNote, Plus, Trash2, Loader2, Calendar } from "lucide-react";
+import { StickyNote, Plus, Trash2, Loader2, Calendar, Pencil, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { format } from "date-fns";
@@ -17,6 +17,10 @@ interface StudentNotesProps {
 export const StudentNotes = ({ student, onUpdate }: StudentNotesProps) => {
   const [newNote, setNewNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Edit States
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
 
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
@@ -51,7 +55,42 @@ export const StudentNotes = ({ student, onUpdate }: StudentNotesProps) => {
     }
   };
 
+  const handleStartEdit = (noteId: string, currentContent: string) => {
+    setEditingId(noteId);
+    setEditContent(currentContent);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditContent("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editContent.trim()) return;
+
+    try {
+        const { error } = await supabase
+            .from('student_notes')
+            .update({ content: editContent })
+            .eq('id', editingId);
+
+        if (error) throw error;
+
+        const updatedNotes = student.notes.map(n => 
+            n.id === editingId ? { ...n, content: editContent } : n
+        );
+        onUpdate({ ...student, notes: updatedNotes });
+        setEditingId(null);
+        showSuccess("Nota actualizada");
+    } catch (error) {
+        showError("Error al actualizar nota");
+    }
+  };
+
   const handleDeleteNote = async (noteId: string) => {
+    const confirm = window.confirm("¿Eliminar esta nota?");
+    if (!confirm) return;
+    
     try {
       const { error } = await supabase.from('student_notes').delete().eq('id', noteId);
       if (error) throw error;
@@ -96,22 +135,52 @@ export const StudentNotes = ({ student, onUpdate }: StudentNotesProps) => {
           <div className="space-y-3">
             {student.notes.map((note) => (
               <div key={note.id} className="bg-white p-3 rounded-lg border shadow-sm group relative">
-                <p className="text-sm whitespace-pre-wrap pr-6 text-slate-700">
-                    {note.content}
-                </p>
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-2 border-t pt-2">
-                    <Calendar size={10} />
-                    {format(note.createdAt, "d MMM yyyy, HH:mm", { locale: es })}
-                </div>
-                
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                  onClick={() => handleDeleteNote(note.id)}
-                >
-                  <Trash2 size={12} />
-                </Button>
+                {editingId === note.id ? (
+                    <div className="space-y-2">
+                         <Textarea 
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            className="min-h-[80px] text-sm"
+                         />
+                         <div className="flex gap-2 justify-end">
+                            <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-8">
+                                <X size={14} className="mr-1" /> Cancelar
+                            </Button>
+                            <Button size="sm" onClick={handleSaveEdit} className="h-8">
+                                <Check size={14} className="mr-1" /> Guardar
+                            </Button>
+                         </div>
+                    </div>
+                ) : (
+                    <>
+                        <p className="text-sm whitespace-pre-wrap pr-10 text-slate-700">
+                            {note.content}
+                        </p>
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-2 border-t pt-2">
+                            <Calendar size={10} />
+                            {format(note.createdAt, "d MMM yyyy, HH:mm", { locale: es })}
+                        </div>
+                        
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 text-muted-foreground hover:text-blue-600"
+                                onClick={() => handleStartEdit(note.id, note.content)}
+                            >
+                                <Pencil size={12} />
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDeleteNote(note.id)}
+                            >
+                                <Trash2 size={12} />
+                            </Button>
+                        </div>
+                    </>
+                )}
               </div>
             ))}
           </div>
