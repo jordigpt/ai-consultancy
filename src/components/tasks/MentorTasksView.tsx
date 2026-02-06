@@ -1,83 +1,29 @@
 import React, { useState, useEffect } from "react";
-import { MentorTask, TaskPriority } from "@/lib/types";
+import { MentorTask } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { 
   Plus, 
-  Trash2, 
   CheckSquare, 
-  AlertTriangle, 
-  ArrowUpCircle, 
-  ArrowDownCircle, 
   Loader2,
-  Calendar,
   User,
   Target,
-  Check,
-  ChevronsUpDown,
-  X,
-  Pencil,
   Briefcase
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
-
-interface RelationOption {
-    id: string;
-    label: string;
-    type: 'student' | 'lead';
-}
+import { TaskColumn } from "./TaskColumn";
+import { TaskFormDialog, RelationOption } from "./TaskFormDialog";
 
 export const MentorTasksView = () => {
   const [tasks, setTasks] = useState<MentorTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<MentorTask | null>(null);
-
-  // Form States
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<TaskPriority>("medium");
-  const [selectedRelation, setSelectedRelation] = useState<RelationOption | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Relations Data
+  // Relations Data for Combobox
   const [relations, setRelations] = useState<RelationOption[]>([]);
-  const [openCombobox, setOpenCombobox] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -155,53 +101,33 @@ export const MentorTasksView = () => {
     fetchData();
   }, []);
 
-  const resetForm = () => {
-      setTitle("");
-      setDescription("");
-      setPriority("medium");
-      setSelectedRelation(null);
+  const handleOpenAdd = () => {
       setEditingTask(null);
-  };
-
-  const handleOpenAdd = (preselectedType?: 'student' | 'lead' | null) => {
-      resetForm();
-      // Si quisiéramos preseleccionar el tipo en el futuro, podríamos hacerlo aquí,
-      // pero por ahora mantenemos el selector genérico.
       setIsDialogOpen(true);
   };
 
   const handleOpenEdit = (task: MentorTask) => {
       setEditingTask(task);
-      setTitle(task.title);
-      setDescription(task.description || "");
-      setPriority(task.priority);
-      
-      if (task.studentId) {
-          setSelectedRelation({ id: task.studentId, label: task.relatedName || "", type: 'student' });
-      } else if (task.leadId) {
-          setSelectedRelation({ id: task.leadId, label: task.relatedName || "", type: 'lead' });
-      } else {
-          setSelectedRelation(null);
-      }
-      
       setIsDialogOpen(true);
   };
 
-  const handleSaveTask = async () => {
-    if (!title.trim()) return;
-
+  const handleSaveTask = async (taskData: {
+      title: string;
+      description: string;
+      priority: any;
+      relation: RelationOption | null;
+  }) => {
     try {
-      setIsSubmitting(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const payload: any = {
         user_id: user.id,
-        title,
-        description,
-        priority,
-        student_id: selectedRelation?.type === 'student' ? selectedRelation.id : null,
-        lead_id: selectedRelation?.type === 'lead' ? selectedRelation.id : null
+        title: taskData.title,
+        description: taskData.description,
+        priority: taskData.priority,
+        student_id: taskData.relation?.type === 'student' ? taskData.relation.id : null,
+        lead_id: taskData.relation?.type === 'lead' ? taskData.relation.id : null
       };
 
       if (editingTask) {
@@ -217,13 +143,10 @@ export const MentorTasksView = () => {
           showSuccess("Tarea creada");
       }
 
-      setIsDialogOpen(false);
-      resetForm();
       fetchData(); 
     } catch (error) {
       showError("Error al guardar tarea");
-    } finally {
-      setIsSubmitting(false);
+      throw error; // Re-throw to handle spinner in dialog
     }
   };
 
@@ -260,107 +183,6 @@ export const MentorTasksView = () => {
     }
   };
 
-  const getPriorityBadge = (p: TaskPriority) => {
-    switch(p) {
-        case 'high': return <Badge variant="destructive" className="gap-1 h-5 text-[10px] px-1.5"><AlertTriangle size={8} /> Alta</Badge>;
-        case 'medium': return <Badge variant="secondary" className="bg-orange-100 text-orange-800 hover:bg-orange-200 gap-1 h-5 text-[10px] px-1.5"><ArrowUpCircle size={8} /> Media</Badge>;
-        case 'low': return <Badge variant="outline" className="text-muted-foreground gap-1 h-5 text-[10px] px-1.5"><ArrowDownCircle size={8} /> Baja</Badge>;
-    }
-  };
-
-  // --- Column Render Helper ---
-  const TaskColumn = ({ 
-      title, 
-      columnTasks, 
-      icon: Icon, 
-      colorClass 
-  }: { 
-      title: string; 
-      columnTasks: MentorTask[]; 
-      icon: any; 
-      colorClass: string 
-  }) => (
-      <div className="flex flex-col h-full bg-slate-50/50 border rounded-xl overflow-hidden">
-          <div className={cn("p-3 border-b flex items-center justify-between bg-white", colorClass)}>
-              <h3 className="font-semibold flex items-center gap-2 text-sm">
-                  <Icon size={16} /> {title}
-              </h3>
-              <Badge variant="secondary" className="text-xs">{columnTasks.filter(t => !t.completed).length}</Badge>
-          </div>
-          <ScrollArea className="flex-1 p-3">
-              {columnTasks.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground text-xs border-2 border-dashed rounded-lg">
-                      No hay tareas en esta sección.
-                  </div>
-              ) : (
-                  <div className="space-y-3">
-                      {columnTasks.map(task => (
-                          <div 
-                            key={task.id} 
-                            className={cn(
-                                "group relative flex items-start gap-3 p-3 rounded-lg border transition-all bg-white shadow-sm hover:shadow-md",
-                                task.completed && "opacity-60 bg-slate-50"
-                            )}
-                          >
-                                <Checkbox 
-                                    checked={task.completed}
-                                    onCheckedChange={() => toggleTask(task)}
-                                    className="mt-1"
-                                />
-                                <div className="flex-1 min-w-0 space-y-1">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <span className={cn("text-sm font-medium leading-snug", task.completed && "line-through text-muted-foreground")}>
-                                            {task.title}
-                                        </span>
-                                    </div>
-                                    
-                                    {task.relatedName && (
-                                        <div className="flex items-center gap-1 text-xs text-blue-600 font-medium">
-                                             {task.relatedType === 'student' ? <User size={10} /> : <Target size={10} />}
-                                             <span className="truncate">{task.relatedName}</span>
-                                        </div>
-                                    )}
-
-                                    {task.description && (
-                                        <p className="text-xs text-muted-foreground line-clamp-2">
-                                            {task.description}
-                                        </p>
-                                    )}
-                                    
-                                    <div className="flex items-center justify-between pt-1">
-                                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                                            <span className="flex items-center gap-1"><Calendar size={10} /> {format(task.createdAt, "d MMM", { locale: es })}</span>
-                                        </div>
-                                        {getPriorityBadge(task.priority)}
-                                    </div>
-                                </div>
-
-                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 rounded-md">
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-6 w-6 text-muted-foreground hover:text-blue-500"
-                                        onClick={() => handleOpenEdit(task)}
-                                    >
-                                        <Pencil size={12} />
-                                    </Button>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                        onClick={() => deleteTask(task.id)}
-                                    >
-                                        <Trash2 size={12} />
-                                    </Button>
-                                </div>
-                          </div>
-                      ))}
-                  </div>
-              )}
-          </ScrollArea>
-      </div>
-  );
-
   if (isLoading) {
       return <div className="flex justify-center py-10"><Loader2 className="animate-spin" /></div>;
   }
@@ -382,132 +204,17 @@ export const MentorTasksView = () => {
             </p>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-                <Button className="shadow-md" onClick={() => handleOpenAdd()}>
-                    <Plus className="mr-2 h-4 w-4" /> Nueva Tarea
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="overflow-visible">
-                <DialogHeader>
-                    <DialogTitle>{editingTask ? "Editar Tarea" : "Agregar Tarea"}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Título</label>
-                        <Input 
-                            placeholder="Ej. Revisar métricas..." 
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                        />
-                    </div>
+        <Button className="shadow-md" onClick={handleOpenAdd}>
+            <Plus className="mr-2 h-4 w-4" /> Nueva Tarea
+        </Button>
 
-                    <div className="space-y-2 flex flex-col">
-                        <label className="text-sm font-medium">Relacionado con (Opcional)</label>
-                        <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={openCombobox}
-                                className="justify-between"
-                                >
-                                {selectedRelation
-                                    ? selectedRelation.label
-                                    : "Buscar alumno o lead..."}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start">
-                                <Command>
-                                    <CommandInput placeholder="Buscar..." />
-                                    <CommandList>
-                                        <CommandEmpty>No encontrado.</CommandEmpty>
-                                        <CommandGroup heading="Alumnos">
-                                            {relations.filter(r => r.type === 'student').map((relation) => (
-                                                <CommandItem
-                                                    key={relation.id}
-                                                    value={relation.label}
-                                                    onSelect={() => {
-                                                        setSelectedRelation(relation);
-                                                        setOpenCombobox(false);
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            selectedRelation?.id === relation.id ? "opacity-100" : "opacity-0"
-                                                        )}
-                                                    />
-                                                    {relation.label}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                        <CommandGroup heading="Leads">
-                                            {relations.filter(r => r.type === 'lead').map((relation) => (
-                                                <CommandItem
-                                                    key={relation.id}
-                                                    value={relation.label}
-                                                    onSelect={() => {
-                                                        setSelectedRelation(relation);
-                                                        setOpenCombobox(false);
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            selectedRelation?.id === relation.id ? "opacity-100" : "opacity-0"
-                                                        )}
-                                                    />
-                                                    {relation.label}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                        {selectedRelation && (
-                             <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="self-start h-6 text-xs text-muted-foreground -mt-1"
-                                onClick={() => setSelectedRelation(null)}
-                            >
-                                <X size={12} className="mr-1" /> Quitar selección (Hacer General)
-                            </Button>
-                        )}
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Prioridad</label>
-                        <Select value={priority} onValueChange={(val) => setPriority(val as TaskPriority)}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="high">🔴 Alta Prioridad</SelectItem>
-                                <SelectItem value="medium">🟠 Media</SelectItem>
-                                <SelectItem value="low">⚪ Baja</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Descripción / Notas</label>
-                        <Textarea 
-                            placeholder="Detalles adicionales..." 
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="min-h-[100px]"
-                        />
-                    </div>
-                    <Button className="w-full" onClick={handleSaveTask} disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {editingTask ? "Guardar Cambios" : "Crear Tarea"}
-                    </Button>
-                </div>
-            </DialogContent>
-        </Dialog>
+        <TaskFormDialog 
+            open={isDialogOpen} 
+            onOpenChange={setIsDialogOpen} 
+            taskToEdit={editingTask} 
+            relations={relations} 
+            onSave={handleSaveTask}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 min-h-0">
@@ -516,18 +223,27 @@ export const MentorTasksView = () => {
             columnTasks={generalTasks} 
             icon={CheckSquare} 
             colorClass="border-slate-200 text-slate-700" 
+            onToggle={toggleTask}
+            onEdit={handleOpenEdit}
+            onDelete={deleteTask}
           />
           <TaskColumn 
             title="Tareas de Alumnos" 
             columnTasks={studentTasks} 
             icon={User} 
             colorClass="border-blue-200 text-blue-700 bg-blue-50" 
+            onToggle={toggleTask}
+            onEdit={handleOpenEdit}
+            onDelete={deleteTask}
           />
           <TaskColumn 
             title="Tareas de Leads" 
             columnTasks={leadTasks} 
             icon={Target} 
             colorClass="border-orange-200 text-orange-700 bg-orange-50" 
+            onToggle={toggleTask}
+            onEdit={handleOpenEdit}
+            onDelete={deleteTask}
           />
       </div>
     </div>
