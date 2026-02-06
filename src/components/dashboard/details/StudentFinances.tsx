@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { Student } from "@/lib/types";
-import { DollarSign, Plus, AlertTriangle, History, Clock, TrendingUp, CheckCircle2 } from "lucide-react";
+import { DollarSign, Plus, Calendar, AlertTriangle, History, Clock, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { format, addMonths, differenceInMonths, isBefore, startOfDay, differenceInDays } from "date-fns";
+import { format, addDays, isPast, isFuture, differenceInMonths, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   Dialog,
@@ -26,37 +26,36 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
   const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [shouldUpdateCycle, setShouldUpdateCycle] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- LÓGICA DE CICLOS (FIXED) ---
-  const startDate = startOfDay(new Date(student.startDate));
-  const today = startOfDay(new Date());
+  // --- LÓGICA DE CICLOS Y VENCIMIENTOS ---
+  const startDate = new Date(student.startDate);
+  const today = new Date();
 
-  // 1. Pagos válidos
+  // 1. Calcular en qué mes de cursada está
+  const monthsSinceStart = differenceInMonths(today, startDate);
+  const currentMonthNumber = monthsSinceStart + 1;
+
+  // 2. Obtener el último pago válido
   const sortedPayments = [...(student.payments || [])].sort((a, b) => b.paymentDate.getTime() - a.paymentDate.getTime());
-  const validPayments = sortedPayments.filter(p => p.amount > 0);
-  const paymentsCount = validPayments.length;
+  const lastPayment = sortedPayments.length > 0 ? sortedPayments[0] : null;
 
-  // 2. Mes Cronológico Actual
-  const currentMonthNumber = differenceInMonths(today, startDate) + 1;
+  // 3. Calcular vencimiento real
+  let realDueDate: Date;
+  if (lastPayment) {
+      realDueDate = addDays(lastPayment.paymentDate, 30);
+  } else {
+      realDueDate = addDays(startDate, 30);
+  }
 
-  // 3. Vencimiento (Cubierto hasta...)
-  // StartDate + (Pagos * 1 mes)
-  const coveredUntil = addMonths(startDate, paymentsCount);
-  
-  // 4. Estados
-  // Vencido si HOY > CubiertoHasta
-  const isOverdue = isBefore(coveredUntil, today);
-  const daysUntilDue = differenceInDays(coveredUntil, today);
+  // 4. Determinar si está vencido
+  const isOverdue = isPast(realDueDate) && !isSameDay(realDueDate, today);
 
-  // 5. Textos
+  // 5. Estado visual
   const statusLabel = isOverdue 
-    ? `Debe Mes ${paymentsCount + 1}` 
+    ? `Deuda Pendiente (Mes ${currentMonthNumber})` 
     : `Al día`;
-
-  const nextDueLabel = isOverdue 
-    ? `Venció el ${format(coveredUntil, "d 'de' MMMM", { locale: es })}`
-    : `Vence en ${daysUntilDue} días (${format(coveredUntil, "d MMM")})`;
 
   const handleRegisterPayment = async () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -72,7 +71,7 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
       const numAmount = parseFloat(amount);
       const dateObj = new Date(paymentDate);
 
-      // Insertar Pago
+      // 1. Insertar Pago
       const { data: paymentData, error: payError } = await supabase
         .from('student_payments')
         .insert({
@@ -80,23 +79,26 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
             user_id: user.id,
             amount: numAmount,
             payment_date: dateObj.toISOString(),
-            notes: `Pago Mes ${paymentsCount + 1}`
+            notes: shouldUpdateCycle ? `Pago Mes ${currentMonthNumber}` : "Pago parcial/extra"
         })
         .select()
         .single();
 
       if (payError) throw payError;
 
-      // Actualizar next_billing_date en DB (Sincronización)
-      // Ahora el nuevo vencimiento será +1 mes desde el anterior coverage
-      const newNextBillingDate = addMonths(coveredUntil, 1);
-      
-      await supabase
-        .from('students')
-        .update({ next_billing_date: newNextBillingDate.toISOString() })
-        .eq('id', student.id);
+      // 2. Actualizar Ciclo
+      let newNextBillingDate = student.nextBillingDate;
+      if (shouldUpdateCycle) {
+          const calculatedNextDue = addDays(dateObj, 30);
+          newNextBillingDate = calculatedNextDue;
 
-      // UI Update
+          await supabase
+            .from('students')
+            .update({ next_billing_date: calculatedNextDue.toISOString() })
+            .eq('id', student.id);
+      }
+
+      // 3. Notificar actualización UI
       if (onUpdate) {
           const newPayment = {
               id: paymentData.id,
@@ -113,7 +115,7 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
           });
       }
 
-      showSuccess("Pago registrado");
+      showSuccess("Pago registrado correctamente");
       setIsAddingPayment(false);
       setAmount("");
       
@@ -130,16 +132,16 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
         isOverdue ? "bg-red-50/50 border-red-100" : "bg-green-50/50 border-green-100"
     }`}>
       
-      {/* 1. Status Section */}
+      {/* 1. Badges & Status Section */}
       <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
                 <Badge variant={isOverdue ? "destructive" : "default"} className={`h-6 ${isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}`}>
-                    {isOverdue ? <AlertTriangle size={12} className="mr-1.5" /> : <CheckCircle2 size={12} className="mr-1.5" />}
-                    {isOverdue ? "Pago Pendiente" : "Estado Activo"}
+                    {isOverdue ? <AlertTriangle size={12} className="mr-1.5" /> : <DollarSign size={12} className="mr-1.5" />}
+                    {isOverdue ? "Pago Requerido" : "Estado Activo"}
                 </Badge>
                 <Badge variant="outline" className="h-6 bg-white text-slate-700 border-slate-200 shadow-sm">
                     <TrendingUp size={12} className="mr-1.5 text-blue-600" /> 
-                    Mes {currentMonthNumber}
+                    Cursando Mes {currentMonthNumber}
                 </Badge>
           </div>
           
@@ -149,14 +151,15 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
             </h4>
             <div className="flex items-center gap-1.5 mt-1.5 text-xs font-medium text-slate-500">
                 <Clock size={14} className={isOverdue ? "text-red-500" : "text-green-600"} />
+                {isOverdue ? "Venció el: " : "Próximo vencimiento: "} 
                 <span className={isOverdue ? "text-red-700 font-bold" : "text-slate-900"}>
-                    {nextDueLabel}
+                    {format(realDueDate, "d 'de' MMMM", { locale: es })}
                 </span>
             </div>
           </div>
       </div>
 
-      {/* 2. Action Button */}
+      {/* 2. Action Button (Full Width) */}
       <Dialog open={isAddingPayment} onOpenChange={setIsAddingPayment}>
         <DialogTrigger asChild>
             <Button 
@@ -166,12 +169,12 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
                         : "bg-white text-green-700 border border-green-200 hover:bg-green-50 hover:border-green-300"
                 }`}
             >
-                <Plus size={16} className="mr-2" /> Registrar Pago Mes {paymentsCount + 1}
+                <Plus size={16} className="mr-2" /> Registrar Pago
             </Button>
         </DialogTrigger>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle>Registrar Pago - Mes {paymentsCount + 1}</DialogTitle>
+                <DialogTitle>Registrar Pago - Mes {currentMonthNumber}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -192,6 +195,21 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
                         onChange={(e) => setPaymentDate(e.target.value)} 
                     />
                 </div>
+                <div className="flex items-center gap-2 pt-2 bg-slate-50 p-2 rounded border">
+                    <input 
+                        type="checkbox" 
+                        id="update-cycle" 
+                        checked={shouldUpdateCycle} 
+                        onChange={(e) => setShouldUpdateCycle(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="update-cycle" className="text-sm font-medium cursor-pointer">
+                        Extender vencimiento 30 días
+                        <span className="block text-[10px] text-muted-foreground font-normal">
+                            (Recomendado para pagos mensuales completos)
+                        </span>
+                    </Label>
+                </div>
                 
                 <Button className="w-full mt-4" onClick={handleRegisterPayment} disabled={isSubmitting}>
                     {isSubmitting ? "Guardando..." : "Confirmar Pago"}
@@ -211,7 +229,7 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
               </div>
           ) : (
               <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1">
-                  {sortedPayments.slice(0, 5).map((pay, i) => (
+                  {student.payments.slice(0, 5).map(pay => (
                       <div key={pay.id} className="flex justify-between items-center text-xs group">
                           <div className="flex flex-col">
                               <span className="text-slate-700 font-medium group-hover:text-slate-900 transition-colors">

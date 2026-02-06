@@ -2,7 +2,7 @@ import { Student, HealthScore } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BrainCircuit, CheckSquare, Clock, AlertCircle, TrendingUp } from "lucide-react";
-import { differenceInDays, differenceInMonths, addMonths, startOfDay, isBefore } from "date-fns";
+import { differenceInDays, differenceInMonths, addDays, isPast, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface StudentCardProps {
@@ -13,37 +13,28 @@ interface StudentCardProps {
 export const StudentCard = ({ student, onClick }: StudentCardProps) => {
   const completedTasks = student.tasks.filter(t => t.completed).length;
   
-  // --- LÓGICA DE CICLO Y VENCIMIENTOS (FIXED) ---
-  const today = startOfDay(new Date());
-  const startDate = startOfDay(new Date(student.startDate));
+  // --- LÓGICA DE CICLO Y MESES ---
+  const today = new Date();
+  const startDate = new Date(student.startDate);
   
-  // 1. Pagos válidos (Total de meses pagados)
-  const paymentsCount = (student.payments || []).filter(p => p.amount > 0).length;
+  // 1. Calcular mes actual de cursada
+  const currentMonthNumber = differenceInMonths(today, startDate) + 1;
 
-  // 2. Mes Actual (Cronológico)
-  // Si empezó el 1 de Enero y hoy es 1 de Febrero, ya es Mes 2.
-  // Usamos differenceInMonths. Si la diferencia es 0 (mismo mes relativo), es el Mes 1.
-  // Si hoy coincide con el día de inicio (ej 5 Ene -> 5 Feb), differenceInMonths a veces da 1 exacto.
-  // Sumamos 1 para que sea base-1 (Mes 1, Mes 2).
-  let currentMonthNumber = differenceInMonths(today, startDate) + 1;
-  
-  // Ajuste fino: si hoy es el día exacto de cobro, ya cuenta como el mes siguiente en curso
-  // (Esto depende de cómo date-fns maneje diff, pero +1 suele ser seguro para "Mes en curso")
+  // 2. Calcular vencimiento real (mismo algoritmo que en Finances)
+  const sortedPayments = [...(student.payments || [])].sort((a, b) => b.paymentDate.getTime() - a.paymentDate.getTime());
+  const lastPayment = sortedPayments.length > 0 ? sortedPayments[0] : null;
 
-  // 3. Fecha hasta la que está cubierto (Vencimiento)
-  // StartDate + Pagos * 1 Mes.
-  // Ejemplo: Inicio 1 Ene. 1 Pago. Cubierto hasta 1 Feb.
-  const coveredUntil = addMonths(startDate, paymentsCount);
-  
-  // 4. Días restantes
-  // Si hoy es 25 Ene y vence 1 Feb -> Positivo.
-  // Si hoy es 5 Feb y venció 1 Feb -> Negativo (Deuda).
-  const daysUntilDue = differenceInDays(coveredUntil, today);
-  
-  // 5. Estados
-  // Es deudor si la fecha de cobertura ya pasó (ayer o antes)
-  const isOverdue = isBefore(coveredUntil, today); // isBefore es estricto (<)
-  const isUrgent = !isOverdue && daysUntilDue <= 5; // Aviso 5 días antes
+  let realDueDate: Date;
+  if (lastPayment) {
+      realDueDate = addDays(lastPayment.paymentDate, 30);
+  } else {
+      realDueDate = addDays(startDate, 30);
+  }
+
+  // 3. Estado de Vencimiento
+  const isOverdue = isPast(realDueDate) && !isSameDay(realDueDate, today);
+  const daysUntilDue = differenceInDays(realDueDate, today);
+  const isUrgent = daysUntilDue <= 3; // Alerta si faltan 3 días o menos (o si ya pasó)
 
   const getHealthColor = (score: HealthScore) => {
     switch (score) {
@@ -75,6 +66,7 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs sm:text-sm group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                     {student.firstName[0]}{student.lastName[0]}
                  </div>
+                 {/* Health Indicator Badge */}
                  <div className={cn("absolute -bottom-0.5 -right-0.5 h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-full border-2 border-white", getHealthColor(student.healthScore))} />
               </div>
               <div className="min-w-0">
@@ -97,9 +89,7 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
                  "bg-emerald-100 text-emerald-700 border-emerald-200"
              )}>
                {isOverdue ? (
-                 // Si debe, debe el mes siguiente al último pagado.
-                 // Ejemplo: Pagó 1. Debe el 2. (paymentsCount + 1)
-                 <><AlertCircle size={10} /> Debe Mes {paymentsCount + 1}</>
+                 <><AlertCircle size={10} /> Debe Mes {currentMonthNumber}</>
                ) : (
                  <><Clock size={10} /> Vence en {daysUntilDue}d</>
                )}
