@@ -1,8 +1,8 @@
 import { Student, HealthScore } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BrainCircuit, CheckSquare, Clock, AlertCircle } from "lucide-react";
-import { differenceInDays } from "date-fns";
+import { BrainCircuit, CheckSquare, Clock, AlertCircle, TrendingUp } from "lucide-react";
+import { differenceInDays, differenceInMonths, addDays, isPast, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface StudentCardProps {
@@ -13,28 +13,28 @@ interface StudentCardProps {
 export const StudentCard = ({ student, onClick }: StudentCardProps) => {
   const completedTasks = student.tasks.filter(t => t.completed).length;
   
-  // Lógica del ciclo de facturación (30 días)
-  const calculateDaysRemaining = () => {
-    const today = new Date();
-    const start = new Date(student.startDate);
-    
-    // Días totales desde el inicio
-    const daysPassed = differenceInDays(today, start);
-    
-    if (daysPassed < 0) return 30; // Si la fecha es futura, el ciclo empieza completo
-    
-    // Días dentro del ciclo actual (0 a 29)
-    const daysIntoCycle = daysPassed % 30;
-    
-    // Días restantes para terminar el ciclo
-    return 30 - daysIntoCycle;
-  };
+  // --- LÓGICA DE CICLO Y MESES ---
+  const today = new Date();
+  const startDate = new Date(student.startDate);
+  
+  // 1. Calcular mes actual de cursada
+  const currentMonthNumber = differenceInMonths(today, startDate) + 1;
 
-  const daysRemaining = calculateDaysRemaining();
-  const isUrgent = daysRemaining <= 7; // Última semana
+  // 2. Calcular vencimiento real (mismo algoritmo que en Finances)
+  const sortedPayments = [...(student.payments || [])].sort((a, b) => b.paymentDate.getTime() - a.paymentDate.getTime());
+  const lastPayment = sortedPayments.length > 0 ? sortedPayments[0] : null;
 
-  // Check if actually paid (either flag is true OR debt is 0)
-  const isPaid = student.paidInFull || (student.amountOwed !== undefined && student.amountOwed <= 0);
+  let realDueDate: Date;
+  if (lastPayment) {
+      realDueDate = addDays(lastPayment.paymentDate, 30);
+  } else {
+      realDueDate = addDays(startDate, 30);
+  }
+
+  // 3. Estado de Vencimiento
+  const isOverdue = isPast(realDueDate) && !isSameDay(realDueDate, today);
+  const daysUntilDue = differenceInDays(realDueDate, today);
+  const isUrgent = daysUntilDue <= 3; // Alerta si faltan 3 días o menos (o si ya pasó)
 
   const getHealthColor = (score: HealthScore) => {
     switch (score) {
@@ -53,8 +53,9 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
   return (
     <Card 
       className={cn(
-          "cursor-pointer transition-all hover:shadow-md group animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col justify-between",
-          getHealthBorder(student.healthScore)
+          "cursor-pointer transition-all hover:shadow-md group animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col justify-between relative",
+          getHealthBorder(student.healthScore),
+          isOverdue && "border-red-200 bg-red-50/30"
       )}
       onClick={onClick}
     >
@@ -76,20 +77,23 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
         </div>
 
         <div className="flex flex-wrap gap-1 items-center justify-end">
+          <Badge variant="outline" className="text-[9px] sm:text-[10px] h-4 px-1.5 font-normal bg-white/50">
+             <TrendingUp size={10} className="mr-1" /> Mes {currentMonthNumber}
+          </Badge>
+
           {student.status === 'active' && (
-             <div className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-1 shrink-0 ${
-               isUrgent 
-                 ? "bg-red-100 text-red-700 border-red-200" 
-                 : "bg-emerald-100 text-emerald-700 border-emerald-200"
-             }`}>
-               {isUrgent ? <AlertCircle size={10} /> : <Clock size={10} />}
-               {daysRemaining} d
+             <div className={cn(
+                 "text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-1 shrink-0",
+                 isOverdue ? "bg-red-100 text-red-700 border-red-200" :
+                 isUrgent ? "bg-orange-100 text-orange-700 border-orange-200" :
+                 "bg-emerald-100 text-emerald-700 border-emerald-200"
+             )}>
+               {isOverdue ? (
+                 <><AlertCircle size={10} /> Debe Mes {currentMonthNumber}</>
+               ) : (
+                 <><Clock size={10} /> Vence en {daysUntilDue}d</>
+               )}
              </div>
-          )}
-          {isPaid ? (
-            <Badge variant="outline" className="text-[9px] sm:text-[10px] h-4 border-green-200 text-green-700 bg-green-50 px-1.5">Pagado</Badge>
-          ) : (
-            <Badge variant="outline" className="text-[9px] sm:text-[10px] h-4 border-red-200 text-red-700 bg-red-50 px-1.5">Deuda</Badge>
           )}
         </div>
       </CardHeader>
