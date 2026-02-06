@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { format, addMonths, differenceInMonths, isAfter, startOfDay } from "date-fns";
+import { format, addMonths, differenceInMonths, isBefore, startOfDay, differenceInDays } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   Dialog,
@@ -28,46 +28,35 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
   const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- NUEVA LÓGICA DE CICLOS (MESES PAGADOS VS CURSADOS) ---
+  // --- LÓGICA DE CICLOS (FIXED) ---
   const startDate = startOfDay(new Date(student.startDate));
   const today = startOfDay(new Date());
 
-  // 1. Pagos válidos (ignoramos montos 0 o negativos si hubiera)
-  const validPayments = (student.payments || []).filter(p => p.amount > 0);
+  // 1. Pagos válidos
+  const sortedPayments = [...(student.payments || [])].sort((a, b) => b.paymentDate.getTime() - a.paymentDate.getTime());
+  const validPayments = sortedPayments.filter(p => p.amount > 0);
   const paymentsCount = validPayments.length;
 
-  // 2. Meses que "deberían" estar pagos a la fecha
-  // Si hoy es el mismo día de inicio o después, ya cuenta como mes 1.
-  // differenceInMonths(Feb 1, Jan 1) = 1. Si hoy es Feb 1, ya empezó el mes 2 -> Debería tener 2 pagos.
-  const monthsElapsed = differenceInMonths(today, startDate);
-  
-  // Ajuste: Si el día del mes de hoy es >= al día de inicio, sumamos 1 porque ya arrancó el siguiente mes.
-  // Ejemplo: Inicio 15 Ene. Hoy 10 Feb. Diff=0. Mes Cursando = 1. (OK)
-  // Ejemplo: Inicio 15 Ene. Hoy 15 Feb. Diff=1. Mes Cursando = 2. (OK)
-  // Nota: differenceInMonths es a veces estricto, usaremos lógica de fecha.
-  
-  let currentMonthNumber = monthsElapsed;
-  if (today.getDate() >= startDate.getDate()) {
-      currentMonthNumber += 1;
-  }
-  // Edge case: Si es el primer mes (diff 0) y día < start, sigue siendo mes 1 si ya start pasó.
-  if (currentMonthNumber < 1) currentMonthNumber = 1;
+  // 2. Mes Cronológico Actual
+  const currentMonthNumber = differenceInMonths(today, startDate) + 1;
 
-  // 3. Estado de Deuda
-  // Deuda = Meses Cursando - Pagos Realizados
-  const monthsOwed = currentMonthNumber - paymentsCount;
-  const isOverdue = monthsOwed > 0;
-
-  // 4. Próximo Vencimiento (o Vencimiento Actual si debe)
-  // Fecha cubierta = Inicio + (Pagos * 1 mes)
+  // 3. Vencimiento (Cubierto hasta...)
+  // StartDate + (Pagos * 1 mes)
   const coveredUntil = addMonths(startDate, paymentsCount);
-  // El próximo pago vence el día que se acaba la cobertura
-  const nextDueDate = coveredUntil;
+  
+  // 4. Estados
+  // Vencido si HOY > CubiertoHasta
+  const isOverdue = isBefore(coveredUntil, today);
+  const daysUntilDue = differenceInDays(coveredUntil, today);
 
   // 5. Textos
   const statusLabel = isOverdue 
-    ? `Debe ${monthsOwed} mes${monthsOwed > 1 ? 'es' : ''}` 
-    : `Al día (Cubierto Mes ${paymentsCount})`;
+    ? `Debe Mes ${paymentsCount + 1}` 
+    : `Al día`;
+
+  const nextDueLabel = isOverdue 
+    ? `Venció el ${format(coveredUntil, "d 'de' MMMM", { locale: es })}`
+    : `Vence en ${daysUntilDue} días (${format(coveredUntil, "d MMM")})`;
 
   const handleRegisterPayment = async () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -83,7 +72,7 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
       const numAmount = parseFloat(amount);
       const dateObj = new Date(paymentDate);
 
-      // 1. Insertar Pago
+      // Insertar Pago
       const { data: paymentData, error: payError } = await supabase
         .from('student_payments')
         .insert({
@@ -91,23 +80,23 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
             user_id: user.id,
             amount: numAmount,
             payment_date: dateObj.toISOString(),
-            notes: `Pago Mes ${paymentsCount + 1}` // Asumimos que paga el siguiente
+            notes: `Pago Mes ${paymentsCount + 1}`
         })
         .select()
         .single();
 
       if (payError) throw payError;
 
-      // 2. Actualizar next_billing_date en DB para sincronizar
-      // Nuevo vencimiento = Inicio + (PagosActuales + 1) meses
-      const newNextBillingDate = addMonths(startDate, paymentsCount + 1);
+      // Actualizar next_billing_date en DB (Sincronización)
+      // Ahora el nuevo vencimiento será +1 mes desde el anterior coverage
+      const newNextBillingDate = addMonths(coveredUntil, 1);
       
       await supabase
         .from('students')
         .update({ next_billing_date: newNextBillingDate.toISOString() })
         .eq('id', student.id);
 
-      // 3. Update UI
+      // UI Update
       if (onUpdate) {
           const newPayment = {
               id: paymentData.id,
@@ -137,20 +126,20 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
   };
 
   return (
-    <div className={`p-4 rounded-xl border-2 flex flex-col gap-4 relative overflow-hidden transition-colors ${
+    <div className={`p-4 rounded-xl border-2 space-y-4 relative transition-colors overflow-hidden ${
         isOverdue ? "bg-red-50/50 border-red-100" : "bg-green-50/50 border-green-100"
     }`}>
       
-      {/* Header Info */}
+      {/* 1. Status Section */}
       <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
-                <Badge variant={isOverdue ? "destructive" : "outline"} className={`h-6 ${isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-green-100 text-green-700 border-green-200"}`}>
+                <Badge variant={isOverdue ? "destructive" : "default"} className={`h-6 ${isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}`}>
                     {isOverdue ? <AlertTriangle size={12} className="mr-1.5" /> : <CheckCircle2 size={12} className="mr-1.5" />}
-                    {isOverdue ? "Pago Pendiente" : "Al día"}
+                    {isOverdue ? "Pago Pendiente" : "Estado Activo"}
                 </Badge>
-                <Badge variant="secondary" className="h-6 bg-white text-slate-700 border-slate-200 shadow-sm font-medium">
+                <Badge variant="outline" className="h-6 bg-white text-slate-700 border-slate-200 shadow-sm">
                     <TrendingUp size={12} className="mr-1.5 text-blue-600" /> 
-                    Cursando Mes {currentMonthNumber}
+                    Mes {currentMonthNumber}
                 </Badge>
           </div>
           
@@ -160,15 +149,14 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
             </h4>
             <div className="flex items-center gap-1.5 mt-1.5 text-xs font-medium text-slate-500">
                 <Clock size={14} className={isOverdue ? "text-red-500" : "text-green-600"} />
-                {isOverdue ? "Venció el: " : "Próximo vencimiento: "} 
                 <span className={isOverdue ? "text-red-700 font-bold" : "text-slate-900"}>
-                    {format(nextDueDate, "d 'de' MMMM", { locale: es })}
+                    {nextDueLabel}
                 </span>
             </div>
           </div>
       </div>
 
-      {/* Action Button - Full Width for Mobile/Sidebar */}
+      {/* 2. Action Button */}
       <Dialog open={isAddingPayment} onOpenChange={setIsAddingPayment}>
         <DialogTrigger asChild>
             <Button 
@@ -212,10 +200,10 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
         </DialogContent>
       </Dialog>
 
-      {/* History List */}
+      {/* 3. History Preview */}
       <div className="bg-white/80 rounded-lg p-3 border border-gray-100 shadow-sm">
           <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5 border-b border-dashed pb-2">
-              <History size={12} /> Historial ({paymentsCount} pagos)
+              <History size={12} /> Historial Reciente
           </h5>
           {!student.payments || student.payments.length === 0 ? (
               <div className="text-center py-2">
@@ -223,15 +211,13 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
               </div>
           ) : (
               <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1">
-                  {student.payments.slice(0, 5).map((pay, i) => (
+                  {sortedPayments.slice(0, 5).map((pay, i) => (
                       <div key={pay.id} className="flex justify-between items-center text-xs group">
                           <div className="flex flex-col">
                               <span className="text-slate-700 font-medium group-hover:text-slate-900 transition-colors">
                                 {format(pay.paymentDate, "d MMM yyyy", { locale: es })}
                               </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {pay.notes || `Pago #${paymentsCount - i}`}
-                              </span>
+                              {pay.notes && <span className="text-[10px] text-muted-foreground line-clamp-1">{pay.notes}</span>}
                           </div>
                           <span className="font-mono font-bold text-slate-800 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 group-hover:border-green-200 group-hover:bg-green-50 group-hover:text-green-700 transition-all">
                             ${pay.amount}

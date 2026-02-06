@@ -2,7 +2,7 @@ import { Student, HealthScore } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BrainCircuit, CheckSquare, Clock, AlertCircle, TrendingUp } from "lucide-react";
-import { differenceInMonths, addMonths, startOfDay, differenceInDays } from "date-fns";
+import { differenceInDays, differenceInMonths, addMonths, startOfDay, isBefore } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface StudentCardProps {
@@ -13,31 +13,37 @@ interface StudentCardProps {
 export const StudentCard = ({ student, onClick }: StudentCardProps) => {
   const completedTasks = student.tasks.filter(t => t.completed).length;
   
-  // --- LÓGICA DE CICLO Y MESES (Igual a StudentFinances) ---
-  const startDate = startOfDay(new Date(student.startDate));
+  // --- LÓGICA DE CICLO Y VENCIMIENTOS (FIXED) ---
   const today = startOfDay(new Date());
-
-  // 1. Pagos válidos
+  const startDate = startOfDay(new Date(student.startDate));
+  
+  // 1. Pagos válidos (Total de meses pagados)
   const paymentsCount = (student.payments || []).filter(p => p.amount > 0).length;
 
-  // 2. Mes actual de cursada
-  const monthsElapsed = differenceInMonths(today, startDate);
-  let currentMonthNumber = monthsElapsed;
-  if (today.getDate() >= startDate.getDate()) {
-      currentMonthNumber += 1;
-  }
-  if (currentMonthNumber < 1) currentMonthNumber = 1;
-
-  // 3. Estado de Deuda
-  const monthsOwed = currentMonthNumber - paymentsCount;
-  const isOverdue = monthsOwed > 0;
-
-  // 4. Días restantes para el vencimiento (o hace cuánto venció)
-  const coveredUntil = addMonths(startDate, paymentsCount);
-  const nextDueDate = coveredUntil;
+  // 2. Mes Actual (Cronológico)
+  // Si empezó el 1 de Enero y hoy es 1 de Febrero, ya es Mes 2.
+  // Usamos differenceInMonths. Si la diferencia es 0 (mismo mes relativo), es el Mes 1.
+  // Si hoy coincide con el día de inicio (ej 5 Ene -> 5 Feb), differenceInMonths a veces da 1 exacto.
+  // Sumamos 1 para que sea base-1 (Mes 1, Mes 2).
+  let currentMonthNumber = differenceInMonths(today, startDate) + 1;
   
-  const daysUntilDue = differenceInDays(nextDueDate, today);
-  const isUrgent = daysUntilDue <= 5 && !isOverdue; // Aviso 5 días antes
+  // Ajuste fino: si hoy es el día exacto de cobro, ya cuenta como el mes siguiente en curso
+  // (Esto depende de cómo date-fns maneje diff, pero +1 suele ser seguro para "Mes en curso")
+
+  // 3. Fecha hasta la que está cubierto (Vencimiento)
+  // StartDate + Pagos * 1 Mes.
+  // Ejemplo: Inicio 1 Ene. 1 Pago. Cubierto hasta 1 Feb.
+  const coveredUntil = addMonths(startDate, paymentsCount);
+  
+  // 4. Días restantes
+  // Si hoy es 25 Ene y vence 1 Feb -> Positivo.
+  // Si hoy es 5 Feb y venció 1 Feb -> Negativo (Deuda).
+  const daysUntilDue = differenceInDays(coveredUntil, today);
+  
+  // 5. Estados
+  // Es deudor si la fecha de cobertura ya pasó (ayer o antes)
+  const isOverdue = isBefore(coveredUntil, today); // isBefore es estricto (<)
+  const isUrgent = !isOverdue && daysUntilDue <= 5; // Aviso 5 días antes
 
   const getHealthColor = (score: HealthScore) => {
     switch (score) {
@@ -52,9 +58,6 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
       if (score === 'red') return 'border-red-300 bg-red-50/10 shadow-sm';
       return 'hover:border-primary/50';
   };
-
-  // Check if paid in full manually OR fully covered by months
-  const isPaid = student.paidInFull || (!isOverdue && monthsOwed <= 0);
 
   return (
     <Card 
@@ -94,6 +97,8 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
                  "bg-emerald-100 text-emerald-700 border-emerald-200"
              )}>
                {isOverdue ? (
+                 // Si debe, debe el mes siguiente al último pagado.
+                 // Ejemplo: Pagó 1. Debe el 2. (paymentsCount + 1)
                  <><AlertCircle size={10} /> Debe Mes {paymentsCount + 1}</>
                ) : (
                  <><Clock size={10} /> Vence en {daysUntilDue}d</>
