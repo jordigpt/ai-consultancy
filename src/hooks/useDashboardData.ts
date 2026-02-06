@@ -164,6 +164,7 @@ export const useDashboardData = () => {
         value: l.value || 0,
         notes: l.notes || "",
         nextCallDate: l.next_call_date ? new Date(l.next_call_date) : undefined,
+        nextFollowupDate: l.next_followup_date ? new Date(l.next_followup_date) : undefined, // NEW FIELD MAPPED
         createdAt: new Date(l.created_at),
         calls: (l.calls || []).map((c: any) => ({
             id: c.id,

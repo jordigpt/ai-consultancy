@@ -117,8 +117,6 @@ const Index = () => {
       setIsSubmitting(false);
     }
   };
-
-  // ... (Rest of handlers remain similar, mostly simplified or same)
   
   const handleAddLead = async (data: Omit<Lead, "id" | "createdAt" | "status" | "calls">) => {
       try {
@@ -134,6 +132,7 @@ const Index = () => {
             interest_level: data.interestLevel,
             notes: data.notes,
             next_call_date: data.nextCallDate?.toISOString(),
+            next_followup_date: data.nextFollowupDate?.toISOString(), // NEW FIELD
             status: 'new',
             value: data.value
         };
@@ -141,6 +140,7 @@ const Index = () => {
         const { data: newLead, error } = await supabase.from('leads').insert(dbData).select().single();
         if (error) throw error;
 
+        // If a call was scheduled, add it to the calls table history too
         if (data.nextCallDate) {
             await supabase.from('calls').insert({
                 lead_id: newLead.id,

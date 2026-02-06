@@ -3,7 +3,7 @@ import { Lead } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, CalendarPlus, Mail, MessageSquare, Phone, Clock, DollarSign } from "lucide-react";
+import { CalendarClock, CalendarPlus, Mail, MessageSquare, Phone, Clock, DollarSign, MessageCircle } from "lucide-react";
 import { format, isPast, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -92,26 +92,42 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
             )}
         </div>
       </CardContent>
-      {lead.nextCallDate && lead.status !== 'won' && lead.status !== 'lost' && (
-        <CardFooter className="p-4 pt-0">
-             <div className={cn(
-                 "w-full p-2 rounded-md flex items-center justify-between gap-2 text-xs font-medium",
-                 isPast(lead.nextCallDate) ? "bg-red-50 text-red-700 border border-red-100" : "bg-blue-50 text-blue-700 border border-blue-100"
-             )}>
-                <div className="flex items-center gap-2">
-                    <CalendarClock size={14} />
-                    <span>{isPast(lead.nextCallDate) ? "Vencida: " : "Próxima: "} {format(lead.nextCallDate, "EEE d, HH:mm")}</span>
+
+      {/* Footer Logic: Show Next Call OR Follow Up */}
+      {(lead.nextCallDate || lead.nextFollowupDate) && lead.status !== 'won' && lead.status !== 'lost' && (
+        <CardFooter className="p-4 pt-0 flex flex-col gap-2">
+             {/* 1. Scheduled Call */}
+             {lead.nextCallDate && (
+                <div className={cn(
+                    "w-full p-2 rounded-md flex items-center justify-between gap-2 text-xs font-medium",
+                    isPast(lead.nextCallDate) ? "bg-red-50 text-red-700 border border-red-100" : "bg-blue-50 text-blue-700 border border-blue-100"
+                )}>
+                    <div className="flex items-center gap-2">
+                        <CalendarClock size={14} />
+                        <span>{isPast(lead.nextCallDate) ? "Call Vencida: " : "Próxima Call: "} {format(lead.nextCallDate, "EEE d, HH:mm")}</span>
+                    </div>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 hover:bg-white/50" 
+                        onClick={handleCalendarClick}
+                        title="Agregar a Calendario"
+                    >
+                        <CalendarPlus size={14} />
+                    </Button>
                 </div>
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6 hover:bg-white/50" 
-                    onClick={handleCalendarClick}
-                    title="Agregar a Calendario"
-                >
-                    <CalendarPlus size={14} />
-                </Button>
-             </div>
+             )}
+
+             {/* 2. Message Follow Up */}
+             {lead.nextFollowupDate && (
+                 <div className={cn(
+                    "w-full p-2 rounded-md flex items-center gap-2 text-xs font-medium",
+                    isPast(lead.nextFollowupDate) ? "bg-red-50 text-red-700 border border-red-100" : "bg-purple-50 text-purple-700 border border-purple-100"
+                 )}>
+                    <MessageCircle size={14} />
+                    <span>{isPast(lead.nextFollowupDate) ? "Seguimiento Vencido: " : "Seguimiento: "} {format(lead.nextFollowupDate, "EEE d MMM")}</span>
+                 </div>
+             )}
         </CardFooter>
       )}
     </Card>

@@ -18,12 +18,12 @@ import {
 import { LeadForm } from "./LeadForm";
 import { LeadCalls } from "./LeadCalls";
 import { Separator } from "@/components/ui/separator";
-import { UserCheck, Trash2, Edit, CalendarClock, Phone } from "lucide-react";
+import { UserCheck, Trash2, Edit, CalendarClock, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { format, isPast } from "date-fns";
-import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface LeadDetailsProps {
   lead: Lead | null;
@@ -65,7 +65,8 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                 interest_level: data.interestLevel,
                 value: data.value,
                 notes: data.notes,
-                next_call_date: data.nextCallDate?.toISOString()
+                next_call_date: data.nextCallDate?.toISOString(),
+                next_followup_date: data.nextFollowupDate?.toISOString() // Updated field
             })
             .eq('id', lead.id);
 
@@ -171,6 +172,23 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                         <span className="font-medium text-muted-foreground">Interés:</span>
                         <span className="col-span-2 capitalize">{lead.interestLevel === 'high' ? '🔥 Alto' : lead.interestLevel === 'medium' ? '🌤️ Medio' : '❄️ Bajo'}</span>
                     </div>
+                    {/* Display Next Actions */}
+                    {(lead.nextCallDate || lead.nextFollowupDate) && (
+                        <div className="col-span-3 pt-2 border-t mt-2 grid gap-2">
+                             {lead.nextCallDate && (
+                                <div className="flex items-center gap-2 text-blue-700 bg-blue-50 p-1.5 rounded">
+                                    <CalendarClock size={14} />
+                                    <span>Call: {format(lead.nextCallDate, "d MMM, HH:mm", { locale: es })}</span>
+                                </div>
+                             )}
+                             {lead.nextFollowupDate && (
+                                <div className="flex items-center gap-2 text-purple-700 bg-purple-50 p-1.5 rounded">
+                                    <MessageCircle size={14} />
+                                    <span>Seguimiento: {format(lead.nextFollowupDate, "d MMM", { locale: es })}</span>
+                                </div>
+                             )}
+                        </div>
+                    )}
                 </div>
 
                 {lead.notes && (
@@ -184,7 +202,7 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                 
                 <Separator />
 
-                {/* New Calls Component */}
+                {/* New Calls Component (Keeps history of calls) */}
                 <LeadCalls lead={lead} onUpdate={onUpdate} />
 
                 <Separator />

@@ -13,7 +13,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, Mail, Phone, User, DollarSign } from "lucide-react";
+import { CalendarIcon, Loader2, Mail, Phone, User, DollarSign, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Lead, InterestLevel } from "@/lib/types";
 
@@ -31,6 +31,7 @@ export const LeadForm = ({ onSubmit, isLoading, initialData }: LeadFormProps) =>
   const [value, setValue] = React.useState(initialData?.value?.toString() || "");
   const [notes, setNotes] = React.useState(initialData?.notes || "");
   
+  // Call Scheduler
   const [nextCallDate, setNextCallDate] = React.useState<Date | undefined>(
     initialData?.nextCallDate || undefined
   );
@@ -38,16 +39,24 @@ export const LeadForm = ({ onSubmit, isLoading, initialData }: LeadFormProps) =>
     initialData?.nextCallDate ? format(initialData.nextCallDate, "HH:mm") : "10:00"
   );
 
+  // Follow-up Scheduler
+  const [nextFollowupDate, setNextFollowupDate] = React.useState<Date | undefined>(
+    initialData?.nextFollowupDate || undefined
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    let finalDate = undefined;
+    let finalCallDate = undefined;
     if (nextCallDate) {
         const [hours, minutes] = nextCallTime.split(':').map(Number);
-        finalDate = new Date(nextCallDate);
-        finalDate.setHours(hours);
-        finalDate.setMinutes(minutes);
+        finalCallDate = new Date(nextCallDate);
+        finalCallDate.setHours(hours);
+        finalCallDate.setMinutes(minutes);
     }
+
+    // Follow-up date (usually doesn't need strict time, defaulting to start of day or keeping standard)
+    // We can just keep the date object as is from the picker (usually 00:00 local)
 
     onSubmit({
       name,
@@ -56,7 +65,8 @@ export const LeadForm = ({ onSubmit, isLoading, initialData }: LeadFormProps) =>
       interestLevel,
       value: parseFloat(value) || 0,
       notes,
-      nextCallDate: finalDate,
+      nextCallDate: finalCallDate,
+      nextFollowupDate: nextFollowupDate,
     });
   };
 
@@ -117,37 +127,73 @@ export const LeadForm = ({ onSubmit, isLoading, initialData }: LeadFormProps) =>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Agendar Próxima Llamada (Opcional)</Label>
-        <div className="flex flex-col sm:flex-row gap-2">
-            <Popover>
-            <PopoverTrigger asChild>
-                <Button
-                variant={"outline"}
-                className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !nextCallDate && "text-muted-foreground"
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Call Scheduler */}
+        <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+                <Phone size={14} className="text-blue-600" /> Próxima Llamada
+            </Label>
+            <div className="flex flex-col gap-2">
+                <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                    variant={"outline"}
+                    className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !nextCallDate && "text-muted-foreground"
+                    )}
+                    >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {nextCallDate ? format(nextCallDate, "PPP") : <span>Sin fecha</span>}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                    mode="single"
+                    selected={nextCallDate}
+                    onSelect={setNextCallDate}
+                    initialFocus
+                    />
+                </PopoverContent>
+                </Popover>
+                {nextCallDate && (
+                    <Input 
+                        type="time" 
+                        value={nextCallTime}
+                        onChange={(e) => setNextCallTime(e.target.value)}
+                        className="w-full"
+                    />
                 )}
-                >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {nextCallDate ? format(nextCallDate, "PPP") : <span>Seleccionar fecha</span>}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                mode="single"
-                selected={nextCallDate}
-                onSelect={setNextCallDate}
-                initialFocus
-                />
-            </PopoverContent>
+            </div>
+        </div>
+
+        {/* Follow-up Scheduler */}
+        <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+                <MessageCircle size={14} className="text-purple-600" /> Seguimiento (Mensaje)
+            </Label>
+             <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                    variant={"outline"}
+                    className={cn(
+                        "w-full justify-start text-left font-normal border-purple-100 hover:bg-purple-50",
+                        !nextFollowupDate && "text-muted-foreground"
+                    )}
+                    >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {nextFollowupDate ? format(nextFollowupDate, "PPP") : <span>Sin seguimiento</span>}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                    mode="single"
+                    selected={nextFollowupDate}
+                    onSelect={setNextFollowupDate}
+                    initialFocus
+                    />
+                </PopoverContent>
             </Popover>
-            <Input 
-                type="time" 
-                value={nextCallTime}
-                onChange={(e) => setNextCallTime(e.target.value)}
-                className="w-full sm:w-32"
-            />
         </div>
       </div>
 

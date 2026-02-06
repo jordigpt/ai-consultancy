@@ -93,7 +93,8 @@ export interface Lead {
   interestLevel: InterestLevel;
   value?: number;
   notes: string;
-  nextCallDate?: Date;
+  nextCallDate?: Date;     // Para Videollamadas agendadas
+  nextFollowupDate?: Date; // Para mensajes/seguimiento
   createdAt: Date;
   calls: Call[];
 }
