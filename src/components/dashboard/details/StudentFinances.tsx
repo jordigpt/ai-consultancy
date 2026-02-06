@@ -33,19 +33,15 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
   const startDate = new Date(student.startDate);
   const today = new Date();
 
-  // 1. Calcular en qué mes de cursada está (Mes 1, Mes 2, etc.)
-  // Si inició hoy, es diferencia 0, por eso sumamos 1.
+  // 1. Calcular en qué mes de cursada está
   const monthsSinceStart = differenceInMonths(today, startDate);
   const currentMonthNumber = monthsSinceStart + 1;
 
   // 2. Obtener el último pago válido
-  // Ordenamos los pagos por fecha descendente
   const sortedPayments = [...(student.payments || [])].sort((a, b) => b.paymentDate.getTime() - a.paymentDate.getTime());
   const lastPayment = sortedPayments.length > 0 ? sortedPayments[0] : null;
 
   // 3. Calcular vencimiento real
-  // Si hay pagos: Vence 30 días después del último pago.
-  // Si NO hay pagos: Vence 30 días después de la fecha de inicio.
   let realDueDate: Date;
   if (lastPayment) {
       realDueDate = addDays(lastPayment.paymentDate, 30);
@@ -54,14 +50,12 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
   }
 
   // 4. Determinar si está vencido
-  // Está vencido si la fecha límite (realDueDate) ya pasó y no es hoy.
-  // Nota: isPast devuelve true si es ayer o antes.
   const isOverdue = isPast(realDueDate) && !isSameDay(realDueDate, today);
 
   // 5. Estado visual
   const statusLabel = isOverdue 
     ? `Deuda Pendiente (Mes ${currentMonthNumber})` 
-    : `Al día (Cubierto hasta Mes ${currentMonthNumber})`;
+    : `Al día`;
 
   const handleRegisterPayment = async () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -92,8 +86,7 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
 
       if (payError) throw payError;
 
-      // 2. Actualizar Ciclo del Alumno (si corresponde)
-      // Si actualizamos ciclo, seteamos el next_billing_date en la DB para que coincida con nuestro cálculo lógico
+      // 2. Actualizar Ciclo
       let newNextBillingDate = student.nextBillingDate;
       if (shouldUpdateCycle) {
           const calculatedNextDue = addDays(dateObj, 30);
@@ -135,105 +128,116 @@ export const StudentFinances = ({ student, onUpdate }: StudentFinancesProps) => 
   };
 
   return (
-    <div className={`p-4 rounded-lg border space-y-4 relative transition-colors ${
-        isOverdue ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"
+    <div className={`p-4 rounded-xl border-2 space-y-4 relative transition-colors overflow-hidden ${
+        isOverdue ? "bg-red-50/50 border-red-100" : "bg-green-50/50 border-green-100"
     }`}>
       
-      {/* Header Status */}
-      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-                 <Badge variant={isOverdue ? "destructive" : "default"} className={isOverdue ? "bg-red-600" : "bg-green-600"}>
-                    {isOverdue ? <AlertTriangle size={10} className="mr-1" /> : <DollarSign size={10} className="mr-1" />}
+      {/* 1. Badges & Status Section */}
+      <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+                <Badge variant={isOverdue ? "destructive" : "default"} className={`h-6 ${isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}`}>
+                    {isOverdue ? <AlertTriangle size={12} className="mr-1.5" /> : <DollarSign size={12} className="mr-1.5" />}
                     {isOverdue ? "Pago Requerido" : "Estado Activo"}
-                 </Badge>
-                 <Badge variant="outline" className="bg-white/50 text-slate-700 border-slate-300">
-                    <TrendingUp size={10} className="mr-1" /> Cursando Mes {currentMonthNumber}
-                 </Badge>
-            </div>
-            
-            <h4 className={`text-sm font-bold flex items-center gap-2 ${isOverdue ? "text-red-900" : "text-green-900"}`}>
+                </Badge>
+                <Badge variant="outline" className="h-6 bg-white text-slate-700 border-slate-200 shadow-sm">
+                    <TrendingUp size={12} className="mr-1.5 text-blue-600" /> 
+                    Cursando Mes {currentMonthNumber}
+                </Badge>
+          </div>
+          
+          <div>
+            <h4 className={`text-base font-bold leading-tight ${isOverdue ? "text-red-900" : "text-green-900"}`}>
                 {statusLabel}
             </h4>
-            
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                <Clock size={12} />
+            <div className="flex items-center gap-1.5 mt-1.5 text-xs font-medium text-slate-500">
+                <Clock size={14} className={isOverdue ? "text-red-500" : "text-green-600"} />
                 {isOverdue ? "Venció el: " : "Próximo vencimiento: "} 
-                <span className="font-bold">
+                <span className={isOverdue ? "text-red-700 font-bold" : "text-slate-900"}>
                     {format(realDueDate, "d 'de' MMMM", { locale: es })}
                 </span>
-            </p>
+            </div>
           </div>
-
-          <Dialog open={isAddingPayment} onOpenChange={setIsAddingPayment}>
-            <DialogTrigger asChild>
-                <Button size="sm" className={isOverdue ? "bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto" : "bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"}>
-                    <Plus size={14} className="mr-1" /> Registrar Pago
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Registrar Pago - Mes {currentMonthNumber}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <Label>Monto ($)</Label>
-                        <Input 
-                            type="number" 
-                            placeholder="0.00" 
-                            value={amount} 
-                            onChange={(e) => setAmount(e.target.value)} 
-                            className="text-lg"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Fecha de Pago</Label>
-                        <Input 
-                            type="date" 
-                            value={paymentDate} 
-                            onChange={(e) => setPaymentDate(e.target.value)} 
-                        />
-                    </div>
-                    <div className="flex items-center gap-2 pt-2 bg-slate-50 p-2 rounded border">
-                        <input 
-                            type="checkbox" 
-                            id="update-cycle" 
-                            checked={shouldUpdateCycle} 
-                            onChange={(e) => setShouldUpdateCycle(e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                        />
-                        <Label htmlFor="update-cycle" className="text-sm font-medium cursor-pointer">
-                            Extender vencimiento 30 días
-                            <span className="block text-[10px] text-muted-foreground font-normal">
-                                (Recomendado para pagos mensuales completos)
-                            </span>
-                        </Label>
-                    </div>
-                    
-                    <Button className="w-full mt-4" onClick={handleRegisterPayment} disabled={isSubmitting}>
-                        {isSubmitting ? "Guardando..." : "Confirmar Pago"}
-                    </Button>
-                </div>
-            </DialogContent>
-          </Dialog>
       </div>
 
-      {/* Payment History Preview */}
-      <div className="bg-white/60 rounded-md p-3 border border-gray-200/50">
-          <h5 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
-              <History size={12} /> Historial de Pagos
+      {/* 2. Action Button (Full Width) */}
+      <Dialog open={isAddingPayment} onOpenChange={setIsAddingPayment}>
+        <DialogTrigger asChild>
+            <Button 
+                className={`w-full font-semibold shadow-sm transition-all active:scale-[0.98] ${
+                    isOverdue 
+                        ? "bg-red-600 hover:bg-red-700 text-white shadow-red-200" 
+                        : "bg-white text-green-700 border border-green-200 hover:bg-green-50 hover:border-green-300"
+                }`}
+            >
+                <Plus size={16} className="mr-2" /> Registrar Pago
+            </Button>
+        </DialogTrigger>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Registrar Pago - Mes {currentMonthNumber}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                    <Label>Monto ($)</Label>
+                    <Input 
+                        type="number" 
+                        placeholder="0.00" 
+                        value={amount} 
+                        onChange={(e) => setAmount(e.target.value)} 
+                        className="text-lg"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label>Fecha de Pago</Label>
+                    <Input 
+                        type="date" 
+                        value={paymentDate} 
+                        onChange={(e) => setPaymentDate(e.target.value)} 
+                    />
+                </div>
+                <div className="flex items-center gap-2 pt-2 bg-slate-50 p-2 rounded border">
+                    <input 
+                        type="checkbox" 
+                        id="update-cycle" 
+                        checked={shouldUpdateCycle} 
+                        onChange={(e) => setShouldUpdateCycle(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="update-cycle" className="text-sm font-medium cursor-pointer">
+                        Extender vencimiento 30 días
+                        <span className="block text-[10px] text-muted-foreground font-normal">
+                            (Recomendado para pagos mensuales completos)
+                        </span>
+                    </Label>
+                </div>
+                
+                <Button className="w-full mt-4" onClick={handleRegisterPayment} disabled={isSubmitting}>
+                    {isSubmitting ? "Guardando..." : "Confirmar Pago"}
+                </Button>
+            </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 3. History Preview */}
+      <div className="bg-white/80 rounded-lg p-3 border border-gray-100 shadow-sm">
+          <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5 border-b border-dashed pb-2">
+              <History size={12} /> Historial Reciente
           </h5>
           {!student.payments || student.payments.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">No hay pagos registrados aún.</p>
+              <div className="text-center py-2">
+                  <p className="text-xs text-muted-foreground italic">No hay pagos registrados aún.</p>
+              </div>
           ) : (
               <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1">
                   {student.payments.slice(0, 5).map(pay => (
-                      <div key={pay.id} className="flex justify-between items-center text-xs border-b border-dashed pb-1 last:border-0 last:pb-0">
+                      <div key={pay.id} className="flex justify-between items-center text-xs group">
                           <div className="flex flex-col">
-                              <span className="text-slate-700 font-medium">{format(pay.paymentDate, "d MMM yyyy", { locale: es })}</span>
-                              {pay.notes && <span className="text-[10px] text-muted-foreground">{pay.notes}</span>}
+                              <span className="text-slate-700 font-medium group-hover:text-slate-900 transition-colors">
+                                {format(pay.paymentDate, "d MMM yyyy", { locale: es })}
+                              </span>
+                              {pay.notes && <span className="text-[10px] text-muted-foreground line-clamp-1">{pay.notes}</span>}
                           </div>
-                          <span className="font-bold text-slate-900 bg-green-50 px-1.5 py-0.5 rounded text-green-700 border border-green-100">
+                          <span className="font-mono font-bold text-slate-800 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 group-hover:border-green-200 group-hover:bg-green-50 group-hover:text-green-700 transition-all">
                             ${pay.amount}
                           </span>
                       </div>
