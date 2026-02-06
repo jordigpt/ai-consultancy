@@ -46,13 +46,15 @@ import {
   Check,
   ChevronsUpDown,
   X,
-  Pencil
+  Pencil,
+  Briefcase
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface RelationOption {
     id: string;
@@ -161,8 +163,10 @@ export const MentorTasksView = () => {
       setEditingTask(null);
   };
 
-  const handleOpenAdd = () => {
+  const handleOpenAdd = (preselectedType?: 'student' | 'lead' | null) => {
       resetForm();
+      // Si quisiéramos preseleccionar el tipo en el futuro, podríamos hacerlo aquí,
+      // pero por ahora mantenemos el selector genérico.
       setIsDialogOpen(true);
   };
 
@@ -264,39 +268,135 @@ export const MentorTasksView = () => {
     }
   };
 
+  // --- Column Render Helper ---
+  const TaskColumn = ({ 
+      title, 
+      columnTasks, 
+      icon: Icon, 
+      colorClass 
+  }: { 
+      title: string; 
+      columnTasks: MentorTask[]; 
+      icon: any; 
+      colorClass: string 
+  }) => (
+      <div className="flex flex-col h-full bg-slate-50/50 border rounded-xl overflow-hidden">
+          <div className={cn("p-3 border-b flex items-center justify-between bg-white", colorClass)}>
+              <h3 className="font-semibold flex items-center gap-2 text-sm">
+                  <Icon size={16} /> {title}
+              </h3>
+              <Badge variant="secondary" className="text-xs">{columnTasks.filter(t => !t.completed).length}</Badge>
+          </div>
+          <ScrollArea className="flex-1 p-3">
+              {columnTasks.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-xs border-2 border-dashed rounded-lg">
+                      No hay tareas en esta sección.
+                  </div>
+              ) : (
+                  <div className="space-y-3">
+                      {columnTasks.map(task => (
+                          <div 
+                            key={task.id} 
+                            className={cn(
+                                "group relative flex items-start gap-3 p-3 rounded-lg border transition-all bg-white shadow-sm hover:shadow-md",
+                                task.completed && "opacity-60 bg-slate-50"
+                            )}
+                          >
+                                <Checkbox 
+                                    checked={task.completed}
+                                    onCheckedChange={() => toggleTask(task)}
+                                    className="mt-1"
+                                />
+                                <div className="flex-1 min-w-0 space-y-1">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <span className={cn("text-sm font-medium leading-snug", task.completed && "line-through text-muted-foreground")}>
+                                            {task.title}
+                                        </span>
+                                    </div>
+                                    
+                                    {task.relatedName && (
+                                        <div className="flex items-center gap-1 text-xs text-blue-600 font-medium">
+                                             {task.relatedType === 'student' ? <User size={10} /> : <Target size={10} />}
+                                             <span className="truncate">{task.relatedName}</span>
+                                        </div>
+                                    )}
+
+                                    {task.description && (
+                                        <p className="text-xs text-muted-foreground line-clamp-2">
+                                            {task.description}
+                                        </p>
+                                    )}
+                                    
+                                    <div className="flex items-center justify-between pt-1">
+                                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                            <span className="flex items-center gap-1"><Calendar size={10} /> {format(task.createdAt, "d MMM", { locale: es })}</span>
+                                        </div>
+                                        {getPriorityBadge(task.priority)}
+                                    </div>
+                                </div>
+
+                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 rounded-md">
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 text-muted-foreground hover:text-blue-500"
+                                        onClick={() => handleOpenEdit(task)}
+                                    >
+                                        <Pencil size={12} />
+                                    </Button>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                        onClick={() => deleteTask(task.id)}
+                                    >
+                                        <Trash2 size={12} />
+                                    </Button>
+                                </div>
+                          </div>
+                      ))}
+                  </div>
+              )}
+          </ScrollArea>
+      </div>
+  );
+
   if (isLoading) {
       return <div className="flex justify-center py-10"><Loader2 className="animate-spin" /></div>;
   }
 
-  const pendingTasks = tasks.filter(t => !t.completed);
+  // Filter Tasks for Columns
+  const generalTasks = tasks.filter(t => !t.studentId && !t.leadId);
+  const studentTasks = tasks.filter(t => !!t.studentId);
+  const leadTasks = tasks.filter(t => !!t.leadId);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 h-[calc(100vh-140px)] flex flex-col">
+      <div className="flex items-center justify-between shrink-0">
         <div>
             <h2 className="text-lg font-semibold flex items-center gap-2">
-                <CheckSquare className="text-primary" /> Mis Tareas
+                <Briefcase className="text-primary" /> Gestión de Tareas
             </h2>
             <p className="text-sm text-muted-foreground">
-                {pendingTasks.length} pendientes
+                Organiza tus pendientes personales y de seguimiento.
             </p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-                <Button className="shadow-md" onClick={handleOpenAdd}>
+                <Button className="shadow-md" onClick={() => handleOpenAdd()}>
                     <Plus className="mr-2 h-4 w-4" /> Nueva Tarea
                 </Button>
             </DialogTrigger>
             <DialogContent className="overflow-visible">
                 <DialogHeader>
-                    <DialogTitle>{editingTask ? "Editar Tarea" : "Agregar Tarea Personal"}</DialogTitle>
+                    <DialogTitle>{editingTask ? "Editar Tarea" : "Agregar Tarea"}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Título</label>
                         <Input 
-                            placeholder="Ej. Revisar entregables de Juan..." 
+                            placeholder="Ej. Revisar métricas..." 
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                         />
@@ -374,7 +474,7 @@ export const MentorTasksView = () => {
                                 className="self-start h-6 text-xs text-muted-foreground -mt-1"
                                 onClick={() => setSelectedRelation(null)}
                             >
-                                <X size={12} className="mr-1" /> Quitar selección
+                                <X size={12} className="mr-1" /> Quitar selección (Hacer General)
                             </Button>
                         )}
                     </div>
@@ -410,77 +510,25 @@ export const MentorTasksView = () => {
         </Dialog>
       </div>
 
-      <div className="space-y-3">
-        {tasks.length === 0 ? (
-            <div className="text-center py-12 border-2 border-dashed rounded-xl bg-gray-50/50">
-                <p className="text-muted-foreground">No tienes tareas pendientes.</p>
-                <Button variant="link" onClick={handleOpenAdd}>Crear la primera</Button>
-            </div>
-        ) : (
-            tasks.map((task) => (
-                <div 
-                    key={task.id} 
-                    className={`group relative flex items-start gap-3 p-4 rounded-xl border transition-all ${
-                        task.completed 
-                            ? "bg-gray-50 opacity-60" 
-                            : "bg-white hover:border-primary/40 hover:shadow-sm"
-                    }`}
-                >
-                    <Checkbox 
-                        checked={task.completed}
-                        onCheckedChange={() => toggleTask(task)}
-                        className="mt-1"
-                    />
-                    
-                    <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between pr-16 sm:pr-20">
-                            <span className={`font-medium ${task.completed ? "line-through text-muted-foreground" : ""}`}>
-                                {task.title}
-                            </span>
-                            <div className="flex items-center gap-2">
-                                {task.relatedName && (
-                                    <Badge variant="outline" className="text-[10px] h-5 bg-blue-50 text-blue-700 border-blue-100 flex items-center gap-1 font-normal">
-                                        {task.relatedType === 'student' ? <User size={8} /> : <Target size={8} />}
-                                        {task.relatedName}
-                                    </Badge>
-                                )}
-                                {getPriorityBadge(task.priority)}
-                            </div>
-                        </div>
-                        
-                        {task.description && (
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                {task.description}
-                            </p>
-                        )}
-                        
-                        <div className="flex items-center gap-2 pt-2 text-xs text-muted-foreground">
-                            <Calendar size={12} />
-                            <span>{format(task.createdAt, "d MMM", { locale: es })}</span>
-                        </div>
-                    </div>
-
-                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-muted-foreground hover:text-blue-500 hover:bg-blue-50"
-                            onClick={() => handleOpenEdit(task)}
-                        >
-                            <Pencil size={14} />
-                        </Button>
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => deleteTask(task.id)}
-                        >
-                            <Trash2 size={14} />
-                        </Button>
-                    </div>
-                </div>
-            ))
-        )}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 min-h-0">
+          <TaskColumn 
+            title="Mis Tareas / General" 
+            columnTasks={generalTasks} 
+            icon={CheckSquare} 
+            colorClass="border-slate-200 text-slate-700" 
+          />
+          <TaskColumn 
+            title="Tareas de Alumnos" 
+            columnTasks={studentTasks} 
+            icon={User} 
+            colorClass="border-blue-200 text-blue-700 bg-blue-50" 
+          />
+          <TaskColumn 
+            title="Tareas de Leads" 
+            columnTasks={leadTasks} 
+            icon={Target} 
+            colorClass="border-orange-200 text-orange-700 bg-orange-50" 
+          />
       </div>
     </div>
   );
