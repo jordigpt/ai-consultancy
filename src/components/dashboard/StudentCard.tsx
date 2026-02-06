@@ -2,7 +2,7 @@ import { Student, HealthScore } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BrainCircuit, CheckSquare, Clock, AlertCircle, TrendingUp } from "lucide-react";
-import { differenceInDays, differenceInMonths, addDays, isPast, isSameDay } from "date-fns";
+import { differenceInMonths, addMonths, startOfDay, differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface StudentCardProps {
@@ -13,28 +13,31 @@ interface StudentCardProps {
 export const StudentCard = ({ student, onClick }: StudentCardProps) => {
   const completedTasks = student.tasks.filter(t => t.completed).length;
   
-  // --- LÓGICA DE CICLO Y MESES ---
-  const today = new Date();
-  const startDate = new Date(student.startDate);
-  
-  // 1. Calcular mes actual de cursada
-  const currentMonthNumber = differenceInMonths(today, startDate) + 1;
+  // --- LÓGICA DE CICLO Y MESES (Igual a StudentFinances) ---
+  const startDate = startOfDay(new Date(student.startDate));
+  const today = startOfDay(new Date());
 
-  // 2. Calcular vencimiento real (mismo algoritmo que en Finances)
-  const sortedPayments = [...(student.payments || [])].sort((a, b) => b.paymentDate.getTime() - a.paymentDate.getTime());
-  const lastPayment = sortedPayments.length > 0 ? sortedPayments[0] : null;
+  // 1. Pagos válidos
+  const paymentsCount = (student.payments || []).filter(p => p.amount > 0).length;
 
-  let realDueDate: Date;
-  if (lastPayment) {
-      realDueDate = addDays(lastPayment.paymentDate, 30);
-  } else {
-      realDueDate = addDays(startDate, 30);
+  // 2. Mes actual de cursada
+  const monthsElapsed = differenceInMonths(today, startDate);
+  let currentMonthNumber = monthsElapsed;
+  if (today.getDate() >= startDate.getDate()) {
+      currentMonthNumber += 1;
   }
+  if (currentMonthNumber < 1) currentMonthNumber = 1;
 
-  // 3. Estado de Vencimiento
-  const isOverdue = isPast(realDueDate) && !isSameDay(realDueDate, today);
-  const daysUntilDue = differenceInDays(realDueDate, today);
-  const isUrgent = daysUntilDue <= 3; // Alerta si faltan 3 días o menos (o si ya pasó)
+  // 3. Estado de Deuda
+  const monthsOwed = currentMonthNumber - paymentsCount;
+  const isOverdue = monthsOwed > 0;
+
+  // 4. Días restantes para el vencimiento (o hace cuánto venció)
+  const coveredUntil = addMonths(startDate, paymentsCount);
+  const nextDueDate = coveredUntil;
+  
+  const daysUntilDue = differenceInDays(nextDueDate, today);
+  const isUrgent = daysUntilDue <= 5 && !isOverdue; // Aviso 5 días antes
 
   const getHealthColor = (score: HealthScore) => {
     switch (score) {
@@ -49,6 +52,9 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
       if (score === 'red') return 'border-red-300 bg-red-50/10 shadow-sm';
       return 'hover:border-primary/50';
   };
+
+  // Check if paid in full manually OR fully covered by months
+  const isPaid = student.paidInFull || (!isOverdue && monthsOwed <= 0);
 
   return (
     <Card 
@@ -66,7 +72,6 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs sm:text-sm group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                     {student.firstName[0]}{student.lastName[0]}
                  </div>
-                 {/* Health Indicator Badge */}
                  <div className={cn("absolute -bottom-0.5 -right-0.5 h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-full border-2 border-white", getHealthColor(student.healthScore))} />
               </div>
               <div className="min-w-0">
@@ -89,7 +94,7 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
                  "bg-emerald-100 text-emerald-700 border-emerald-200"
              )}>
                {isOverdue ? (
-                 <><AlertCircle size={10} /> Debe Mes {currentMonthNumber}</>
+                 <><AlertCircle size={10} /> Debe Mes {paymentsCount + 1}</>
                ) : (
                  <><Clock size={10} /> Vence en {daysUntilDue}d</>
                )}
