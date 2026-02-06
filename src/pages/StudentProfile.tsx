@@ -4,18 +4,18 @@ import { Student } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Loader2, GraduationCap, RotateCcw, User, CalendarDays } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
 // Sub-components
 import { StudentFinances } from "@/components/dashboard/details/StudentFinances";
-import { StudentInfo } from "@/components/dashboard/StudentInfo"; // Updated path
+import { StudentInfo } from "@/components/dashboard/StudentInfo"; 
 import { StudentNotes } from "@/components/dashboard/details/StudentNotes";
 import { StudentRoadmap } from "@/components/dashboard/details/StudentRoadmap";
 import { StudentCalls } from "@/components/dashboard/details/StudentCalls";
 import { StudentTasks } from "@/components/dashboard/details/StudentTasks";
+import { StudentMentorTasks } from "@/components/dashboard/details/StudentMentorTasks"; // Imported
 import { StudentTimeline } from "@/components/dashboard/details/StudentTimeline";
 import { AppLayout } from "@/components/layout/AppLayout";
 
@@ -29,10 +29,10 @@ const StudentProfile = () => {
     if (!id) return;
     try {
       setLoading(true);
-      // Fetch data including relations
+      // Fetch data including relations and now mentor_tasks
       const { data: s, error } = await supabase
         .from('students')
-        .select(`*, tasks (*), calls (*), student_notes (*), student_events (*)`)
+        .select(`*, tasks (*), calls (*), student_notes (*), student_events (*), mentor_tasks (*)`)
         .eq('id', id)
         .single();
 
@@ -60,6 +60,16 @@ const StudentProfile = () => {
           title: t.title,
           completed: t.completed,
           createdAt: new Date(t.created_at)
+        })).sort((a: any, b: any) => b.id.localeCompare(a.id)),
+        mentorTasks: s.mentor_tasks.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          priority: t.priority,
+          completed: t.completed,
+          createdAt: new Date(t.created_at),
+          studentId: s.id,
+          relatedType: 'student'
         })).sort((a: any, b: any) => b.id.localeCompare(a.id)),
         calls: s.calls.map((c: any) => ({
           id: c.id,
@@ -96,7 +106,6 @@ const StudentProfile = () => {
   }, [id]);
 
   const handleUpdate = (updatedStudent: Student) => {
-    // Immediate local update for "Real Time" feel
     setStudent(updatedStudent);
   };
 
@@ -140,7 +149,7 @@ const StudentProfile = () => {
 
   return (
     <AppLayout 
-        activeView="active" // Keeps the sidebar highlighted correctly
+        activeView="active"
         onNavigate={(view) => navigate(view === 'overview' ? '/' : `/?view=${view}`)}
         onSignOut={async () => { await supabase.auth.signOut(); navigate("/login"); }}
     >
@@ -235,16 +244,26 @@ const StudentProfile = () => {
             {/* Right Column: Dynamic Tabs (Wider) */}
             <div className="lg:col-span-2 space-y-6">
                  <Tabs defaultValue="activity" className="w-full">
-                    <TabsList className="w-full justify-start h-12 bg-white border p-1 rounded-xl mb-4 gap-2 shadow-sm">
-                        <TabsTrigger value="activity" className="flex-1 data-[state=active]:bg-primary/5 data-[state=active]:text-primary">Actividad & Tareas</TabsTrigger>
-                        <TabsTrigger value="notes" className="flex-1 data-[state=active]:bg-primary/5 data-[state=active]:text-primary">Notas</TabsTrigger>
-                        <TabsTrigger value="calls" className="flex-1 data-[state=active]:bg-primary/5 data-[state=active]:text-primary">Llamadas</TabsTrigger>
-                        <TabsTrigger value="timeline" className="flex-1 data-[state=active]:bg-primary/5 data-[state=active]:text-primary">Cronología</TabsTrigger>
+                    <TabsList className="w-full justify-start h-12 bg-white border p-1 rounded-xl mb-4 gap-2 shadow-sm overflow-x-auto">
+                        <TabsTrigger value="activity" className="flex-1 min-w-[100px] data-[state=active]:bg-primary/5 data-[state=active]:text-primary">Actividad & Tareas</TabsTrigger>
+                        <TabsTrigger value="notes" className="flex-1 min-w-[80px] data-[state=active]:bg-primary/5 data-[state=active]:text-primary">Notas</TabsTrigger>
+                        <TabsTrigger value="calls" className="flex-1 min-w-[80px] data-[state=active]:bg-primary/5 data-[state=active]:text-primary">Llamadas</TabsTrigger>
+                        <TabsTrigger value="timeline" className="flex-1 min-w-[90px] data-[state=active]:bg-primary/5 data-[state=active]:text-primary">Cronología</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="activity" className="space-y-6 mt-0">
-                        <div className="bg-white rounded-xl border shadow-sm p-6">
+                        <div className="bg-white rounded-xl border shadow-sm p-6 space-y-8">
+                             {/* Tareas del Alumno */}
                              <StudentTasks student={student} onUpdate={handleUpdate} />
+                             
+                             <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <span className="w-full border-t border-dashed" />
+                                </div>
+                             </div>
+
+                             {/* Tareas del Mentor (Admin) */}
+                             <StudentMentorTasks student={student} onUpdate={handleUpdate} />
                         </div>
                     </TabsContent>
 

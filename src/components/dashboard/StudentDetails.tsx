@@ -15,9 +15,10 @@ import { User, GraduationCap, RotateCcw } from "lucide-react";
 import { StudentFinances } from "./details/StudentFinances"; 
 import { StudentCalls } from "./details/StudentCalls"; 
 import { StudentTasks } from "./details/StudentTasks"; 
+import { StudentMentorTasks } from "./details/StudentMentorTasks"; // Imported
 import { StudentRoadmap } from "./details/StudentRoadmap"; 
 import { StudentTimeline } from "./details/StudentTimeline";
-import { StudentNotes } from "./details/StudentNotes"; // Imported
+import { StudentNotes } from "./details/StudentNotes";
 import { StudentInfo } from "./StudentInfo";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
@@ -52,7 +53,6 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
     }
   };
 
-  // Helper para determinar si está pagado
   const isPaid = student.paidInFull || (student.amountOwed !== undefined && student.amountOwed <= 0);
 
   return (
@@ -125,7 +125,6 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
 
                     <Separator />
                     
-                    {/* Added Student Notes Section */}
                     <StudentNotes student={student} onUpdate={onUpdateStudent} />
 
                     <Separator />
@@ -139,6 +138,10 @@ export const StudentDetails = ({ student, isOpen, onClose, onUpdateStudent }: St
                     <Separator />
 
                     <StudentTasks student={student} onUpdate={onUpdateStudent} />
+
+                    <Separator />
+
+                    <StudentMentorTasks student={student} onUpdate={onUpdateStudent} />
                 </TabsContent>
 
                 <TabsContent value="timeline" className="mt-0">

@@ -51,6 +51,22 @@ export interface StudentPayment {
   notes?: string;
 }
 
+// MENTOR TASKS TYPES
+export type TaskPriority = 'high' | 'medium' | 'low';
+
+export interface MentorTask {
+  id: string;
+  title: string;
+  description?: string;
+  priority: TaskPriority;
+  completed: boolean;
+  createdAt: Date;
+  studentId?: string;
+  leadId?: string;
+  relatedName?: string;
+  relatedType?: 'student' | 'lead';
+}
+
 export interface Student {
   id: string;
   firstName: string;
@@ -77,7 +93,8 @@ export interface Student {
   calls: Call[];
   notes: StudentNote[];
   events: StudentEvent[];
-  payments?: StudentPayment[]; // NEW: Payment history
+  payments?: StudentPayment[]; 
+  mentorTasks?: MentorTask[]; // NEW: Admin tasks linked to this student
 }
 
 // LEADS TYPES
@@ -97,22 +114,6 @@ export interface Lead {
   nextFollowupDate?: Date; // Para mensajes/seguimiento
   createdAt: Date;
   calls: Call[];
-}
-
-// MENTOR TASKS TYPES
-export type TaskPriority = 'high' | 'medium' | 'low';
-
-export interface MentorTask {
-  id: string;
-  title: string;
-  description?: string;
-  priority: TaskPriority;
-  completed: boolean;
-  createdAt: Date;
-  studentId?: string;
-  leadId?: string;
-  relatedName?: string;
-  relatedType?: 'student' | 'lead';
 }
 
 // NOTES TYPES
