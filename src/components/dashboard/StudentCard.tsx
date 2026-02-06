@@ -53,61 +53,66 @@ export const StudentCard = ({ student, onClick }: StudentCardProps) => {
   return (
     <Card 
       className={cn(
-          "cursor-pointer transition-all hover:shadow-md group animate-in fade-in slide-in-from-bottom-4 duration-500",
+          "cursor-pointer transition-all hover:shadow-md group animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col justify-between",
           getHealthBorder(student.healthScore)
       )}
       onClick={onClick}
     >
-      <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                {student.firstName[0]}{student.lastName[0]}
-             </div>
-             {/* Health Indicator Badge */}
-             <div className={cn("absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white", getHealthColor(student.healthScore))} />
-          </div>
-          <div>
-            <h3 className="font-semibold leading-none">{student.firstName} {student.lastName}</h3>
-            <p className="text-sm text-muted-foreground mt-1">{student.occupation}</p>
-          </div>
+      <CardHeader className="p-3 sm:p-4 pb-0 flex flex-col space-y-2">
+        <div className="flex items-start justify-between gap-2">
+           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="relative shrink-0">
+                 <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs sm:text-sm group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    {student.firstName[0]}{student.lastName[0]}
+                 </div>
+                 {/* Health Indicator Badge */}
+                 <div className={cn("absolute -bottom-0.5 -right-0.5 h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-full border-2 border-white", getHealthColor(student.healthScore))} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-semibold leading-tight text-sm sm:text-base truncate">{student.firstName} {student.lastName}</h3>
+                <p className="text-[10px] sm:text-sm text-muted-foreground truncate">{student.occupation}</p>
+              </div>
+           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
+
+        <div className="flex flex-wrap gap-1 items-center justify-end">
           {student.status === 'active' && (
-             <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+             <div className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-1 shrink-0 ${
                isUrgent 
                  ? "bg-red-100 text-red-700 border-red-200" 
                  : "bg-emerald-100 text-emerald-700 border-emerald-200"
              }`}>
                {isUrgent ? <AlertCircle size={10} /> : <Clock size={10} />}
-               {daysRemaining} días
+               {daysRemaining} d
              </div>
           )}
           {isPaid ? (
-            <Badge variant="outline" className="text-[10px] h-4 border-green-200 text-green-700 bg-green-50">Pagado</Badge>
+            <Badge variant="outline" className="text-[9px] sm:text-[10px] h-4 border-green-200 text-green-700 bg-green-50 px-1.5">Pagado</Badge>
           ) : (
-            <Badge variant="outline" className="text-[10px] h-4 border-red-200 text-red-700 bg-red-50">Deuda</Badge>
+            <Badge variant="outline" className="text-[9px] sm:text-[10px] h-4 border-red-200 text-red-700 bg-red-50 px-1.5">Deuda</Badge>
           )}
         </div>
       </CardHeader>
-      <CardContent className="p-4 pt-2">
-        <div className="flex items-center gap-2 mb-2">
-           <Badge variant="secondary" className="text-xs font-normal">
+
+      <CardContent className="p-3 sm:p-4 py-2 sm:py-2 flex-1">
+        <div className="mb-1 sm:mb-2">
+           <Badge variant="secondary" className="text-[10px] sm:text-xs font-normal truncate max-w-full inline-block">
              {student.businessModel}
            </Badge>
         </div>
-        <p className="text-xs text-muted-foreground line-clamp-2">
+        <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-2 leading-relaxed">
           {student.context || "Sin descripción."}
         </p>
       </CardContent>
-      <CardFooter className="p-4 pt-0 flex justify-between items-center text-xs text-muted-foreground">
+
+      <CardFooter className="p-3 sm:p-4 pt-0 flex justify-between items-center text-[10px] sm:text-xs text-muted-foreground mt-auto">
         <div className="flex items-center gap-1">
-          <BrainCircuit size={14} />
-          <span>Nivel IA: {student.aiLevel}/10</span>
+          <BrainCircuit size={12} className="sm:w-[14px] sm:h-[14px]" />
+          <span>IA: {student.aiLevel}/10</span>
         </div>
         <div className="flex items-center gap-1">
-          <CheckSquare size={14} />
-          <span>{completedTasks}/{student.tasks.length} Tareas</span>
+          <CheckSquare size={12} className="sm:w-[14px] sm:h-[14px]" />
+          <span>{completedTasks}/{student.tasks.length}</span>
         </div>
       </CardFooter>
     </Card>

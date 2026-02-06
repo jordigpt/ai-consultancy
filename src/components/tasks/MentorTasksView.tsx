@@ -217,34 +217,40 @@ export const MentorTasksView = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 min-h-0">
-          <TaskColumn 
-            title="Mis Tareas / General" 
-            columnTasks={generalTasks} 
-            icon={CheckSquare} 
-            colorClass="border-slate-200 text-slate-700" 
-            onToggle={toggleTask}
-            onEdit={handleOpenEdit}
-            onDelete={deleteTask}
-          />
-          <TaskColumn 
-            title="Tareas de Alumnos" 
-            columnTasks={studentTasks} 
-            icon={User} 
-            colorClass="border-blue-200 text-blue-700 bg-blue-50" 
-            onToggle={toggleTask}
-            onEdit={handleOpenEdit}
-            onDelete={deleteTask}
-          />
-          <TaskColumn 
-            title="Tareas de Leads" 
-            columnTasks={leadTasks} 
-            icon={Target} 
-            colorClass="border-orange-200 text-orange-700 bg-orange-50" 
-            onToggle={toggleTask}
-            onEdit={handleOpenEdit}
-            onDelete={deleteTask}
-          />
+      <div className="flex overflow-x-auto gap-4 flex-1 min-h-0 snap-x snap-mandatory pb-4 md:grid md:grid-cols-3 md:overflow-visible md:pb-0">
+          <div className="min-w-[85vw] md:min-w-0 snap-center h-full">
+            <TaskColumn 
+                title="Mis Tareas / General" 
+                columnTasks={generalTasks} 
+                icon={CheckSquare} 
+                colorClass="border-slate-200 text-slate-700" 
+                onToggle={toggleTask}
+                onEdit={handleOpenEdit}
+                onDelete={deleteTask}
+            />
+          </div>
+          <div className="min-w-[85vw] md:min-w-0 snap-center h-full">
+            <TaskColumn 
+                title="Tareas de Alumnos" 
+                columnTasks={studentTasks} 
+                icon={User} 
+                colorClass="border-blue-200 text-blue-700 bg-blue-50" 
+                onToggle={toggleTask}
+                onEdit={handleOpenEdit}
+                onDelete={deleteTask}
+            />
+          </div>
+          <div className="min-w-[85vw] md:min-w-0 snap-center h-full">
+            <TaskColumn 
+                title="Tareas de Leads" 
+                columnTasks={leadTasks} 
+                icon={Target} 
+                colorClass="border-orange-200 text-orange-700 bg-orange-50" 
+                onToggle={toggleTask}
+                onEdit={handleOpenEdit}
+                onDelete={deleteTask}
+            />
+          </div>
       </div>
     </div>
   );
