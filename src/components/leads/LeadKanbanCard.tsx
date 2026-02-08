@@ -2,7 +2,7 @@ import React from "react";
 import { Lead } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock, MoreHorizontal, Phone, Mail } from "lucide-react";
+import { CalendarClock, MoreHorizontal, Phone, Mail, MessageCircle } from "lucide-react";
 import { format, isPast } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -47,19 +47,37 @@ export const LeadKanbanCard = ({ lead, onClick }: LeadKanbanCardProps) => {
         </div>
 
         {/* Footer: Date / Status */}
-        {lead.nextCallDate && lead.status !== 'won' && lead.status !== 'lost' && (
-            <div className={cn(
-                "text-[10px] px-2 py-1 rounded flex items-center gap-1.5 font-medium border",
-                isPast(lead.nextCallDate) 
-                    ? "bg-red-50 text-red-700 border-red-100" 
-                    : "bg-blue-50 text-blue-700 border-blue-100"
-            )}>
-                <CalendarClock size={10} />
-                <span className="truncate">
-                    {format(lead.nextCallDate, "d MMM, HH:mm")}
-                </span>
-            </div>
-        )}
+        <div className="space-y-1.5">
+            {/* Scheduled Call */}
+            {lead.nextCallDate && lead.status !== 'won' && lead.status !== 'lost' && (
+                <div className={cn(
+                    "text-[10px] px-2 py-1 rounded flex items-center gap-1.5 font-medium border",
+                    isPast(lead.nextCallDate) 
+                        ? "bg-red-50 text-red-700 border-red-100" 
+                        : "bg-blue-50 text-blue-700 border-blue-100"
+                )}>
+                    <CalendarClock size={10} />
+                    <span className="truncate">
+                        Call: {format(lead.nextCallDate, "d MMM, HH:mm")}
+                    </span>
+                </div>
+            )}
+
+            {/* Scheduled Follow Up */}
+            {lead.nextFollowupDate && lead.status !== 'won' && lead.status !== 'lost' && (
+                <div className={cn(
+                    "text-[10px] px-2 py-1 rounded flex items-center gap-1.5 font-medium border",
+                    isPast(lead.nextFollowupDate) 
+                        ? "bg-red-50 text-red-700 border-red-100" 
+                        : "bg-purple-50 text-purple-700 border-purple-100"
+                )}>
+                    <MessageCircle size={10} />
+                    <span className="truncate">
+                        Seguimiento: {format(lead.nextFollowupDate, "d MMM")}
+                    </span>
+                </div>
+            )}
+        </div>
 
         {/* Badges for Won/Lost if needed (mostly for filtering visual confirmation) */}
         {lead.status === 'won' && (
