@@ -69,7 +69,7 @@ export const LeadsView = ({ leads, onLeadClick, onAddLead, onUpdate }: LeadsView
                     </ToggleGroup>
                 </div>
 
-                <Button className="bg-blue-600 hover:bg-blue-700 shadow-sm" onClick={onAddLead}>
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm" onClick={onAddLead}>
                     <Plus size={16} className="mr-2" /> Nuevo
                 </Button>
             </div>

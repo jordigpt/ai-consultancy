@@ -62,7 +62,7 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
         className={cn(
           "w-full justify-start gap-3 h-10 mb-1 transition-all duration-200",
           isActive 
-            ? "bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800" 
+            ? "bg-primary/10 text-primary-foreground hover:bg-primary/20 hover:text-primary-foreground font-medium" 
             : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
           isSpecial && !isActive && "text-violet-600 hover:bg-violet-50 hover:text-violet-700",
           isSpecial && isActive && "bg-violet-100 text-violet-700 hover:bg-violet-200",
@@ -72,7 +72,7 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
       >
         <item.icon size={20} className={cn(
             "shrink-0", 
-            isActive ? (isSpecial ? "text-violet-700" : "text-blue-600") : (isSpecial ? "text-violet-600" : "text-gray-500")
+            isActive ? (isSpecial ? "text-violet-700" : "text-[#d4e83a] drop-shadow-sm stroke-[2.5]") : (isSpecial ? "text-violet-600" : "text-gray-500")
         )} />
         {!isCollapsed && <span className={cn("text-sm font-medium", isSpecial && "font-bold")}>{item.label}</span>}
         {isActive && !isCollapsed && <ChevronRight size={14} className="ml-auto opacity-50" />}
@@ -93,11 +93,10 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
     return ButtonContent;
   };
 
-  // Rest of the component is largely the same, just rendering MENU_ITEMS
   const MobileNavContent = () => (
     <div className="flex flex-col h-full py-4">
       <div className="px-6 mb-6">
-        <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600">
+        <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#8ca100] to-[#d4e83a]">
           AI Consultancy
         </h1>
         <p className="text-xs text-muted-foreground">Tracking System</p>
@@ -149,7 +148,7 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
             <div className={cn("flex items-center h-16 border-b px-4", isCollapsed ? "justify-center" : "justify-between")}>
                 {!isCollapsed && (
                     <div className="overflow-hidden whitespace-nowrap">
-                        <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600">
+                        <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#8ca100] to-[#a3bd00]">
                         AI Consultancy
                         </h1>
                     </div>
@@ -243,7 +242,7 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
                             <MobileNavContent />
                         </SheetContent>
                     </Sheet>
-                    <span className="font-bold text-lg bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600">
+                    <span className="font-bold text-lg bg-clip-text text-transparent bg-gradient-to-r from-[#8ca100] to-[#d4e83a]">
                         AI Consultancy
                     </span>
             </div>

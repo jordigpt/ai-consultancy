@@ -22,7 +22,7 @@ export const DashboardHeader = ({
   return (
     <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between shadow-sm">
       <div className="flex flex-col">
-        <h1 className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600 leading-tight">
+        <h1 className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#8ca100] to-[#b0cc00] leading-tight">
           AI Consultancy
         </h1>
         <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Tracking de Alumnos</p>
@@ -34,7 +34,7 @@ export const DashboardHeader = ({
 
         <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="bg-primary shadow-md hover:shadow-lg transition-all h-9 px-4">
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all h-9 px-4">
               <Plus className="h-4 w-4 mr-1" /> <span className="text-sm font-medium">Nuevo</span>
             </Button>
           </DialogTrigger>
