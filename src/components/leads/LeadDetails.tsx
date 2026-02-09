@@ -66,7 +66,7 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                 value: data.value,
                 notes: data.notes,
                 next_call_date: data.nextCallDate?.toISOString(),
-                next_followup_date: data.nextFollowupDate?.toISOString() // Updated field
+                next_followup_date: data.nextFollowupDate?.toISOString()
             })
             .eq('id', lead.id);
 
@@ -118,6 +118,7 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                         <SelectTrigger className={
                             lead.status === 'won' ? 'border-green-500 bg-green-50 text-green-700' : 
                             lead.status === 'lost' ? 'border-red-500 bg-red-50 text-red-700' : 
+                            lead.status === 'remarketing' ? 'border-purple-500 bg-purple-50 text-purple-700' :
                             lead.status === 'paused' ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : ''
                         }>
                             <SelectValue />
@@ -127,6 +128,7 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                             <SelectItem value="contacted">📞 Contactado</SelectItem>
                             <SelectItem value="qualified">✅ Calificado</SelectItem>
                             <SelectItem value="paused">⏸️ En Pausa</SelectItem>
+                            <SelectItem value="remarketing">📨 Remarketing Futuro</SelectItem>
                             <SelectItem value="won">🎉 Ganado (Cliente)</SelectItem>
                             <SelectItem value="lost">❌ Perdido</SelectItem>
                         </SelectContent>
@@ -150,7 +152,7 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                 
                 {/* Contact Info */}
                 <div className="space-y-4 text-sm bg-slate-50 p-4 rounded-lg border">
-                    {lead.value > 0 && (
+                    {lead.value !== undefined && lead.value > 0 && (
                         <div className="grid grid-cols-3 gap-2 border-b pb-2 mb-2">
                             <span className="font-medium text-green-700">Valor Est.:</span>
                             <span className="col-span-2 font-bold text-green-700">${lead.value}</span>
@@ -202,7 +204,6 @@ export const LeadDetails = ({ lead, isOpen, onClose, onUpdate, onConvertToStuden
                 
                 <Separator />
 
-                {/* New Calls Component (Keeps history of calls) */}
                 <LeadCalls lead={lead} onUpdate={onUpdate} />
 
                 <Separator />

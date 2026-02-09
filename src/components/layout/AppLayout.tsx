@@ -17,7 +17,8 @@ import {
   ChevronRight,
   PieChart,
   Search,
-  Bot
+  Bot,
+  Brain
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ interface AppLayoutProps {
 const MENU_ITEMS = [
   { id: 'overview', label: 'Panel General', icon: LayoutDashboard },
   { id: 'ai-consultant', label: 'Consultor AI', icon: Bot, isSpecial: true },
+  { id: 'deep-work', label: 'Deep Work', icon: Brain },
   { id: 'active', label: 'Alumnos Activos', icon: Users },
   { id: 'leads', label: 'Pipeline Leads', icon: Target },
   { id: 'goals', label: 'Objetivos / Config', icon: PieChart },

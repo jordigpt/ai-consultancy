@@ -30,6 +30,7 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
           case 'contacted': return <Badge variant="secondary">Contactado</Badge>;
           case 'qualified': return <Badge className="bg-indigo-500 hover:bg-indigo-600">Calificado</Badge>;
           case 'paused': return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">En Pausa</Badge>;
+          case 'remarketing': return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">Remarketing</Badge>;
           case 'won': return <Badge className="bg-green-500 hover:bg-green-600">Cerrado</Badge>;
           case 'lost': return <Badge variant="destructive">Perdido</Badge>;
           default: return null;
@@ -41,7 +42,6 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
       downloadLeadCallIcs(lead);
   };
 
-  // Calculate time ago
   const timeAgo = formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true, locale: es });
 
   return (
@@ -49,7 +49,6 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
       className="cursor-pointer hover:shadow-md transition-all hover:border-primary/50 group animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden"
       onClick={onClick}
     >
-      {/* Time Ago Badge - Top Right */}
       <div className="absolute top-0 right-0 bg-gray-100 px-3 py-1 rounded-bl-lg border-b border-l text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
         <Clock size={10} /> Cargado {timeAgo}
       </div>
@@ -93,7 +92,6 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
         </div>
       </CardContent>
 
-      {/* Footer Logic: Show Next Call OR Follow Up */}
       {(lead.nextCallDate || lead.nextFollowupDate) && lead.status !== 'won' && lead.status !== 'lost' && (
         <CardFooter className="p-4 pt-0 flex flex-col gap-2">
              {/* 1. Scheduled Call */}

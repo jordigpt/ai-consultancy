@@ -15,7 +15,10 @@ export const NotificationsSection = ({ leads, onOpenLead }: NotificationsSection
 
   const stagnantLeads = leads.filter(lead => {
     const daysSinceCreation = differenceInDays(new Date(), new Date(lead.createdAt));
-    return daysSinceCreation >= 7 && lead.status !== 'won' && lead.status !== 'lost';
+    return daysSinceCreation >= 7 && 
+           lead.status !== 'won' && 
+           lead.status !== 'lost' && 
+           lead.status !== 'remarketing';
   });
 
   if (stagnantLeads.length === 0) return null;

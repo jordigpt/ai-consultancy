@@ -21,6 +21,7 @@ import { NotesView } from "@/components/notes/NotesView";
 import { MonthlyGoalView } from "@/components/dashboard/MonthlyGoalView";
 import { CommandCenter } from "@/components/dashboard/CommandCenter";
 import { AiConsultantView } from "@/components/ai/AiConsultantView"; 
+import DeepWork from "./DeepWork"; // Imported
 
 // Views
 import { ActiveStudentsView } from "@/components/dashboard/views/ActiveStudentsView";
@@ -255,6 +256,8 @@ const Index = () => {
             );
         case 'ai-consultant': 
             return <AiConsultantView />;
+        case 'deep-work': // New View
+            return <DeepWork />;
         case 'goals':
             return (
                 <MonthlyGoalView 

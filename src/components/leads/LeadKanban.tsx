@@ -31,6 +31,7 @@ const COLUMNS: { id: LeadStatus; title: string; color: string; borderColor: stri
   { id: 'contacted', title: 'Contactados', color: 'bg-blue-50/50', borderColor: 'border-blue-100' },
   { id: 'qualified', title: 'Calificados', color: 'bg-indigo-50/50', borderColor: 'border-indigo-100' },
   { id: 'paused', title: 'En Pausa', color: 'bg-yellow-50/50', borderColor: 'border-yellow-100' },
+  { id: 'remarketing', title: 'Remarketing Futuro', color: 'bg-purple-50/50', borderColor: 'border-purple-100' },
   { id: 'won', title: 'Ganados', color: 'bg-green-50/50', borderColor: 'border-green-100' },
   { id: 'lost', title: 'Perdidos', color: 'bg-red-50/50', borderColor: 'border-red-100' },
 ];

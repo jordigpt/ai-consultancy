@@ -14,10 +14,13 @@ interface NotificationsViewProps {
 export const NotificationsView = ({ leads, onLeadClick }: NotificationsViewProps) => {
   // Filtramos leads que:
   // 1. Tengan más de 7 días de creados
-  // 2. No estén ganados (won) ni perdidos (lost)
+  // 2. No estén ganados, perdidos, ni en remarketing
   const stagnantLeads = leads.filter(lead => {
     const daysSinceCreation = differenceInDays(new Date(), new Date(lead.createdAt));
-    return daysSinceCreation >= 7 && lead.status !== 'won' && lead.status !== 'lost';
+    return daysSinceCreation >= 7 && 
+           lead.status !== 'won' && 
+           lead.status !== 'lost' && 
+           lead.status !== 'remarketing';
   });
 
   if (stagnantLeads.length === 0) {
@@ -29,7 +32,7 @@ export const NotificationsView = ({ leads, onLeadClick }: NotificationsViewProps
         <div>
             <h3 className="text-lg font-semibold">¡Todo al día!</h3>
             <p className="text-muted-foreground max-w-xs mx-auto">
-                No tienes leads pendientes de seguimiento con más de 7 días de antigüedad.
+                No tienes leads activos (sin remarketing) pendientes de seguimiento con más de 7 días.
             </p>
         </div>
       </div>
@@ -45,8 +48,7 @@ export const NotificationsView = ({ leads, onLeadClick }: NotificationsViewProps
         <div>
             <h3 className="font-semibold text-orange-900">Seguimiento Requerido</h3>
             <p className="text-sm text-orange-700">
-                Tienes {stagnantLeads.length} leads cargados hace más de 7 días que aún no se han cerrado. 
-                Es buen momento para contactarlos y actualizar su estado.
+                Tienes {stagnantLeads.length} leads cargados hace más de 7 días que aún no se han cerrado ni movido a remarketing.
             </p>
         </div>
       </div>
