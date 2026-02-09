@@ -94,14 +94,19 @@ export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
       const hasContent = items.some(i => i.text.trim() !== "");
       if (!hasContent) return;
 
-      setIsArchiving(true);
-      await onArchive(items);
-      setIsArchiving(false);
-      
-      // 3. Limpiar estado Y LocalStorage al archivar
-      const cleanState = [{ id: Date.now().toString(), text: '', completed: false }];
-      setItems(cleanState);
-      localStorage.removeItem(DRAFT_KEY);
+      try {
+          setIsArchiving(true);
+          await onArchive(items);
+          
+          // 3. Limpiar estado Y LocalStorage SOLO al archivar con éxito
+          const cleanState = [{ id: Date.now().toString(), text: '', completed: false }];
+          setItems(cleanState);
+          localStorage.removeItem(DRAFT_KEY);
+      } catch (error) {
+          console.error("Falló el archivado, manteniendo estado local.");
+      } finally {
+          setIsArchiving(false);
+      }
   };
 
   return (
