@@ -46,19 +46,24 @@ const DeepWork = () => {
   const handleArchiveSession = async (items: CanvasItem[]) => {
       try {
           const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
+          
+          if (!user) {
+              throw new Error("No hay usuario autenticado.");
+          }
 
           const { error } = await supabase.from('deep_work_sessions').insert({
               user_id: user.id,
-              content: items
+              content: items // Supabase maneja la conversión a JSONB automáticamente
           });
 
           if (error) throw error;
 
           showSuccess("Sesión guardada en el historial");
           fetchHistory(); // Reload history
-      } catch (error) {
-          showError("Error al guardar sesión");
+      } catch (error: any) {
+          console.error("Error saving session:", error);
+          // Mostramos el mensaje real del error para facilitar el debugging
+          showError(`Error al guardar: ${error.message || error.error_description || "Desconocido"}`);
           throw error; // Propagate to canvas to stop spinner
       }
   };
