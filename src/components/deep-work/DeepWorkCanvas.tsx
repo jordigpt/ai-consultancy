@@ -1,20 +1,37 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, X, Check, Loader2 } from "lucide-react";
 import { CanvasItem } from "@/lib/types";
 
+const DRAFT_KEY = "deep-work-draft-v1";
+
 interface DeepWorkCanvasProps {
     onArchive: (items: CanvasItem[]) => Promise<void>;
 }
 
 export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
-  const [items, setItems] = useState<CanvasItem[]>([
-      { id: '1', text: '', completed: false }
-  ]);
+  // 1. Inicializar estado leyendo de LocalStorage si existe
+  const [items, setItems] = useState<CanvasItem[]>(() => {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+          try {
+              return JSON.parse(saved);
+          } catch (e) {
+              console.error("Error al cargar borrador", e);
+          }
+      }
+      return [{ id: '1', text: '', completed: false }];
+  });
+
   const [isArchiving, setIsArchiving] = useState(false);
   const inputsRef = useRef<Map<string, HTMLInputElement>>(new Map());
+
+  // 2. Guardar en LocalStorage cada vez que items cambie
+  useEffect(() => {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(items));
+  }, [items]);
 
   const focusInput = (id: string) => {
       setTimeout(() => {
@@ -81,8 +98,10 @@ export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
       await onArchive(items);
       setIsArchiving(false);
       
-      // Reset Canvas
-      setItems([{ id: Date.now().toString(), text: '', completed: false }]);
+      // 3. Limpiar estado Y LocalStorage al archivar
+      const cleanState = [{ id: Date.now().toString(), text: '', completed: false }];
+      setItems(cleanState);
+      localStorage.removeItem(DRAFT_KEY);
   };
 
   return (
@@ -133,7 +152,8 @@ export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
                     <button 
                         onClick={() => {
                             if (items.length > 1) {
-                                setItems(items.filter(i => i.id !== item.id));
+                                const newItems = items.filter(i => i.id !== item.id);
+                                setItems(newItems);
                             }
                         }}
                         className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-400 transition-all p-1"
