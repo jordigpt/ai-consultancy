@@ -18,8 +18,9 @@ const DeepWork = () => {
   const fetchHistory = async () => {
       setLoadingHistory(true);
       try {
+          // CAMBIO: Usamos 'focus_sessions' en lugar de 'deep_work_sessions'
           const { data, error } = await supabase
-            .from('deep_work_sessions')
+            .from('focus_sessions')
             .select('*')
             .order('created_at', { ascending: false });
             
@@ -51,9 +52,10 @@ const DeepWork = () => {
               throw new Error("No hay usuario autenticado.");
           }
 
-          const { error } = await supabase.from('deep_work_sessions').insert({
+          // CAMBIO: Usamos 'focus_sessions' en lugar de 'deep_work_sessions'
+          const { error } = await supabase.from('focus_sessions').insert({
               user_id: user.id,
-              content: items // Supabase maneja la conversión a JSONB automáticamente
+              content: items
           });
 
           if (error) throw error;
@@ -62,9 +64,8 @@ const DeepWork = () => {
           fetchHistory(); // Reload history
       } catch (error: any) {
           console.error("Error saving session:", error);
-          // Mostramos el mensaje real del error para facilitar el debugging
           showError(`Error al guardar: ${error.message || error.error_description || "Desconocido"}`);
-          throw error; // Propagate to canvas to stop spinner
+          throw error;
       }
   };
 
