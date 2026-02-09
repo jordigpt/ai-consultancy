@@ -1,18 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Plus, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Plus, X, Check, Loader2 } from "lucide-react";
+import { CanvasItem } from "@/lib/types";
 
-interface CanvasItem {
-    id: string;
-    text: string;
-    completed: boolean;
+interface DeepWorkCanvasProps {
+    onArchive: (items: CanvasItem[]) => Promise<void>;
 }
 
-export const DeepWorkCanvas = () => {
+export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
   const [items, setItems] = useState<CanvasItem[]>([
       { id: '1', text: '', completed: false }
   ]);
+  const [isArchiving, setIsArchiving] = useState(false);
   const inputsRef = useRef<Map<string, HTMLInputElement>>(new Map());
 
   const focusInput = (id: string) => {
@@ -71,11 +72,37 @@ export const DeepWorkCanvas = () => {
     setItems(newItems);
   };
 
+  const handleArchive = async () => {
+      // Don't archive empty sessions
+      const hasContent = items.some(i => i.text.trim() !== "");
+      if (!hasContent) return;
+
+      setIsArchiving(true);
+      await onArchive(items);
+      setIsArchiving(false);
+      
+      // Reset Canvas
+      setItems([{ id: Date.now().toString(), text: '', completed: false }]);
+  };
+
   return (
-    <div className="bg-[#fff9e6] min-h-[500px] p-6 sm:p-8 rounded-xl shadow-inner border border-stone-200 relative">
+    <div className="bg-[#fff9e6] min-h-[500px] p-6 sm:p-8 rounded-xl shadow-inner border border-stone-200 relative group/canvas">
         <div className="absolute top-0 left-0 w-full h-8 bg-gradient-to-b from-stone-200/20 to-transparent pointer-events-none" />
         
-        <h3 className="text-stone-400 font-serif italic mb-6 select-none">Notes & Checklist</h3>
+        <div className="flex justify-between items-start mb-6">
+            <h3 className="text-stone-400 font-serif italic select-none">Notes & Checklist</h3>
+            
+            <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={handleArchive}
+                disabled={isArchiving}
+                className="text-stone-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                title="Finalizar y Archivar Sesión"
+            >
+                {isArchiving ? <Loader2 className="animate-spin" size={18} /> : <Check size={20} />}
+            </Button>
+        </div>
         
         <div className="space-y-1">
             {items.map((item, index) => (

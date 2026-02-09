@@ -134,3 +134,16 @@ export interface MonthlyRevenue {
   agencyRevenue: number;
   gumroadRevenue: number;
 }
+
+// DEEP WORK TYPES
+export interface CanvasItem {
+    id: string;
+    text: string;
+    completed: boolean;
+}
+
+export interface DeepWorkSession {
+    id: string;
+    content: CanvasItem[];
+    createdAt: Date;
+}
