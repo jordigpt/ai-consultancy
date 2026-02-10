@@ -51,6 +51,14 @@ export interface StudentPayment {
   notes?: string;
 }
 
+export interface StudentRoadmapItem {
+  id: string;
+  studentId: string;
+  title: string;
+  fileUrl: string;
+  createdAt: Date;
+}
+
 // MENTOR TASKS TYPES
 export type TaskPriority = 'high' | 'medium' | 'low';
 
@@ -86,15 +94,16 @@ export interface Student {
   amountOwed?: number; // Legacy / Debt
   nextBillingDate?: Date; // NEW: Controls the billing cycle
 
-  // Archivos
+  // Archivos (Legacy support opcional, pero usaremos el array nuevo)
   roadmapUrl?: string; 
+  roadmaps?: StudentRoadmapItem[]; // NEW: Multiple roadmaps support
   
   tasks: Task[];
   calls: Call[];
   notes: StudentNote[];
   events: StudentEvent[];
   payments?: StudentPayment[]; 
-  mentorTasks?: MentorTask[]; // NEW: Admin tasks linked to this student
+  mentorTasks?: MentorTask[];
 }
 
 // LEADS TYPES

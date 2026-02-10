@@ -15,7 +15,7 @@ import { StudentNotes } from "@/components/dashboard/details/StudentNotes";
 import { StudentRoadmap } from "@/components/dashboard/details/StudentRoadmap";
 import { StudentCalls } from "@/components/dashboard/details/StudentCalls";
 import { StudentTasks } from "@/components/dashboard/details/StudentTasks";
-import { StudentMentorTasks } from "@/components/dashboard/details/StudentMentorTasks"; // Imported
+import { StudentMentorTasks } from "@/components/dashboard/details/StudentMentorTasks";
 import { StudentTimeline } from "@/components/dashboard/details/StudentTimeline";
 import { AppLayout } from "@/components/layout/AppLayout";
 
@@ -29,10 +29,18 @@ const StudentProfile = () => {
     if (!id) return;
     try {
       setLoading(true);
-      // Fetch data including relations and now mentor_tasks
+      // Fetch data including student_roadmaps
       const { data: s, error } = await supabase
         .from('students')
-        .select(`*, tasks (*), calls (*), student_notes (*), student_events (*), mentor_tasks (*)`)
+        .select(`
+            *, 
+            tasks (*), 
+            calls (*), 
+            student_notes (*), 
+            student_events (*), 
+            mentor_tasks (*), 
+            student_roadmaps (*)
+        `)
         .eq('id', id)
         .single();
 
@@ -54,7 +62,14 @@ const StudentProfile = () => {
         paidInFull: s.paid_in_full,
         amountPaid: s.amount_paid,
         amountOwed: s.amount_owed,
-        roadmapUrl: s.roadmap_url,
+        roadmapUrl: s.roadmap_url, // Legacy
+        roadmaps: (s.student_roadmaps || []).map((r: any) => ({
+            id: r.id,
+            studentId: s.id,
+            title: r.title,
+            fileUrl: r.file_url,
+            createdAt: new Date(r.created_at)
+        })).sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()),
         tasks: s.tasks.map((t: any) => ({
           id: t.id,
           title: t.title,
@@ -228,8 +243,9 @@ const StudentProfile = () => {
 
                 <div className="bg-white rounded-xl border shadow-sm p-4 space-y-3">
                      <h3 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wider">
-                        <CalendarDays size={14} /> Roadmap
+                        <CalendarDays size={14} /> Roadmaps & Archivos
                     </h3>
+                    {/* Updated component handling multiple files */}
                     <StudentRoadmap student={student} onUpdate={handleUpdate} />
                 </div>
 

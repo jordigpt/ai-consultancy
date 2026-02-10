@@ -45,7 +45,6 @@ export const useDashboardData = () => {
                 gumroadRevenue: Number(revenueRes.data.gumroad_revenue) || 0
             });
         } else {
-            // Reset for new month if no record exists
             setCurrentMonthRevenue({
                 monthKey: currentMonthKey,
                 agencyRevenue: 0,
@@ -54,10 +53,18 @@ export const useDashboardData = () => {
         }
       }
 
-      // 1. Fetch Students (Include everything + payments)
+      // 1. Fetch Students (Incluyendo student_roadmaps)
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select(`*, tasks (*), calls (*), student_notes (*), student_events (*), student_payments (*)`)
+        .select(`
+            *, 
+            tasks (*), 
+            calls (*), 
+            student_notes (*), 
+            student_events (*), 
+            student_payments (*),
+            student_roadmaps (*)
+        `)
         .order('created_at', { ascending: false });
 
       if (studentsError) throw studentsError;
@@ -120,10 +127,17 @@ export const useDashboardData = () => {
             status: s.status || 'active', 
             healthScore: s.health_score || 'green',
             paidInFull: s.paid_in_full,
-            amountPaid: s.amount_paid, // Keep legacy for total lifetime value if needed
+            amountPaid: s.amount_paid,
             amountOwed: s.amount_owed,
-            roadmapUrl: s.roadmap_url,
             nextBillingDate: s.next_billing_date ? new Date(s.next_billing_date) : undefined,
+            roadmapUrl: s.roadmap_url, // Legacy
+            roadmaps: (s.student_roadmaps || []).map((r: any) => ({
+                id: r.id,
+                studentId: s.id,
+                title: r.title,
+                fileUrl: r.file_url,
+                createdAt: new Date(r.created_at)
+            })).sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()),
             tasks: s.tasks.map((t: any) => ({
                 id: t.id,
                 title: t.title,
@@ -164,7 +178,7 @@ export const useDashboardData = () => {
         value: l.value || 0,
         notes: l.notes || "",
         nextCallDate: l.next_call_date ? new Date(l.next_call_date) : undefined,
-        nextFollowupDate: l.next_followup_date ? new Date(l.next_followup_date) : undefined, // NEW FIELD MAPPED
+        nextFollowupDate: l.next_followup_date ? new Date(l.next_followup_date) : undefined, 
         createdAt: new Date(l.created_at),
         calls: (l.calls || []).map((c: any) => ({
             id: c.id,
