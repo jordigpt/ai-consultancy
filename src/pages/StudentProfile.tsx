@@ -29,7 +29,7 @@ const StudentProfile = () => {
     if (!id) return;
     try {
       setLoading(true);
-      // Fetch data including student_roadmaps
+      // REVERTIDO: Quitamos student_roadmaps
       const { data: s, error } = await supabase
         .from('students')
         .select(`
@@ -38,15 +38,13 @@ const StudentProfile = () => {
             calls (*), 
             student_notes (*), 
             student_events (*), 
-            mentor_tasks (*), 
-            student_roadmaps (*)
+            mentor_tasks (*)
         `)
         .eq('id', id)
         .single();
 
       if (error) throw error;
 
-      // Transform raw data to Student type
       const transformedStudent: Student = {
         id: s.id,
         firstName: s.first_name,
@@ -62,14 +60,8 @@ const StudentProfile = () => {
         paidInFull: s.paid_in_full,
         amountPaid: s.amount_paid,
         amountOwed: s.amount_owed,
-        roadmapUrl: s.roadmap_url, // Legacy
-        roadmaps: (s.student_roadmaps || []).map((r: any) => ({
-            id: r.id,
-            studentId: s.id,
-            title: r.title,
-            fileUrl: r.file_url,
-            createdAt: new Date(r.created_at)
-        })).sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()),
+        roadmapUrl: s.roadmap_url, 
+        roadmaps: [], // Temporarily empty
         tasks: s.tasks.map((t: any) => ({
           id: t.id,
           title: t.title,
@@ -169,14 +161,12 @@ const StudentProfile = () => {
         onSignOut={async () => { await supabase.auth.signOut(); navigate("/login"); }}
     >
       <div className="max-w-5xl mx-auto space-y-6 pb-20">
-        {/* Header Navigation */}
         <div className="flex items-center gap-4 mb-4">
           <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="pl-0 hover:pl-2 transition-all">
             <ArrowLeft className="mr-2 h-4 w-4" /> Volver al Dashboard
           </Button>
         </div>
 
-        {/* Profile Header Card */}
         <div className="bg-white rounded-xl border shadow-sm p-6 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-violet-500" />
             
@@ -228,10 +218,8 @@ const StudentProfile = () => {
             </div>
         </div>
 
-        {/* Main Layout Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Left Column: Info & Context */}
             <div className="space-y-6">
                 <div className="bg-white rounded-xl border shadow-sm p-4 space-y-4">
                     <h3 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wider">
@@ -245,7 +233,6 @@ const StudentProfile = () => {
                      <h3 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wider">
                         <CalendarDays size={14} /> Roadmaps & Archivos
                     </h3>
-                    {/* Updated component handling multiple files */}
                     <StudentRoadmap student={student} onUpdate={handleUpdate} />
                 </div>
 
@@ -257,7 +244,6 @@ const StudentProfile = () => {
                 </div>
             </div>
 
-            {/* Right Column: Dynamic Tabs (Wider) */}
             <div className="lg:col-span-2 space-y-6">
                  <Tabs defaultValue="activity" className="w-full">
                     <TabsList className="w-full justify-start h-12 bg-white border p-1 rounded-xl mb-4 gap-2 shadow-sm overflow-x-auto">
@@ -269,16 +255,12 @@ const StudentProfile = () => {
 
                     <TabsContent value="activity" className="space-y-6 mt-0">
                         <div className="bg-white rounded-xl border shadow-sm p-6 space-y-8">
-                             {/* Tareas del Alumno */}
                              <StudentTasks student={student} onUpdate={handleUpdate} />
-                             
                              <div className="relative">
                                 <div className="absolute inset-0 flex items-center">
                                     <span className="w-full border-t border-dashed" />
                                 </div>
                              </div>
-
-                             {/* Tareas del Mentor (Admin) */}
                              <StudentMentorTasks student={student} onUpdate={handleUpdate} />
                         </div>
                     </TabsContent>

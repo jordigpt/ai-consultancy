@@ -28,7 +28,6 @@ export const useDashboardData = () => {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        // 0. Fetch Settings & Current Month Revenue
         const [settingsRes, revenueRes] = await Promise.all([
             supabase.from('user_settings').select('monthly_goal').eq('user_id', user.id).maybeSingle(),
             supabase.from('monthly_revenues').select('*').eq('user_id', user.id).eq('month_key', currentMonthKey).maybeSingle()
@@ -53,7 +52,7 @@ export const useDashboardData = () => {
         }
       }
 
-      // 1. Fetch Students (Incluyendo student_roadmaps)
+      // 1. Fetch Students (REVERTIDO: Quitamos student_roadmaps para arreglar la carga)
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select(`
@@ -62,8 +61,7 @@ export const useDashboardData = () => {
             calls (*), 
             student_notes (*), 
             student_events (*), 
-            student_payments (*),
-            student_roadmaps (*)
+            student_payments (*)
         `)
         .order('created_at', { ascending: false });
 
@@ -108,7 +106,6 @@ export const useDashboardData = () => {
             notes: p.notes
         }));
 
-        // Calculate consulting revenue for CURRENT MONTH ONLY
         const thisMonthPayments = payments.filter((p: any) => 
             format(p.paymentDate, "yyyy-MM") === currentMonthKey
         );
@@ -130,14 +127,8 @@ export const useDashboardData = () => {
             amountPaid: s.amount_paid,
             amountOwed: s.amount_owed,
             nextBillingDate: s.next_billing_date ? new Date(s.next_billing_date) : undefined,
-            roadmapUrl: s.roadmap_url, // Legacy
-            roadmaps: (s.student_roadmaps || []).map((r: any) => ({
-                id: r.id,
-                studentId: s.id,
-                title: r.title,
-                fileUrl: r.file_url,
-                createdAt: new Date(r.created_at)
-            })).sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()),
+            roadmapUrl: s.roadmap_url, 
+            roadmaps: [], // Temporarily empty to fix crash
             tasks: s.tasks.map((t: any) => ({
                 id: t.id,
                 title: t.title,
