@@ -29,7 +29,7 @@ const StudentProfile = () => {
     if (!id) return;
     try {
       setLoading(true);
-      // REVERTIDO: Quitamos student_roadmaps
+      // Fetch data including student_roadmaps
       const { data: s, error } = await supabase
         .from('students')
         .select(`
@@ -38,7 +38,8 @@ const StudentProfile = () => {
             calls (*), 
             student_notes (*), 
             student_events (*), 
-            mentor_tasks (*)
+            mentor_tasks (*), 
+            student_roadmaps (*)
         `)
         .eq('id', id)
         .single();
@@ -61,7 +62,13 @@ const StudentProfile = () => {
         amountPaid: s.amount_paid,
         amountOwed: s.amount_owed,
         roadmapUrl: s.roadmap_url, 
-        roadmaps: [], // Temporarily empty
+        roadmaps: (s.student_roadmaps || []).map((r: any) => ({
+            id: r.id,
+            studentId: s.id,
+            title: r.title,
+            fileUrl: r.file_url,
+            createdAt: new Date(r.created_at)
+        })).sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()),
         tasks: s.tasks.map((t: any) => ({
           id: t.id,
           title: t.title,

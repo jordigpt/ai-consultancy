@@ -52,7 +52,7 @@ export const useDashboardData = () => {
         }
       }
 
-      // 1. Fetch Students (REVERTIDO: Quitamos student_roadmaps para arreglar la carga)
+      // 1. Fetch Students (Ahora incluimos student_roadmaps)
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select(`
@@ -61,7 +61,8 @@ export const useDashboardData = () => {
             calls (*), 
             student_notes (*), 
             student_events (*), 
-            student_payments (*)
+            student_payments (*),
+            student_roadmaps (*)
         `)
         .order('created_at', { ascending: false });
 
@@ -128,7 +129,13 @@ export const useDashboardData = () => {
             amountOwed: s.amount_owed,
             nextBillingDate: s.next_billing_date ? new Date(s.next_billing_date) : undefined,
             roadmapUrl: s.roadmap_url, 
-            roadmaps: [], // Temporarily empty to fix crash
+            roadmaps: (s.student_roadmaps || []).map((r: any) => ({
+                id: r.id,
+                studentId: s.id,
+                title: r.title,
+                fileUrl: r.file_url,
+                createdAt: new Date(r.created_at)
+            })).sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()),
             tasks: s.tasks.map((t: any) => ({
                 id: t.id,
                 title: t.title,
