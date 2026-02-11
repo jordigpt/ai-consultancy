@@ -45,7 +45,20 @@ export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
           e.preventDefault();
           const newItem = { id: Date.now().toString(), text: '', completed: false };
           const newItems = [...items];
-          newItems.splice(index + 1, 0, newItem);
+          const currentItem = newItems[index];
+
+          if (currentItem.completed) {
+              // Si estamos en un item completado, el nuevo item (incompleto)
+              // debe ir al final de la lista de pendientes (antes del primer completado).
+              let insertIndex = newItems.findIndex(i => i.completed);
+              if (insertIndex === -1) insertIndex = newItems.length; // Por seguridad
+              
+              newItems.splice(insertIndex, 0, newItem);
+          } else {
+              // Si es pendiente, comportamiento normal (abajo del actual)
+              newItems.splice(index + 1, 0, newItem);
+          }
+          
           setItems(newItems);
           focusInput(newItem.id);
       } else if (e.key === 'Backspace' && items[index].text === '' && items.length > 1) {
@@ -64,7 +77,7 @@ export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
   const toggleComplete = (id: string) => {
       const updatedItems = items.map(item => item.id === id ? { ...item, completed: !item.completed } : item);
       
-      // Sort items: Unchecked first, Checked last
+      // Ordenar: Incompletos primero, Completados después
       updatedItems.sort((a, b) => {
           if (a.completed === b.completed) return 0;
           return a.completed ? 1 : -1;
@@ -182,7 +195,17 @@ export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
             className="mt-4 text-stone-400 text-sm flex items-center gap-2 cursor-pointer hover:text-stone-600 transition-colors"
             onClick={() => {
                 const newItem = { id: Date.now().toString(), text: '', completed: false };
-                setItems([...items, newItem]);
+                const newItems = [...items];
+                
+                // Encontrar el primer completado para insertar antes
+                let insertIndex = newItems.findIndex(i => i.completed);
+                if (insertIndex === -1) {
+                    newItems.push(newItem);
+                } else {
+                    newItems.splice(insertIndex, 0, newItem);
+                }
+                
+                setItems(newItems);
                 setTimeout(() => focusInput(newItem.id), 0);
             }}
         >
