@@ -62,7 +62,15 @@ export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
   };
 
   const toggleComplete = (id: string) => {
-      setItems(items.map(item => item.id === id ? { ...item, completed: !item.completed } : item));
+      const updatedItems = items.map(item => item.id === id ? { ...item, completed: !item.completed } : item);
+      
+      // Sort items: Unchecked first, Checked last
+      updatedItems.sort((a, b) => {
+          if (a.completed === b.completed) return 0;
+          return a.completed ? 1 : -1;
+      });
+
+      setItems(updatedItems);
   };
 
   const handlePaste = (e: React.ClipboardEvent, id: string) => {
@@ -130,13 +138,13 @@ export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
         
         <div className="space-y-1">
             {items.map((item, index) => (
-                <div key={item.id} className="flex items-center gap-3 group">
+                <div key={item.id} className="flex items-center gap-3 group animate-in slide-in-from-top-1 duration-300">
                     <div className="pt-1.5 self-start">
                         <Checkbox 
                             id={item.id}
                             checked={item.completed}
                             onCheckedChange={() => toggleComplete(item.id)}
-                            className="rounded-full border-stone-400 data-[state=checked]:bg-stone-500 data-[state=checked]:border-stone-500 h-5 w-5"
+                            className="rounded-full border-stone-400 data-[state=checked]:bg-stone-500 data-[state=checked]:border-stone-500 h-5 w-5 transition-colors"
                         />
                     </div>
                     <Input
@@ -148,7 +156,7 @@ export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
                         onChange={(e) => handleChange(e.target.value, item.id)}
                         onKeyDown={(e) => handleKeyDown(e, index, item.id)}
                         onPaste={(e) => handlePaste(e, item.id)}
-                        className={`border-0 bg-transparent shadow-none focus-visible:ring-0 px-0 h-auto py-1 text-lg font-medium text-stone-800 placeholder:text-stone-300 ${
+                        className={`border-0 bg-transparent shadow-none focus-visible:ring-0 px-0 h-auto py-1 text-lg font-medium text-stone-800 placeholder:text-stone-300 transition-all ${
                             item.completed ? 'line-through text-stone-400 decoration-stone-400' : ''
                         }`}
                         placeholder="Escribe o pega tu lista..."
@@ -162,6 +170,7 @@ export const DeepWorkCanvas = ({ onArchive }: DeepWorkCanvasProps) => {
                             }
                         }}
                         className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-400 transition-all p-1"
+                        tabIndex={-1}
                     >
                         <X size={14} />
                     </button>
