@@ -4,18 +4,20 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Crown, Plus, Trash2, Save, Loader2, Sparkles } from "lucide-react";
+import { Users, Crown, Plus, Trash2, Save, Loader2, Sparkles, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { CommunityAnnualMember } from "@/lib/types";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const MONTHLY_PRICE = 59;
 const DEFAULT_ANNUAL_PRICE = 348;
 
 const JordiGPTBuilders = () => {
   const [loading, setLoading] = useState(true);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   
   // Data State
   const [monthlyCount, setMonthlyCount] = useState(0);
@@ -29,45 +31,62 @@ const JordiGPTBuilders = () => {
   const [isSavingMonthly, setIsSavingMonthly] = useState(false);
 
   const fetchData = async () => {
+      setErrorDetails(null);
+      setLoading(true);
       try {
-          setLoading(true);
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
 
-          // 1. Get Monthly Count from Settings
-          // Usamos maybeSingle para que no lance error si no existe la fila
-          const { data: settings, error: settingsError } = await supabase
-            .from('user_settings')
-            .select('community_monthly_count')
-            .eq('user_id', user.id)
-            .maybeSingle();
+          // 1. Get Monthly Count from Settings (Isolated try/catch)
+          try {
+              // Usamos select('*') para evitar error 400 si la columna específica no existe
+              const { data: settings, error: settingsError } = await supabase
+                .from('user_settings')
+                .select('*') 
+                .eq('user_id', user.id)
+                .maybeSingle();
             
-          if (settingsError) {
-              console.error("Error fetching settings:", settingsError);
-              // No lanzamos error aquí para permitir que cargue el resto de la página
-          } else if (settings) {
-              setMonthlyCount(settings.community_monthly_count || 0);
+              if (settingsError) {
+                  console.error("Error fetching settings:", settingsError);
+                  showError(`Error config: ${settingsError.message}`);
+              } else if (settings) {
+                  // Casteo seguro para leer la propiedad si existe
+                  const count = (settings as any).community_monthly_count;
+                  setMonthlyCount(count || 0);
+              }
+          } catch (e: any) {
+              console.error("Excepción en settings:", e);
           }
 
-          // 2. Get Annual Members
-          const { data: members, error: membersError } = await supabase
-            .from('community_annual_members')
-            .select('*')
-            .order('created_at', { ascending: false });
+          // 2. Get Annual Members (Isolated try/catch)
+          try {
+              const { data: members, error: membersError } = await supabase
+                .from('community_annual_members')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-          if (membersError) throw membersError;
-
-          setAnnualMembers(members.map((m: any) => ({
-              id: m.id,
-              fullName: m.full_name,
-              amountPaid: Number(m.amount_paid),
-              notes: m.notes,
-              createdAt: new Date(m.created_at)
-          })));
+              if (membersError) {
+                  console.error("Error fetching members:", membersError);
+                  setErrorDetails(`Error DB: ${membersError.message} (Code: ${membersError.code})`);
+                  showError(`Error al cargar miembros: ${membersError.message}`);
+              } else {
+                  setAnnualMembers(members.map((m: any) => ({
+                      id: m.id,
+                      fullName: m.full_name,
+                      amountPaid: Number(m.amount_paid),
+                      notes: m.notes,
+                      createdAt: new Date(m.created_at)
+                  })));
+              }
+          } catch (e: any) {
+              console.error("Excepción en members:", e);
+              setErrorDetails(`Excepción JS: ${e.message}`);
+          }
 
       } catch (error: any) {
-          console.error("Fetch Data Error:", error);
-          showError("Error al cargar datos de la comunidad");
+          console.error("Fetch Data Global Error:", error);
+          setErrorDetails(`Error General: ${error.message}`);
+          showError("Error crítico al cargar datos");
       } finally {
           setLoading(false);
       }
@@ -83,7 +102,6 @@ const JordiGPTBuilders = () => {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
 
-          // Usamos upsert para asegurar que la fila se cree si no existe
           const { error } = await supabase
             .from('user_settings')
             .upsert({ 
@@ -93,9 +111,9 @@ const JordiGPTBuilders = () => {
 
           if (error) throw error;
           showSuccess("Contador mensual actualizado");
-      } catch (error) {
+      } catch (error: any) {
           console.error(error);
-          showError("Error al guardar contador");
+          showError(`Error al guardar: ${error.message}`);
       } finally {
           setIsSavingMonthly(false);
       }
@@ -134,16 +152,14 @@ const JordiGPTBuilders = () => {
           };
 
           setAnnualMembers([newMember, ...annualMembers]);
-          
-          // Reset form
           setNewMemberName("");
           setNewMemberNotes("");
           setNewMemberAmount(DEFAULT_ANNUAL_PRICE.toString());
           
-          showSuccess("Miembro anual agregado");
-      } catch (error) {
+          showSuccess("Miembro agregado");
+      } catch (error: any) {
           console.error(error);
-          showError("Error al agregar miembro");
+          showError(`Error al agregar: ${error.message}`);
       } finally {
           setIsSubmitting(false);
       }
@@ -162,8 +178,8 @@ const JordiGPTBuilders = () => {
 
           setAnnualMembers(annualMembers.filter(m => m.id !== id));
           showSuccess("Miembro eliminado");
-      } catch (error) {
-          showError("Error al eliminar");
+      } catch (error: any) {
+          showError(`Error al eliminar: ${error.message}`);
       }
   };
 
@@ -173,7 +189,7 @@ const JordiGPTBuilders = () => {
   const totalCommunityRevenue = monthlyRevenue + annualRevenue;
 
   if (loading) {
-      return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
+      return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>;
   }
 
   return (
@@ -187,6 +203,16 @@ const JordiGPTBuilders = () => {
                 <p className="text-muted-foreground">Gestión de comunidad Skool y membresías.</p>
             </div>
         </div>
+
+        {errorDetails && (
+            <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error de Carga</AlertTitle>
+                <AlertDescription>
+                    {errorDetails}. Intenta recargar la página o contacta soporte si el problema persiste (Código 42P01 indica falta de tablas).
+                </AlertDescription>
+            </Alert>
+        )}
 
         {/* Revenue Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
