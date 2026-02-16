@@ -156,3 +156,12 @@ export interface DeepWorkSession {
     content: CanvasItem[];
     createdAt: Date;
 }
+
+// COMMUNITY TYPES (NEW)
+export interface CommunityAnnualMember {
+    id: string;
+    fullName: string;
+    amountPaid: number;
+    notes: string;
+    createdAt: Date;
+}

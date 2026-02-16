@@ -19,6 +19,9 @@ export const useDashboardData = () => {
     gumroadRevenue: 0 
   });
   const [consultingRevenue, setConsultingRevenue] = useState(0);
+  
+  // Community Revenue State
+  const [communityRevenue, setCommunityRevenue] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -28,13 +31,28 @@ export const useDashboardData = () => {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
+        // --- 1. SETTINGS & BASIC REVENUE ---
         const [settingsRes, revenueRes] = await Promise.all([
-            supabase.from('user_settings').select('monthly_goal').eq('user_id', user.id).maybeSingle(),
+            supabase.from('user_settings').select('monthly_goal, community_monthly_count').eq('user_id', user.id).maybeSingle(),
             supabase.from('monthly_revenues').select('*').eq('user_id', user.id).eq('month_key', currentMonthKey).maybeSingle()
         ]);
 
         if (settingsRes.data) {
             setMonthlyGoal(settingsRes.data.monthly_goal || 10000);
+            
+            // Calculate Monthly Community Revenue (Settings Count * 59)
+            const monthlyCommunityCount = settingsRes.data.community_monthly_count || 0;
+            const monthlyCommunityRev = monthlyCommunityCount * 59;
+            
+            // We need to fetch annual members to sum up total
+            const { data: annualMembers } = await supabase
+                .from('community_annual_members')
+                .select('amount_paid')
+                .eq('user_id', user.id);
+            
+            const annualCommunityRev = annualMembers?.reduce((sum, m) => sum + Number(m.amount_paid), 0) || 0;
+            
+            setCommunityRevenue(monthlyCommunityRev + annualCommunityRev);
         }
         
         if (revenueRes.data) {
@@ -52,7 +70,9 @@ export const useDashboardData = () => {
         }
       }
 
-      // 1. Fetch Students (Ahora incluimos student_roadmaps)
+      // --- 2. FETCH MAIN DATA ---
+
+      // 2a. Fetch Students
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select(`
@@ -68,7 +88,7 @@ export const useDashboardData = () => {
 
       if (studentsError) throw studentsError;
 
-      // 2. Fetch Leads
+      // 2b. Fetch Leads
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select(`*, calls (*)`)
@@ -76,7 +96,7 @@ export const useDashboardData = () => {
 
       if (leadsError) throw leadsError;
 
-      // 3. Fetch Tasks
+      // 2c. Fetch Tasks
       const { data: tasksData, error: tasksError } = await supabase
         .from('mentor_tasks')
         .select(`*, students (id, first_name, last_name), leads (id, name)`)
@@ -85,7 +105,7 @@ export const useDashboardData = () => {
 
       if (tasksError) throw tasksError;
 
-      // 4. Fetch Notes
+      // 2d. Fetch Notes
       const { data: notesData, error: notesError } = await supabase
         .from('notes')
         .select('*')
@@ -93,7 +113,7 @@ export const useDashboardData = () => {
         
       if (notesError) throw notesError;
 
-      // --- PROCESS DATA ---
+      // --- 3. PROCESS DATA ---
 
       let totalConsulting = 0;
 
@@ -250,6 +270,7 @@ export const useDashboardData = () => {
     monthlyGoal,
     currentMonthRevenue,
     consultingRevenue,
+    communityRevenue, // Exporting new revenue
     loading,
     fetchData,
     setStudents,

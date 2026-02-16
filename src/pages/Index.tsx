@@ -21,7 +21,8 @@ import { NotesView } from "@/components/notes/NotesView";
 import { MonthlyGoalView } from "@/components/dashboard/MonthlyGoalView";
 import { CommandCenter } from "@/components/dashboard/CommandCenter";
 import { AiConsultantView } from "@/components/ai/AiConsultantView"; 
-import DeepWork from "./DeepWork"; // Imported
+import DeepWork from "./DeepWork"; 
+import JordiGPTBuilders from "./JordiGPTBuilders"; // Imported
 
 // Views
 import { ActiveStudentsView } from "@/components/dashboard/views/ActiveStudentsView";
@@ -39,6 +40,7 @@ const Index = () => {
     monthlyGoal,
     currentMonthRevenue,
     consultingRevenue,
+    communityRevenue, // New Revenue
     loading,
     fetchData,
     setMentorTasks,
@@ -226,6 +228,10 @@ const Index = () => {
   const activeStudents = students.filter(s => s.status === 'active' || !s.status);
   const graduatedStudents = students.filter(s => s.status === 'graduated');
 
+  // We add communityRevenue to gumroadRevenue purely for visualization in the old components 
+  // without rewriting everything, but better is to sum it in the Overview
+  const totalGumroadWithCommunity = currentMonthRevenue.gumroadRevenue + communityRevenue;
+
   const renderContent = () => {
       if (loading) {
           return (
@@ -243,7 +249,9 @@ const Index = () => {
                     leads={leads}
                     mentorTasks={mentorTasks}
                     monthlyGoal={monthlyGoal}
-                    currentMonthRevenue={currentMonthRevenue}
+                    // Hack: We pass gumroad + community as "gumroad" for visual simplicity in current components
+                    // ideally we should update components to accept "communityRevenue" prop
+                    currentMonthRevenue={{...currentMonthRevenue, gumroadRevenue: totalGumroadWithCommunity }}
                     consultingRevenue={consultingRevenue}
                     onAddStudent={() => setIsAddStudentOpen(true)}
                     onAddLead={() => setIsAddLeadOpen(true)}
@@ -256,8 +264,10 @@ const Index = () => {
             );
         case 'ai-consultant': 
             return <AiConsultantView />;
-        case 'deep-work': // New View
+        case 'deep-work': 
             return <DeepWork />;
+        case 'jordi-gpt': // New View
+            return <JordiGPTBuilders />;
         case 'goals':
             return (
                 <MonthlyGoalView 

@@ -18,7 +18,8 @@ import {
   PieChart,
   Search,
   Bot,
-  Brain
+  Brain,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ const MENU_ITEMS = [
   { id: 'overview', label: 'Panel General', icon: LayoutDashboard },
   { id: 'ai-consultant', label: 'Consultor AI', icon: Bot, isSpecial: true },
   { id: 'deep-work', label: 'Deep Work', icon: Brain },
+  { id: 'jordi-gpt', label: 'JordiGPT Builders', icon: Sparkles, color: 'text-orange-500' }, // New Item
   { id: 'active', label: 'Alumnos Activos', icon: Users },
   { id: 'leads', label: 'Pipeline Leads', icon: Target },
   { id: 'goals', label: 'Objetivos / Config', icon: PieChart },
@@ -57,6 +59,8 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
     
     // @ts-ignore
     const isSpecial = item.isSpecial;
+    // @ts-ignore
+    const customColor = item.color;
 
     const ButtonContent = (
       <Button
@@ -74,7 +78,9 @@ export const AppLayout = ({ children, activeView, onNavigate, onSignOut, onOpenC
       >
         <item.icon size={20} className={cn(
             "shrink-0", 
-            isActive ? (isSpecial ? "text-violet-700" : "text-[#d4e83a] drop-shadow-sm stroke-[2.5]") : (isSpecial ? "text-violet-600" : "text-gray-500")
+            isActive 
+              ? (isSpecial ? "text-violet-700" : (customColor || "text-[#d4e83a] drop-shadow-sm stroke-[2.5]")) 
+              : (isSpecial ? "text-violet-600" : (customColor || "text-gray-500"))
         )} />
         {!isCollapsed && <span className={cn("text-sm font-medium", isSpecial && "font-bold")}>{item.label}</span>}
         {isActive && !isCollapsed && <ChevronRight size={14} className="ml-auto opacity-50" />}
