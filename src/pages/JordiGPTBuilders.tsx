@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Crown, CreditCard, Plus, Trash2, Save, Loader2, Sparkles } from "lucide-react";
+import { Users, Crown, Plus, Trash2, Save, Loader2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { CommunityAnnualMember } from "@/lib/types";
@@ -35,23 +35,27 @@ const JordiGPTBuilders = () => {
           if (!user) return;
 
           // 1. Get Monthly Count from Settings
-          const { data: settings } = await supabase
+          // Usamos maybeSingle para que no lance error si no existe la fila
+          const { data: settings, error: settingsError } = await supabase
             .from('user_settings')
             .select('community_monthly_count')
             .eq('user_id', user.id)
             .maybeSingle();
             
-          if (settings) {
+          if (settingsError) {
+              console.error("Error fetching settings:", settingsError);
+              // No lanzamos error aquí para permitir que cargue el resto de la página
+          } else if (settings) {
               setMonthlyCount(settings.community_monthly_count || 0);
           }
 
           // 2. Get Annual Members
-          const { data: members, error } = await supabase
+          const { data: members, error: membersError } = await supabase
             .from('community_annual_members')
             .select('*')
             .order('created_at', { ascending: false });
 
-          if (error) throw error;
+          if (membersError) throw membersError;
 
           setAnnualMembers(members.map((m: any) => ({
               id: m.id,
@@ -61,8 +65,8 @@ const JordiGPTBuilders = () => {
               createdAt: new Date(m.created_at)
           })));
 
-      } catch (error) {
-          console.error(error);
+      } catch (error: any) {
+          console.error("Fetch Data Error:", error);
           showError("Error al cargar datos de la comunidad");
       } finally {
           setLoading(false);
@@ -79,14 +83,18 @@ const JordiGPTBuilders = () => {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
 
+          // Usamos upsert para asegurar que la fila se cree si no existe
           const { error } = await supabase
             .from('user_settings')
-            .update({ community_monthly_count: monthlyCount })
-            .eq('user_id', user.id);
+            .upsert({ 
+                user_id: user.id, 
+                community_monthly_count: monthlyCount 
+            }, { onConflict: 'user_id' });
 
           if (error) throw error;
           showSuccess("Contador mensual actualizado");
       } catch (error) {
+          console.error(error);
           showError("Error al guardar contador");
       } finally {
           setIsSavingMonthly(false);
@@ -134,6 +142,7 @@ const JordiGPTBuilders = () => {
           
           showSuccess("Miembro anual agregado");
       } catch (error) {
+          console.error(error);
           showError("Error al agregar miembro");
       } finally {
           setIsSubmitting(false);
