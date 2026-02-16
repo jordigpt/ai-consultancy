@@ -20,12 +20,17 @@ export const TasksList = ({ mentorTasks, onAddTask, onToggleTask }: TasksListPro
 
   const priorityOrder: Record<TaskPriority, number> = { high: 3, medium: 2, low: 1 };
   
-  // Limitar a 3 tareas para vista compacta
-  const sortedTasks = [...mentorTasks].sort((a, b) => {
-      const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
-      if (priorityDiff !== 0) return priorityDiff;
-      return b.createdAt.getTime() - a.createdAt.getTime();
-  }).slice(0, 3);
+  // 1. Filtrar completadas (Doble seguridad)
+  // 2. Ordenar por prioridad y fecha
+  // 3. Limitar a 3 items
+  const sortedTasks = mentorTasks
+    .filter(t => !t.completed)
+    .sort((a, b) => {
+        const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
+        if (priorityDiff !== 0) return priorityDiff;
+        return b.createdAt.getTime() - a.createdAt.getTime();
+    })
+    .slice(0, 3);
 
   const getPriorityIcon = (p: TaskPriority) => {
     switch(p) {

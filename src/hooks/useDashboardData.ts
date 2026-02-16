@@ -268,9 +268,7 @@ export const useDashboardData = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Removed useEffect auto-fetch to allow control from parent (Index.tsx)
 
   return {
     students,

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Student, Lead, MentorTask } from "@/lib/types";
 import { LeadDetails } from "@/components/leads/LeadDetails";
 import { LeadForm } from "@/components/leads/LeadForm";
@@ -59,6 +59,13 @@ const Index = () => {
   const [isCommandCenterOpen, setIsCommandCenterOpen] = useState(false);
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Refresh data whenever we return to the overview to ensure task status is fresh
+  useEffect(() => {
+    if (currentView === 'overview') {
+        fetchData();
+    }
+  }, [currentView, fetchData]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
