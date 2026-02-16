@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Student } from "@/lib/types";
+import { Student, CommunityAnnualMember } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Target, TrendingUp, Save, Loader2, ShoppingBag, Bot, Briefcase, Calendar } from "lucide-react";
+import { Target, TrendingUp, Save, Loader2, ShoppingBag, Bot, Briefcase, Calendar, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { format } from "date-fns";
@@ -14,14 +14,24 @@ import { es } from "date-fns/locale";
 interface MonthlyGoalViewProps {
   students: Student[];
   currentGoal: number;
-  gumroadRevenue: number; // Current month value
-  agencyRevenue: number;  // Current month value
+  gumroadRevenue: number;
+  agencyRevenue: number;
+  communityAnnualMembers?: CommunityAnnualMember[];
+  communityMonthlyCount?: number;
   onSettingsUpdate: (goal: number, gumroad: number, agency: number) => void;
 }
 
 const DEFAULT_SYSTEM_PROMPT = `Eres un consultor experto...`;
 
-export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, agencyRevenue, onSettingsUpdate }: MonthlyGoalViewProps) => {
+export const MonthlyGoalView = ({ 
+    students, 
+    currentGoal, 
+    gumroadRevenue, 
+    agencyRevenue, 
+    communityAnnualMembers = [],
+    communityMonthlyCount = 0,
+    onSettingsUpdate 
+}: MonthlyGoalViewProps) => {
   const [goalInput, setGoalInput] = useState(currentGoal.toString());
   
   // Month Selection
@@ -118,8 +128,7 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, agencyR
     }
   };
 
-  // Calculate Student Revenue for SELECTED MONTH
-  // We need to filter the student's payment history, not just their current state
+  // 1. Calculate Student Revenue for SELECTED MONTH
   const studentRevenueSelectedMonth = students.reduce((total, student) => {
       const monthPayments = (student.payments || []).filter(p => 
         format(new Date(p.paymentDate), "yyyy-MM") === selectedMonth
@@ -127,7 +136,19 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, agencyR
       return total + monthPayments.reduce((sum, p) => sum + p.amount, 0);
   }, 0);
 
-  const totalRevenue = studentRevenueSelectedMonth + parseFloat(monthAgency || "0") + parseFloat(monthGumroad || "0");
+  // 2. Calculate Community Revenue for SELECTED MONTH
+  // Annual Members: Filter by created_at in selected month
+  const annualMembersRevenue = communityAnnualMembers
+    .filter(m => format(m.createdAt, "yyyy-MM") === selectedMonth)
+    .reduce((sum, m) => sum + m.amountPaid, 0);
+  
+  // Monthly Members: Use the global current count (Assuming MRR is constant/current for now as history isn't tracked)
+  const monthlyMembersRevenue = communityMonthlyCount * 59;
+  
+  const communityRevenueSelectedMonth = annualMembersRevenue + monthlyMembersRevenue;
+
+  // 3. Total
+  const totalRevenue = studentRevenueSelectedMonth + communityRevenueSelectedMonth + parseFloat(monthAgency || "0") + parseFloat(monthGumroad || "0");
   const progress = Math.min((totalRevenue / (parseFloat(goalInput) || 1)) * 100, 100);
 
   return (
@@ -227,16 +248,31 @@ export const MonthlyGoalView = ({ students, currentGoal, gumroadRevenue, agencyR
                                 </div>
                             </div>
 
-                             <div className="space-y-2 pt-2 border-t mt-2">
-                                <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-                                    Consultoría (Automático del mes)
-                                </label>
-                                <div className="relative">
-                                    <Input 
-                                        value={studentRevenueSelectedMonth} 
-                                        readOnly
-                                        className="font-medium bg-slate-50 border-dashed cursor-not-allowed text-muted-foreground"
-                                    />
+                             <div className="space-y-3 pt-4 border-t mt-2">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-medium flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+                                        Consultoría
+                                    </label>
+                                    <div className="relative">
+                                        <Input 
+                                            value={studentRevenueSelectedMonth} 
+                                            readOnly
+                                            className="font-medium bg-slate-50 border-dashed cursor-not-allowed text-muted-foreground"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-medium flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+                                        <Sparkles size={12} /> JordiGPT Builders
+                                    </label>
+                                    <div className="relative">
+                                        <Input 
+                                            value={communityRevenueSelectedMonth} 
+                                            readOnly
+                                            className="font-medium bg-slate-50 border-dashed cursor-not-allowed text-muted-foreground"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </>

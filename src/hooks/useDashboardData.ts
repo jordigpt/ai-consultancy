@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Student, Lead, MentorTask, Note, MonthlyRevenue } from "@/lib/types";
+import { Student, Lead, MentorTask, Note, MonthlyRevenue, CommunityAnnualMember } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/utils/toast";
 import { format } from "date-fns";
@@ -20,8 +20,10 @@ export const useDashboardData = () => {
   });
   const [consultingRevenue, setConsultingRevenue] = useState(0);
   
-  // Community Revenue State
-  const [communityRevenue, setCommunityRevenue] = useState(0);
+  // Community Data
+  const [communityAnnualMembers, setCommunityAnnualMembers] = useState<CommunityAnnualMember[]>([]);
+  const [communityMonthlyCount, setCommunityMonthlyCount] = useState(0);
+  const [communityRevenue, setCommunityRevenue] = useState(0); // Global estimation
 
   const fetchData = useCallback(async () => {
     try {
@@ -39,19 +41,27 @@ export const useDashboardData = () => {
 
         if (settingsRes.data) {
             setMonthlyGoal(settingsRes.data.monthly_goal || 10000);
+            const count = settingsRes.data.community_monthly_count || 0;
+            setCommunityMonthlyCount(count);
             
-            // Calculate Monthly Community Revenue (Settings Count * 59)
-            const monthlyCommunityCount = settingsRes.data.community_monthly_count || 0;
-            const monthlyCommunityRev = monthlyCommunityCount * 59;
-            
-            // We need to fetch annual members to sum up total
-            const { data: annualMembers } = await supabase
+            // Fetch Annual Members
+            const { data: annualMembersData } = await supabase
                 .from('community_annual_members')
-                .select('amount_paid')
+                .select('*')
                 .eq('user_id', user.id);
             
-            const annualCommunityRev = annualMembers?.reduce((sum, m) => sum + Number(m.amount_paid), 0) || 0;
-            
+            const annualMembers: CommunityAnnualMember[] = (annualMembersData || []).map((m: any) => ({
+                id: m.id,
+                fullName: m.full_name,
+                amountPaid: Number(m.amount_paid),
+                notes: m.notes,
+                createdAt: new Date(m.created_at)
+            }));
+            setCommunityAnnualMembers(annualMembers);
+
+            // Calculate Global Estimation (Current MRR + All Time Annual) - Mostly for quick stats
+            const monthlyCommunityRev = count * 59;
+            const annualCommunityRev = annualMembers.reduce((sum, m) => sum + m.amountPaid, 0);
             setCommunityRevenue(monthlyCommunityRev + annualCommunityRev);
         }
         
@@ -270,7 +280,9 @@ export const useDashboardData = () => {
     monthlyGoal,
     currentMonthRevenue,
     consultingRevenue,
-    communityRevenue, // Exporting new revenue
+    communityRevenue, 
+    communityAnnualMembers,
+    communityMonthlyCount,
     loading,
     fetchData,
     setStudents,

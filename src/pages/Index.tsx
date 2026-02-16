@@ -22,7 +22,7 @@ import { MonthlyGoalView } from "@/components/dashboard/MonthlyGoalView";
 import { CommandCenter } from "@/components/dashboard/CommandCenter";
 import { AiConsultantView } from "@/components/ai/AiConsultantView"; 
 import DeepWork from "./DeepWork"; 
-import JordiGPTBuilders from "./JordiGPTBuilders"; // Imported
+import JordiGPTBuilders from "./JordiGPTBuilders"; 
 
 // Views
 import { ActiveStudentsView } from "@/components/dashboard/views/ActiveStudentsView";
@@ -40,7 +40,9 @@ const Index = () => {
     monthlyGoal,
     currentMonthRevenue,
     consultingRevenue,
-    communityRevenue, // New Revenue
+    communityRevenue, 
+    communityAnnualMembers,
+    communityMonthlyCount,
     loading,
     fetchData,
     setMentorTasks,
@@ -266,7 +268,7 @@ const Index = () => {
             return <AiConsultantView />;
         case 'deep-work': 
             return <DeepWork />;
-        case 'jordi-gpt': // New View
+        case 'jordi-gpt': 
             return <JordiGPTBuilders />;
         case 'goals':
             return (
@@ -275,6 +277,8 @@ const Index = () => {
                     currentGoal={monthlyGoal} 
                     gumroadRevenue={currentMonthRevenue.gumroadRevenue}
                     agencyRevenue={currentMonthRevenue.agencyRevenue}
+                    communityAnnualMembers={communityAnnualMembers}
+                    communityMonthlyCount={communityMonthlyCount}
                     onSettingsUpdate={handleUpdateSettings} 
                 />
             );
