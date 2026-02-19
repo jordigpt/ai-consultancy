@@ -158,10 +158,13 @@ export interface DeepWorkSession {
 }
 
 // COMMUNITY TYPES (NEW)
+export type CommunitySource = 'Skool' | 'Binance';
+
 export interface CommunityAnnualMember {
     id: string;
     fullName: string;
     amountPaid: number;
     notes: string;
+    source: CommunitySource; // Add source
     createdAt: Date;
 }

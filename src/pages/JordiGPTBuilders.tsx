@@ -4,13 +4,42 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Crown, Plus, Trash2, Save, Loader2, Sparkles, AlertCircle } from "lucide-react";
+import { 
+    Users, 
+    Crown, 
+    Plus, 
+    Trash2, 
+    Save, 
+    Loader2, 
+    Sparkles, 
+    AlertCircle, 
+    Pencil, 
+    Check, 
+    X,
+    Wallet,
+    School
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { CommunityAnnualMember } from "@/lib/types";
+import { CommunityAnnualMember, CommunitySource } from "@/lib/types";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 const MONTHLY_PRICE = 59;
 const DEFAULT_ANNUAL_PRICE = 348;
@@ -23,12 +52,21 @@ const JordiGPTBuilders = () => {
   const [monthlyCount, setMonthlyCount] = useState(0);
   const [annualMembers, setAnnualMembers] = useState<CommunityAnnualMember[]>([]);
   
-  // Form State
+  // Add Form State
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberNotes, setNewMemberNotes] = useState("");
   const [newMemberAmount, setNewMemberAmount] = useState(DEFAULT_ANNUAL_PRICE.toString());
+  const [newMemberSource, setNewMemberSource] = useState<CommunitySource>("Skool");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingMonthly, setIsSavingMonthly] = useState(false);
+
+  // Edit State
+  const [editingMember, setEditingMember] = useState<CommunityAnnualMember | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editSource, setEditSource] = useState<CommunitySource>("Skool");
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const fetchData = async () => {
       setErrorDetails(null);
@@ -37,9 +75,8 @@ const JordiGPTBuilders = () => {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
 
-          // 1. Get Monthly Count from Settings (Isolated try/catch)
+          // 1. Get Monthly Count from Settings
           try {
-              // Usamos select('*') para evitar error 400 si la columna específica no existe
               const { data: settings, error: settingsError } = await supabase
                 .from('user_settings')
                 .select('*') 
@@ -50,7 +87,6 @@ const JordiGPTBuilders = () => {
                   console.error("Error fetching settings:", settingsError);
                   showError(`Error config: ${settingsError.message}`);
               } else if (settings) {
-                  // Casteo seguro para leer la propiedad si existe
                   const count = (settings as any).community_monthly_count;
                   setMonthlyCount(count || 0);
               }
@@ -58,7 +94,7 @@ const JordiGPTBuilders = () => {
               console.error("Excepción en settings:", e);
           }
 
-          // 2. Get Annual Members (Isolated try/catch)
+          // 2. Get Annual Members
           try {
               const { data: members, error: membersError } = await supabase
                 .from('community_annual_members')
@@ -75,6 +111,7 @@ const JordiGPTBuilders = () => {
                       fullName: m.full_name,
                       amountPaid: Number(m.amount_paid),
                       notes: m.notes,
+                      source: m.source || 'Skool', // Default to Skool if null
                       createdAt: new Date(m.created_at)
                   })));
               }
@@ -136,7 +173,8 @@ const JordiGPTBuilders = () => {
                 user_id: user.id,
                 full_name: newMemberName,
                 amount_paid: parseFloat(newMemberAmount) || 0,
-                notes: newMemberNotes
+                notes: newMemberNotes,
+                source: newMemberSource
             })
             .select()
             .single();
@@ -148,6 +186,7 @@ const JordiGPTBuilders = () => {
               fullName: data.full_name,
               amountPaid: Number(data.amount_paid),
               notes: data.notes,
+              source: data.source || 'Skool',
               createdAt: new Date(data.created_at)
           };
 
@@ -155,6 +194,7 @@ const JordiGPTBuilders = () => {
           setNewMemberName("");
           setNewMemberNotes("");
           setNewMemberAmount(DEFAULT_ANNUAL_PRICE.toString());
+          setNewMemberSource("Skool");
           
           showSuccess("Miembro agregado");
       } catch (error: any) {
@@ -162,6 +202,47 @@ const JordiGPTBuilders = () => {
           showError(`Error al agregar: ${error.message}`);
       } finally {
           setIsSubmitting(false);
+      }
+  };
+
+  const openEditDialog = (member: CommunityAnnualMember) => {
+      setEditingMember(member);
+      setEditName(member.fullName);
+      setEditAmount(member.amountPaid.toString());
+      setEditNotes(member.notes || "");
+      setEditSource(member.source);
+  };
+
+  const handleUpdateMember = async () => {
+      if (!editingMember || !editName.trim()) return;
+
+      try {
+          setIsUpdating(true);
+          const { error } = await supabase
+            .from('community_annual_members')
+            .update({
+                full_name: editName,
+                amount_paid: parseFloat(editAmount) || 0,
+                notes: editNotes,
+                source: editSource
+            })
+            .eq('id', editingMember.id);
+
+          if (error) throw error;
+
+          // Update local state
+          const updatedMembers = annualMembers.map(m => 
+              m.id === editingMember.id 
+                  ? { ...m, fullName: editName, amountPaid: parseFloat(editAmount) || 0, notes: editNotes, source: editSource }
+                  : m
+          );
+          setAnnualMembers(updatedMembers);
+          setEditingMember(null);
+          showSuccess("Miembro actualizado");
+      } catch (error: any) {
+          showError(`Error al actualizar: ${error.message}`);
+      } finally {
+          setIsUpdating(false);
       }
   };
 
@@ -303,8 +384,24 @@ const JordiGPTBuilders = () => {
                     </CardHeader>
                     <CardContent className="space-y-6">
                         {/* Add Form */}
-                        <div className="flex flex-col sm:flex-row gap-3 items-end bg-slate-50 p-4 rounded-xl border">
-                            <div className="space-y-2 flex-1 w-full">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end bg-slate-50 p-4 rounded-xl border">
+                            <div className="space-y-2 sm:col-span-1">
+                                <label className="text-xs font-medium text-muted-foreground">Fuente</label>
+                                <Select value={newMemberSource} onValueChange={(val) => setNewMemberSource(val as CommunitySource)}>
+                                    <SelectTrigger className="bg-white">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Skool">
+                                            <div className="flex items-center gap-2"><School size={14} className="text-blue-500"/> Skool</div>
+                                        </SelectItem>
+                                        <SelectItem value="Binance">
+                                            <div className="flex items-center gap-2"><Wallet size={14} className="text-orange-500"/> Binance</div>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2 sm:col-span-2">
                                 <label className="text-xs font-medium text-muted-foreground">Nombre y Apellido</label>
                                 <Input 
                                     placeholder="Ej. Pedro Gomez" 
@@ -313,7 +410,7 @@ const JordiGPTBuilders = () => {
                                     className="bg-white"
                                 />
                             </div>
-                            <div className="space-y-2 w-full sm:w-32">
+                            <div className="space-y-2 sm:col-span-1">
                                 <label className="text-xs font-medium text-muted-foreground">Monto ($)</label>
                                 <Input 
                                     type="number"
@@ -322,18 +419,20 @@ const JordiGPTBuilders = () => {
                                     className="bg-white"
                                 />
                             </div>
-                             <div className="space-y-2 flex-1 w-full">
+                             <div className="space-y-2 sm:col-span-4">
                                 <label className="text-xs font-medium text-muted-foreground">Notas (Opcional)</label>
-                                <Input 
-                                    placeholder="Detalles..." 
-                                    value={newMemberNotes}
-                                    onChange={(e) => setNewMemberNotes(e.target.value)}
-                                    className="bg-white"
-                                />
+                                <div className="flex gap-2">
+                                    <Input 
+                                        placeholder="Detalles..." 
+                                        value={newMemberNotes}
+                                        onChange={(e) => setNewMemberNotes(e.target.value)}
+                                        className="bg-white"
+                                    />
+                                    <Button onClick={handleAddAnnualMember} disabled={isSubmitting} className="shrink-0">
+                                        {isSubmitting ? <Loader2 className="animate-spin" /> : <Plus size={18} />}
+                                    </Button>
+                                </div>
                             </div>
-                            <Button onClick={handleAddAnnualMember} disabled={isSubmitting} className="w-full sm:w-auto">
-                                {isSubmitting ? <Loader2 className="animate-spin" /> : <Plus size={18} />}
-                            </Button>
                         </div>
 
                         {/* List */}
@@ -341,16 +440,17 @@ const JordiGPTBuilders = () => {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead className="w-[80px]">Fuente</TableHead>
                                         <TableHead>Miembro</TableHead>
-                                        <TableHead>Fecha</TableHead>
+                                        <TableHead className="hidden sm:table-cell">Fecha</TableHead>
                                         <TableHead>Monto</TableHead>
-                                        <TableHead className="w-[50px]"></TableHead>
+                                        <TableHead className="w-[80px] text-right">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {annualMembers.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                                                 No hay miembros anuales registrados.
                                             </TableCell>
                                         </TableRow>
@@ -358,26 +458,43 @@ const JordiGPTBuilders = () => {
                                         annualMembers.map((member) => (
                                             <TableRow key={member.id}>
                                                 <TableCell>
-                                                    <div className="font-medium">{member.fullName}</div>
-                                                    {member.notes && <div className="text-xs text-muted-foreground">{member.notes}</div>}
+                                                    {member.source === 'Binance' ? (
+                                                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">Binance</Badge>
+                                                    ) : (
+                                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Skool</Badge>
+                                                    )}
                                                 </TableCell>
-                                                <TableCell className="text-xs text-muted-foreground">
+                                                <TableCell>
+                                                    <div className="font-medium text-sm sm:text-base">{member.fullName}</div>
+                                                    {member.notes && <div className="text-xs text-muted-foreground truncate max-w-[150px]">{member.notes}</div>}
+                                                </TableCell>
+                                                <TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
                                                     {format(member.createdAt, "d MMM yyyy", { locale: es })}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant="secondary" className="bg-green-50 text-green-700 hover:bg-green-100 border-green-200">
+                                                    <span className="font-mono text-sm font-medium">
                                                         ${member.amountPaid}
-                                                    </Badge>
+                                                    </span>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                        onClick={() => handleDeleteMember(member.id)}
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </Button>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-muted-foreground hover:text-blue-600"
+                                                            onClick={() => openEditDialog(member)}
+                                                        >
+                                                            <Pencil size={14} />
+                                                        </Button>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                            onClick={() => handleDeleteMember(member.id)}
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))
@@ -389,6 +506,51 @@ const JordiGPTBuilders = () => {
                 </Card>
             </div>
         </div>
+
+        {/* Edit Dialog */}
+        <Dialog open={!!editingMember} onOpenChange={(open) => !open && setEditingMember(null)}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Editar Miembro</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Fuente de Ingreso</Label>
+                        <Select value={editSource} onValueChange={(val) => setEditSource(val as CommunitySource)}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Skool">
+                                    <div className="flex items-center gap-2"><School size={14} className="text-blue-500"/> Skool</div>
+                                </SelectItem>
+                                <SelectItem value="Binance">
+                                    <div className="flex items-center gap-2"><Wallet size={14} className="text-orange-500"/> Binance</div>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Nombre</Label>
+                        <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Monto Pagado ($)</Label>
+                        <Input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Notas</Label>
+                        <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setEditingMember(null)}>Cancelar</Button>
+                    <Button onClick={handleUpdateMember} disabled={isUpdating}>
+                        {isUpdating ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Cambios"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 };

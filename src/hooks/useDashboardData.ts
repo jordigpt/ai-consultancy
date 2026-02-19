@@ -55,6 +55,7 @@ export const useDashboardData = () => {
                 fullName: m.full_name,
                 amountPaid: Number(m.amount_paid),
                 notes: m.notes,
+                source: m.source || 'Skool',
                 createdAt: new Date(m.created_at)
             }));
             setCommunityAnnualMembers(annualMembers);
