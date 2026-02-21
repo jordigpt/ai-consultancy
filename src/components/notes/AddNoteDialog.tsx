@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { Note } from "@/lib/types";
@@ -32,27 +32,55 @@ interface AddNoteDialogProps {
 export const AddNoteDialog = ({ open, onOpenChange, onNoteAdded, noteToEdit }: AddNoteDialogProps) => {
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
-  const [newCategory, setNewCategory] = useState("Idea");
+  const [selectedCategory, setSelectedCategory] = useState("Idea");
+  const [customCategory, setCustomCategory] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCustomMode, setIsCustomMode] = useState(false);
 
   useEffect(() => {
     if (noteToEdit && open) {
       setNewTitle(noteToEdit.title);
       setNewContent(noteToEdit.content);
-      setNewCategory(noteToEdit.category);
+      
+      if (DEFAULT_CATEGORIES.includes(noteToEdit.category)) {
+        setSelectedCategory(noteToEdit.category);
+        setIsCustomMode(false);
+      } else {
+        setSelectedCategory("custom");
+        setCustomCategory(noteToEdit.category);
+        setIsCustomMode(true);
+      }
     } else if (!open) {
-      // Reset only when closing to avoid flickering if switching modes quickly
-      // or optionally reset when opening in 'add' mode, but parent handles that usually.
       if (!noteToEdit) {
           setNewTitle("");
           setNewContent("");
-          setNewCategory("Idea");
+          setSelectedCategory("Idea");
+          setCustomCategory("");
+          setIsCustomMode(false);
       }
     }
   }, [noteToEdit, open]);
 
+  const handleCategoryChange = (value: string) => {
+    if (value === "custom") {
+      setIsCustomMode(true);
+      setSelectedCategory("custom");
+    } else {
+      setIsCustomMode(false);
+      setSelectedCategory(value);
+    }
+  };
+
   const handleSaveNote = async () => {
     if (!newTitle.trim()) return;
+    
+    // Determine final category
+    const finalCategory = isCustomMode ? customCategory.trim() : selectedCategory;
+    
+    if (!finalCategory) {
+        showError("La categoría es requerida");
+        return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -65,7 +93,7 @@ export const AddNoteDialog = ({ open, onOpenChange, onNoteAdded, noteToEdit }: A
           .update({
             title: newTitle,
             content: newContent,
-            category: newCategory,
+            category: finalCategory,
           })
           .eq('id', noteToEdit.id);
           
@@ -76,7 +104,7 @@ export const AddNoteDialog = ({ open, onOpenChange, onNoteAdded, noteToEdit }: A
           user_id: user.id,
           title: newTitle,
           content: newContent,
-          category: newCategory,
+          category: finalCategory,
         });
 
         if (error) throw error;
@@ -85,6 +113,8 @@ export const AddNoteDialog = ({ open, onOpenChange, onNoteAdded, noteToEdit }: A
 
       setNewTitle("");
       setNewContent("");
+      setCustomCategory("");
+      setIsCustomMode(false);
       onOpenChange(false);
       if (onNoteAdded) onNoteAdded();
     } catch (error) {
@@ -110,21 +140,40 @@ export const AddNoteDialog = ({ open, onOpenChange, onNoteAdded, noteToEdit }: A
               onChange={(e) => setNewTitle(e.target.value)}
             />
           </div>
+          
           <div className="space-y-2">
             <label className="text-sm font-medium">Categoría</label>
-            <Select value={newCategory} onValueChange={setNewCategory}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DEFAULT_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+                <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+                <SelectTrigger className="w-full">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    {DEFAULT_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                        {cat}
+                    </SelectItem>
+                    ))}
+                    <SelectItem value="custom" className="font-semibold text-primary">
+                        + Nueva Categoría...
+                    </SelectItem>
+                </SelectContent>
+                </Select>
+            </div>
+            
+            {isCustomMode && (
+                <div className="animate-in slide-in-from-top-2">
+                    <Input 
+                        placeholder="Escribe el nombre de la categoría..."
+                        value={customCategory}
+                        onChange={(e) => setCustomCategory(e.target.value)}
+                        className="bg-slate-50 border-dashed"
+                        autoFocus
+                    />
+                </div>
+            )}
           </div>
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Contenido</label>
             <Textarea

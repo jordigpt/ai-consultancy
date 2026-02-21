@@ -11,7 +11,7 @@ import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { AddNoteDialog } from "./AddNoteDialog";
 
-const DEFAULT_CATEGORIES = ["Reel", "Story", "Guía", "SOP", "Idea", "Otro"];
+const BASE_CATEGORIES = ["Reel", "Story", "Guía", "SOP", "Idea", "Otro"];
 
 export const NotesView = () => {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -20,6 +20,9 @@ export const NotesView = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | "all">("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  
+  // Categorías dinámicas (Base + las que existan en las notas)
+  const [availableCategories, setAvailableCategories] = useState<string[]>(BASE_CATEGORIES);
 
   const fetchNotes = async () => {
     try {
@@ -42,6 +45,12 @@ export const NotesView = () => {
       }));
 
       setNotes(formattedNotes);
+
+      // Calcular categorías únicas dinámicamente
+      const usedCategories = new Set(formattedNotes.map(n => n.category));
+      const mergedCategories = Array.from(new Set([...BASE_CATEGORIES, ...usedCategories]));
+      setAvailableCategories(mergedCategories.sort());
+
     } catch (error) {
       console.error(error);
       showError("Error al cargar notas");
@@ -79,8 +88,9 @@ export const NotesView = () => {
       const updatedNotes = notes.map(n => 
         n.id === note.id ? { ...n, isPinned: !n.isPinned } : n
       ).sort((a, b) => {
-          if (a.isPinned === b.isPinned) return b.createdAt.getTime() - a.createdAt.getTime();
-          return a.isPinned ? -1 : 1;
+          // Primero pinned, luego fecha
+          if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+          return b.createdAt.getTime() - a.createdAt.getTime();
       }); 
       
       setNotes(updatedNotes);
@@ -105,13 +115,10 @@ export const NotesView = () => {
   });
 
   const getCategoryColor = (cat: string) => {
-    switch (cat) {
-      case 'Reel': return 'bg-purple-100 text-purple-700 border-purple-200';
-      case 'Story': return 'bg-pink-100 text-pink-700 border-pink-200';
-      case 'Guía': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'SOP': return 'bg-amber-100 text-amber-700 border-amber-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
+    if (['Reel', 'Story', 'Video'].some(c => cat.includes(c))) return 'bg-purple-100 text-purple-700 border-purple-200';
+    if (['Guía', 'SOP', 'Proceso'].some(c => cat.includes(c))) return 'bg-blue-100 text-blue-700 border-blue-200';
+    if (['Idea', 'Brainstorm'].some(c => cat.includes(c))) return 'bg-amber-100 text-amber-700 border-amber-200';
+    return 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
   return (
@@ -150,7 +157,7 @@ export const NotesView = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
             />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide max-w-full sm:max-w-[60%]">
              <Button 
                 variant={selectedCategory === 'all' ? "default" : "outline"}
                 size="sm"
@@ -159,7 +166,7 @@ export const NotesView = () => {
             >
                 Todas
             </Button>
-            {DEFAULT_CATEGORIES.map(cat => (
+            {availableCategories.map(cat => (
                 <Button 
                     key={cat}
                     variant={selectedCategory === cat ? "default" : "outline"}
@@ -180,7 +187,9 @@ export const NotesView = () => {
         <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed">
             <StickyNote className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
             <h3 className="text-lg font-medium">No hay notas</h3>
-            <p className="text-muted-foreground text-sm">Comienza agregando tu primera idea.</p>
+            <p className="text-muted-foreground text-sm">
+                {searchQuery || selectedCategory !== 'all' ? "Prueba cambiando los filtros." : "Comienza agregando tu primera idea."}
+            </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
