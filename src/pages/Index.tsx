@@ -318,8 +318,8 @@ const Index = () => {
             );
         case 'tasks':
             return (
-                // CHANGED: Removed max-w-2xl and added h-full logic for better Kanban view
-                <div className="w-full h-[calc(100vh-100px)] bg-white p-4 rounded-xl border shadow-sm flex flex-col overflow-hidden">
+                // CHANGED: Fixed height calculation to account for header/padding (approx 180px offset)
+                <div className="w-full h-[calc(100vh-180px)] bg-white p-4 rounded-xl border shadow-sm flex flex-col overflow-hidden">
                     <MentorTasksView />
                 </div>
             );
