@@ -318,7 +318,8 @@ const Index = () => {
             );
         case 'tasks':
             return (
-                <div className="max-w-2xl mx-auto bg-white p-4 rounded-xl border shadow-sm">
+                // CHANGED: Removed max-w-2xl and added h-full logic for better Kanban view
+                <div className="w-full h-[calc(100vh-100px)] bg-white p-4 rounded-xl border shadow-sm flex flex-col overflow-hidden">
                     <MentorTasksView />
                 </div>
             );

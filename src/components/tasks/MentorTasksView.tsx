@@ -193,7 +193,7 @@ export const MentorTasksView = () => {
   const leadTasks = tasks.filter(t => !!t.leadId);
 
   return (
-    <div className="space-y-6 h-[calc(100vh-140px)] flex flex-col">
+    <div className="space-y-6 h-full flex flex-col">
       <div className="flex items-center justify-between shrink-0">
         <div>
             <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -217,7 +217,8 @@ export const MentorTasksView = () => {
         />
       </div>
 
-      <div className="flex overflow-x-auto gap-4 flex-1 min-h-0 snap-x snap-mandatory pb-4 md:grid md:grid-cols-3 md:overflow-visible md:pb-0">
+      {/* Grid changed to take full height and better spacing */}
+      <div className="flex overflow-x-auto gap-4 flex-1 min-h-0 snap-x snap-mandatory pb-4 md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:pb-0">
           <div className="min-w-[85vw] md:min-w-0 snap-center h-full">
             <TaskColumn 
                 title="Mis Tareas / General" 
