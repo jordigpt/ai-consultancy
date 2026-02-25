@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { LogOut, Plus } from "lucide-react";
 import { StudentForm } from "./StudentForm";
 import { Student } from "@/lib/types";
+import { SyncAgentButton } from "./SyncAgentButton";
 
 interface DashboardHeaderProps {
   onSignOut: () => void;
@@ -27,15 +28,15 @@ export const DashboardHeader = ({
         </h1>
         <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Tracking de Alumnos</p>
       </div>
-      <div className="flex gap-2">
-        <Button variant="ghost" size="icon" onClick={onSignOut} className="h-9 w-9">
-          <LogOut size={18} />
-        </Button>
+      <div className="flex items-center gap-2">
+        
+        {/* Sync Button Added Here */}
+        <SyncAgentButton />
 
         <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all h-9 px-4">
-              <Plus className="h-4 w-4 mr-1" /> <span className="text-sm font-medium">Nuevo</span>
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all h-9 px-3 sm:px-4">
+              <Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline text-sm font-medium">Nuevo</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
@@ -45,6 +46,10 @@ export const DashboardHeader = ({
             <StudentForm onSubmit={onAddStudent} isLoading={isSubmitting} />
           </DialogContent>
         </Dialog>
+
+        <Button variant="ghost" size="icon" onClick={onSignOut} className="h-9 w-9 text-muted-foreground hover:text-destructive">
+          <LogOut size={18} />
+        </Button>
       </div>
     </header>
   );
