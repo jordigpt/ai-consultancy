@@ -5,7 +5,26 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Loader2, GraduationCap, RotateCcw, User, CalendarDays } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Loader2, 
+  GraduationCap, 
+  RotateCcw, 
+  User, 
+  CalendarDays,
+  Trash2 
+} from "lucide-react";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { showSuccess, showError } from "@/utils/toast";
 
 // Sub-components
@@ -24,6 +43,7 @@ const StudentProfile = () => {
   const navigate = useNavigate();
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchStudent = async () => {
     if (!id) return;
@@ -142,6 +162,40 @@ const StudentProfile = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!student) return;
+    setIsDeleting(true);
+    try {
+        // Opción segura: Eliminar dependencias manualmente si no hay cascade configurado en DB
+        // Aunque lo ideal es tener ON DELETE CASCADE en la base de datos.
+        // Intentamos borrar el estudiante directamente, si falla por FK, borramos hijos primero.
+        
+        // 1. Borrar registros relacionados explícitamente para asegurar limpieza
+        await Promise.all([
+            supabase.from('tasks').delete().eq('student_id', student.id),
+            supabase.from('calls').delete().eq('student_id', student.id),
+            supabase.from('student_notes').delete().eq('student_id', student.id),
+            supabase.from('student_payments').delete().eq('student_id', student.id),
+            supabase.from('student_events').delete().eq('student_id', student.id),
+            supabase.from('student_roadmaps').delete().eq('student_id', student.id),
+            supabase.from('mentor_tasks').delete().eq('student_id', student.id),
+        ]);
+
+        // 2. Borrar estudiante
+        const { error } = await supabase.from('students').delete().eq('id', student.id);
+        
+        if (error) throw error;
+
+        showSuccess("Alumno eliminado correctamente");
+        navigate("/");
+    } catch (error: any) {
+        console.error("Error deleting student:", error);
+        showError("Error al eliminar alumno: " + error.message);
+    } finally {
+        setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -168,10 +222,38 @@ const StudentProfile = () => {
         onSignOut={async () => { await supabase.auth.signOut(); navigate("/login"); }}
     >
       <div className="max-w-5xl mx-auto space-y-6 pb-20">
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex items-center justify-between mb-4">
           <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="pl-0 hover:pl-2 transition-all">
             <ArrowLeft className="mr-2 h-4 w-4" /> Volver al Dashboard
           </Button>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                    <Trash2 className="h-4 w-4 mr-2" /> Eliminar Alumno
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>¿Estás seguro de eliminar a {student.firstName}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Esta acción no se puede deshacer. Se eliminarán permanentemente:
+                    <ul className="list-disc pl-5 mt-2 mb-2 text-sm">
+                        <li>Perfil y datos personales</li>
+                        <li>Historial de pagos y facturación</li>
+                        <li>Notas, tareas y llamadas registradas</li>
+                    </ul>
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Eliminar Definitivamente
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         <div className="bg-white rounded-xl border shadow-sm p-6 relative overflow-hidden">
