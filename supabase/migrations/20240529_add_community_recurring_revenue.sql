@@ -1,0 +1,1 @@
+ALTER TABLE monthly_revenues ADD COLUMN IF NOT EXISTS community_recurring_revenue numeric DEFAULT 0;

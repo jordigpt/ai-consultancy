@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Target, TrendingUp, Save, Loader2, ShoppingBag, Bot, Briefcase, Calendar, Sparkles } from "lucide-react";
+import { Target, TrendingUp, Save, Loader2, ShoppingBag, Bot, Briefcase, Calendar, Sparkles, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { format } from "date-fns";
@@ -22,6 +22,7 @@ interface MonthlyGoalViewProps {
 }
 
 const DEFAULT_SYSTEM_PROMPT = `Eres un consultor experto...`;
+const MONTHLY_PRICE = 59; // Hardcoded for now based on context
 
 export const MonthlyGoalView = ({ 
     students, 
@@ -37,9 +38,10 @@ export const MonthlyGoalView = ({
   // Month Selection
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
   
-  // Revenues for selected month
+  // Revenues for selected month (Manual/Snapshot inputs)
   const [monthGumroad, setMonthGumroad] = useState(gumroadRevenue.toString());
   const [monthAgency, setMonthAgency] = useState(agencyRevenue.toString());
+  const [monthCommunityRecurring, setMonthCommunityRecurring] = useState("0");
   
   const [systemPrompt, setSystemPrompt] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -74,12 +76,27 @@ export const MonthlyGoalView = ({
                 .eq('month_key', selectedMonth)
                 .maybeSingle();
 
+            const isCurrentMonth = selectedMonth === format(new Date(), "yyyy-MM");
+
             if (data) {
-                setMonthAgency(data.agency_revenue.toString());
-                setMonthGumroad(data.gumroad_revenue.toString());
+                // If data exists in DB, use it (History or Current Saved)
+                setMonthAgency(data.agency_revenue?.toString() || "0");
+                setMonthGumroad(data.gumroad_revenue?.toString() || "0");
+                // @ts-ignore - column added in migration
+                setMonthCommunityRecurring(data.community_recurring_revenue?.toString() || "0");
             } else {
+                // No data saved for this month yet
                 setMonthAgency("0");
                 setMonthGumroad("0");
+                
+                if (isCurrentMonth) {
+                    // Default to current global count for current month
+                    const currentRecurring = communityMonthlyCount * MONTHLY_PRICE;
+                    setMonthCommunityRecurring(currentRecurring.toString());
+                } else {
+                    // Past month with no record -> 0
+                    setMonthCommunityRecurring("0");
+                }
             }
         } catch (e) {
             console.error(e);
@@ -88,7 +105,7 @@ export const MonthlyGoalView = ({
         }
     };
     fetchMonthData();
-  }, [selectedMonth]);
+  }, [selectedMonth, communityMonthlyCount]);
 
   const handleSaveAll = async () => {
     try {
@@ -99,20 +116,22 @@ export const MonthlyGoalView = ({
         const newGoal = parseFloat(goalInput) || 0;
         const newAgency = parseFloat(monthAgency) || 0;
         const newGumroad = parseFloat(monthGumroad) || 0;
+        const newCommunityRecurring = parseFloat(monthCommunityRecurring) || 0;
 
-        // 1. Save Goal & Prompt (User Settings)
+        // 1. Save Goal & Prompt (User Settings) - Global
         await supabase.from('user_settings').upsert({
             user_id: user.id,
             monthly_goal: newGoal,
             system_prompt: systemPrompt
         });
 
-        // 2. Save Monthly Revenue
+        // 2. Save Monthly Revenue (Snapshot)
         await supabase.from('monthly_revenues').upsert({
             user_id: user.id,
             month_key: selectedMonth,
             agency_revenue: newAgency,
-            gumroad_revenue: newGumroad
+            gumroad_revenue: newGumroad,
+            community_recurring_revenue: newCommunityRecurring
         }, { onConflict: 'user_id, month_key' });
 
         // Update Parent if currently viewing this month
@@ -120,7 +139,7 @@ export const MonthlyGoalView = ({
             onSettingsUpdate(newGoal, newGumroad, newAgency);
         }
 
-        showSuccess("Datos guardados correctamente");
+        showSuccess("Datos archivados correctamente para " + format(new Date(selectedMonth + "-01"), "MMMM"));
     } catch (error) {
         showError("Error al guardar");
     } finally {
@@ -128,7 +147,9 @@ export const MonthlyGoalView = ({
     }
   };
 
-  // 1. Calculate Student Revenue for SELECTED MONTH
+  // --- CALCULATIONS ---
+
+  // 1. Student Revenue (Calculated dynamically from payments)
   const studentRevenueSelectedMonth = students.reduce((total, student) => {
       const monthPayments = (student.payments || []).filter(p => 
         format(new Date(p.paymentDate), "yyyy-MM") === selectedMonth
@@ -136,19 +157,22 @@ export const MonthlyGoalView = ({
       return total + monthPayments.reduce((sum, p) => sum + p.amount, 0);
   }, 0);
 
-  // 2. Calculate Community Revenue for SELECTED MONTH
-  // Annual Members: Filter by created_at in selected month
+  // 2. Annual Members Revenue (Calculated dynamically from creation date)
   const annualMembersRevenue = communityAnnualMembers
     .filter(m => format(m.createdAt, "yyyy-MM") === selectedMonth)
     .reduce((sum, m) => sum + m.amountPaid, 0);
   
-  // Monthly Members: Use the global current count (Assuming MRR is constant/current for now as history isn't tracked)
-  const monthlyMembersRevenue = communityMonthlyCount * 59;
+  // 3. Monthly Recurring (Snapshot from State/DB)
+  const communityMonthlyRevenue = parseFloat(monthCommunityRecurring) || 0;
   
-  const communityRevenueSelectedMonth = annualMembersRevenue + monthlyMembersRevenue;
+  const totalCommunityRevenue = annualMembersRevenue + communityMonthlyRevenue;
 
-  // 3. Total
-  const totalRevenue = studentRevenueSelectedMonth + communityRevenueSelectedMonth + parseFloat(monthAgency || "0") + parseFloat(monthGumroad || "0");
+  // 4. Other Manual Revenues
+  const totalAgency = parseFloat(monthAgency) || 0;
+  const totalGumroad = parseFloat(monthGumroad) || 0;
+
+  // 5. Grand Total
+  const totalRevenue = studentRevenueSelectedMonth + totalCommunityRevenue + totalAgency + totalGumroad;
   const progress = Math.min((totalRevenue / (parseFloat(goalInput) || 1)) * 100, 100);
 
   return (
@@ -156,9 +180,9 @@ export const MonthlyGoalView = ({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
-                <Target className="text-primary" /> Configuración & Historial
+                <Target className="text-primary" /> Cierre Mensual & Objetivos
             </h2>
-            <p className="text-muted-foreground">Gestiona tus ingresos mensuales y objetivos.</p>
+            <p className="text-muted-foreground">Archiva tus ingresos y revisa el historial.</p>
         </div>
         
         {/* Month Selector */}
@@ -182,7 +206,7 @@ export const MonthlyGoalView = ({
                 {isLoadingMonth && <div className="absolute inset-0 bg-slate-900/50 flex items-center justify-center z-10"><Loader2 className="animate-spin" /></div>}
                 <CardHeader>
                     <CardTitle className="text-white">Facturación: {format(new Date(selectedMonth + "-01"), "MMMM yyyy", { locale: es })}</CardTitle>
-                    <CardDescription className="text-slate-400">Total acumulado del mes seleccionado</CardDescription>
+                    <CardDescription className="text-slate-400">Total acumulado (Automático + Manual)</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div>
@@ -199,8 +223,8 @@ export const MonthlyGoalView = ({
             {/* Financial Settings */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Ingresos Manuales ({format(new Date(selectedMonth + "-01"), "MMM yyyy", { locale: es })})</CardTitle>
-                    <CardDescription>Carga los ingresos externos para este mes específico.</CardDescription>
+                    <CardTitle>Detalle de Ingresos</CardTitle>
+                    <CardDescription>Confirma los montos para archivar este mes.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {isLoadingMonth ? (
@@ -222,53 +246,65 @@ export const MonthlyGoalView = ({
                             
                             <div className="grid grid-cols-2 gap-4 pt-2">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium flex items-center gap-2">Agencia</label>
-                                    <div className="relative">
-                                        <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                                        <Input 
-                                            type="number" 
-                                            value={monthAgency} 
-                                            onChange={(e) => setMonthAgency(e.target.value)}
-                                            className="pl-9 font-medium"
-                                        />
-                                    </div>
+                                    <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                                        <Briefcase size={12} /> Agencia
+                                    </label>
+                                    <Input 
+                                        type="number" 
+                                        value={monthAgency} 
+                                        onChange={(e) => setMonthAgency(e.target.value)}
+                                        className="font-medium"
+                                    />
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium flex items-center gap-2">Gumroad</label>
-                                    <div className="relative">
-                                        <ShoppingBag className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                                        <Input 
-                                            type="number" 
-                                            value={monthGumroad} 
-                                            onChange={(e) => setMonthGumroad(e.target.value)}
-                                            className="pl-9 font-medium"
-                                        />
+                                    <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                                        <ShoppingBag size={12} /> Gumroad / Digital
+                                    </label>
+                                    <Input 
+                                        type="number" 
+                                        value={monthGumroad} 
+                                        onChange={(e) => setMonthGumroad(e.target.value)}
+                                        className="font-medium"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                                    <Users size={12} /> Comunidad Recurrente (Snapshot)
+                                </label>
+                                <div className="flex gap-2 items-center">
+                                    <Input 
+                                        type="number" 
+                                        value={monthCommunityRecurring} 
+                                        onChange={(e) => setMonthCommunityRecurring(e.target.value)}
+                                        className="font-medium"
+                                    />
+                                    <div className="text-[10px] text-muted-foreground max-w-[120px] leading-tight">
+                                        Guarda este valor para que no cambie si el MRR varía.
                                     </div>
                                 </div>
                             </div>
 
                              <div className="space-y-3 pt-4 border-t mt-2">
-                                <div className="space-y-1">
-                                    <label className="text-xs font-medium flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
-                                        Consultoría
-                                    </label>
-                                    <div className="relative">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                            Consultoría (Auto)
+                                        </label>
                                         <Input 
-                                            value={studentRevenueSelectedMonth} 
+                                            value={`$${studentRevenueSelectedMonth}`} 
                                             readOnly
                                             className="font-medium bg-slate-50 border-dashed cursor-not-allowed text-muted-foreground"
                                         />
                                     </div>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <label className="text-xs font-medium flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
-                                        <Sparkles size={12} /> JordiGPT Builders
-                                    </label>
-                                    <div className="relative">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                            Comunidad Anual (Auto)
+                                        </label>
                                         <Input 
-                                            value={communityRevenueSelectedMonth} 
+                                            value={`$${annualMembersRevenue}`} 
                                             readOnly
                                             className="font-medium bg-slate-50 border-dashed cursor-not-allowed text-muted-foreground"
                                         />
@@ -317,10 +353,10 @@ export const MonthlyGoalView = ({
                 onClick={handleSaveAll} 
                 disabled={isSaving || isLoadingMonth} 
                 size="lg"
-                className="shadow-xl bg-primary hover:bg-primary/90"
+                className="shadow-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
             >
                 {isSaving ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Save className="h-5 w-5 mr-2" />}
-                Guardar Todo
+                Guardar Cierre Mes
             </Button>
       </div>
     </div>
