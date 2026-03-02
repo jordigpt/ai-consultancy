@@ -23,7 +23,7 @@ export const useDashboardData = () => {
   // Community Data
   const [communityAnnualMembers, setCommunityAnnualMembers] = useState<CommunityAnnualMember[]>([]);
   const [communityMonthlyCount, setCommunityMonthlyCount] = useState(0);
-  const [communityRevenue, setCommunityRevenue] = useState(0); // Global estimation
+  const [communityRevenue, setCommunityRevenue] = useState(0); // Current Month Revenue
 
   const fetchData = useCallback(async () => {
     try {
@@ -60,10 +60,13 @@ export const useDashboardData = () => {
             }));
             setCommunityAnnualMembers(annualMembers);
 
-            // Calculate Global Estimation (Current MRR + All Time Annual) - Mostly for quick stats
+            // Calculate Community Revenue for CURRENT MONTH ONLY
             const monthlyCommunityRev = count * 59;
-            const annualCommunityRev = annualMembers.reduce((sum, m) => sum + m.amountPaid, 0);
-            setCommunityRevenue(monthlyCommunityRev + annualCommunityRev);
+            const annualCommunityRevThisMonth = annualMembers
+                .filter(m => format(m.createdAt, "yyyy-MM") === currentMonthKey)
+                .reduce((sum, m) => sum + m.amountPaid, 0);
+                
+            setCommunityRevenue(monthlyCommunityRev + annualCommunityRevThisMonth);
         }
         
         if (revenueRes.data) {
@@ -268,8 +271,6 @@ export const useDashboardData = () => {
       setLoading(false);
     }
   }, []);
-
-  // Removed useEffect auto-fetch to allow control from parent (Index.tsx)
 
   return {
     students,
