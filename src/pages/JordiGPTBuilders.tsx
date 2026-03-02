@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { CommunityAnnualMember, CommunitySource } from "@/lib/types";
+import { format } from "date-fns";
 
 // Modular Components
 import { CommunityHeader } from "@/components/community/CommunityHeader";
@@ -22,6 +23,9 @@ const JordiGPTBuilders = () => {
   const [monthlyCount, setMonthlyCount] = useState(0);
   const [annualMembers, setAnnualMembers] = useState<CommunityAnnualMember[]>([]);
   
+  // Filter State
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
+
   // Loading States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingMonthly, setIsSavingMonthly] = useState(false);
@@ -213,9 +217,16 @@ const JordiGPTBuilders = () => {
       }
   };
 
-  // Calculations
-  const monthlyRevenue = monthlyCount * MONTHLY_PRICE;
-  const annualRevenue = annualMembers.reduce((sum, m) => sum + m.amountPaid, 0);
+  // --- FILTERING & CALCULATIONS ---
+  
+  // 1. Filter Annual Members by Selected Month (Payment Date)
+  const annualMembersForMonth = annualMembers.filter(m => 
+      format(m.createdAt, "yyyy-MM") === selectedMonth
+  );
+
+  // 2. Calculate Revenue
+  const monthlyRevenue = monthlyCount * MONTHLY_PRICE; // Recurring carries over
+  const annualRevenue = annualMembersForMonth.reduce((sum, m) => sum + m.amountPaid, 0); // Only for this month
   const totalCommunityRevenue = monthlyRevenue + annualRevenue;
 
   if (loading) {
@@ -225,7 +236,20 @@ const JordiGPTBuilders = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
         
-        <CommunityHeader errorDetails={errorDetails} />
+        <div className="flex flex-col md:flex-row justify-between md:items-end gap-4">
+            <CommunityHeader errorDetails={errorDetails} />
+            
+            {/* Month Picker */}
+            <div className="flex items-center gap-2 bg-white p-1 rounded-lg border shadow-sm mb-6 md:mb-8">
+                <Calendar size={16} className="ml-2 text-muted-foreground" />
+                <input 
+                    type="month" 
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="bg-transparent border-none text-sm focus:ring-0 cursor-pointer"
+                />
+            </div>
+        </div>
 
         <CommunityStats 
             totalRevenue={totalCommunityRevenue}
@@ -233,7 +257,7 @@ const JordiGPTBuilders = () => {
             monthlyCount={monthlyCount}
             monthlyPrice={MONTHLY_PRICE}
             annualRevenue={annualRevenue}
-            annualCount={annualMembers.length}
+            annualCount={annualMembersForMonth.length}
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -250,7 +274,7 @@ const JordiGPTBuilders = () => {
 
             <div className="lg:col-span-2 space-y-6">
                  <AnnualMembersCard 
-                    members={annualMembers}
+                    members={annualMembersForMonth}
                     onAddMember={handleAddAnnualMember}
                     onEditMember={setEditingMember}
                     onDeleteMember={handleDeleteMember}

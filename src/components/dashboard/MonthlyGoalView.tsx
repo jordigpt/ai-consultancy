@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Target, TrendingUp, Save, Loader2, ShoppingBag, Bot, Briefcase, Calendar, Sparkles, Users } from "lucide-react";
+import { Target, TrendingUp, Save, Loader2, ShoppingBag, Bot, Briefcase, Calendar, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { format } from "date-fns";
@@ -22,7 +22,7 @@ interface MonthlyGoalViewProps {
 }
 
 const DEFAULT_SYSTEM_PROMPT = `Eres un consultor experto...`;
-const MONTHLY_PRICE = 59; // Hardcoded for now based on context
+const MONTHLY_PRICE = 59; 
 
 export const MonthlyGoalView = ({ 
     students, 
@@ -47,6 +47,12 @@ export const MonthlyGoalView = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(true);
   const [isLoadingMonth, setIsLoadingMonth] = useState(false);
+
+  // Helper to get date object correctly from YYYY-MM string without timezone issues
+  const getSelectedDateObj = () => {
+      const [year, month] = selectedMonth.split('-').map(Number);
+      return new Date(year, month - 1, 1);
+  };
 
   // Load Prompt on Mount
   useEffect(() => {
@@ -82,7 +88,7 @@ export const MonthlyGoalView = ({
                 // If data exists in DB, use it (History or Current Saved)
                 setMonthAgency(data.agency_revenue?.toString() || "0");
                 setMonthGumroad(data.gumroad_revenue?.toString() || "0");
-                // @ts-ignore - column added in migration
+                // @ts-ignore
                 setMonthCommunityRecurring(data.community_recurring_revenue?.toString() || "0");
             } else {
                 // No data saved for this month yet
@@ -139,7 +145,8 @@ export const MonthlyGoalView = ({
             onSettingsUpdate(newGoal, newGumroad, newAgency);
         }
 
-        showSuccess("Datos archivados correctamente para " + format(new Date(selectedMonth + "-01"), "MMMM"));
+        const dateDisplay = format(getSelectedDateObj(), "MMMM", { locale: es });
+        showSuccess(`Datos archivados correctamente para ${dateDisplay}`);
     } catch (error) {
         showError("Error al guardar");
     } finally {
@@ -205,7 +212,7 @@ export const MonthlyGoalView = ({
             <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none relative overflow-hidden">
                 {isLoadingMonth && <div className="absolute inset-0 bg-slate-900/50 flex items-center justify-center z-10"><Loader2 className="animate-spin" /></div>}
                 <CardHeader>
-                    <CardTitle className="text-white">Facturación: {format(new Date(selectedMonth + "-01"), "MMMM yyyy", { locale: es })}</CardTitle>
+                    <CardTitle className="text-white">Facturación: {format(getSelectedDateObj(), "MMMM yyyy", { locale: es })}</CardTitle>
                     <CardDescription className="text-slate-400">Total acumulado (Automático + Manual)</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -282,7 +289,7 @@ export const MonthlyGoalView = ({
                                         className="font-medium"
                                     />
                                     <div className="text-[10px] text-muted-foreground max-w-[120px] leading-tight">
-                                        Guarda este valor para que no cambie si el MRR varía.
+                                        Este valor se archiva y no se actualiza con el cambio de miembros.
                                     </div>
                                 </div>
                             </div>
